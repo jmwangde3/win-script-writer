@@ -74,7 +74,8 @@ class TestArgvConstruction(unittest.TestCase):
 
     def test_long_payload_is_detected(self):
         self.assertFalse(run_ps.needs_file_fallback(100))
-        self.assertTrue(run_ps.needs_file_fallback(run_ps.MAX_COMMAND_LINE_CHARS))
+        self.assertFalse(run_ps.needs_file_fallback(run_ps.MAX_COMMAND_LINE_CHARS))
+        self.assertTrue(run_ps.needs_file_fallback(run_ps.MAX_COMMAND_LINE_CHARS + 1))
 
 
 class TestExecution(unittest.TestCase):
@@ -117,10 +118,15 @@ class TestExecution(unittest.TestCase):
             self.assertIn(ZH.encode("utf-8"), r.stdout)
 
     def test_long_command_falls_back_to_a_temp_script(self):
-        filler = "\n".join("# padding line %d" % i for i in range(1200))
-        script = filler + '\nWrite-Output "long-ok"\n'
-        self.assertGreater(len(script), 32000)
-        r = invoke(["--command", script])
+        # The payload has to be large while the *invocation* stays short, so the
+        # script comes from a file: a 40000 character --command would exceed the
+        # Windows command line limit before run_ps.py ever started.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "long.ps1"
+            filler = "\n".join("# padding line %d" % i for i in range(2200))
+            path.write_text(filler + '\nWrite-Output "long-ok"\n', encoding="utf-8")
+            self.assertGreater(path.stat().st_size, 32000)
+            r = invoke(["--file", str(path)])
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn(b"long-ok", r.stdout)
 
