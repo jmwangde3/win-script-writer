@@ -5,6 +5,14 @@
 # edition says nothing about the other, which is exactly the failure mode the
 # skill exists to prevent.
 #
+# The two editions get their own job instead of one job with a `shell` matrix
+# axis. GitHub's validator rejects `shell: ${{ matrix.shell }}` with
+# "Unrecognized named-value: 'matrix'": the `shell` key is resolved before the
+# matrix expands, so it only accepts literals. Splitting the job is also what
+# the module layout wants -- `Install-Module -Scope CurrentUser` from pwsh 7
+# lands in Documents/PowerShell/Modules, which Windows PowerShell 5.1 never
+# looks at, so each edition has to install its own Pester.
+#
 # A GitHub hosted runner is en-US (ANSI code page 1252, not 936). Everything
 # that only makes sense on a CP936 host lives in tests/integration, where it
 # skips itself, and is gated separately by cp936.yml on a self-hosted runner.
@@ -23,15 +31,13 @@ permissions:
   contents: read
 
 jobs:
-  matrix:
-    name: ${{ matrix.shell }} / py${{ matrix.python }}
+
+  windows-powershell:
+    name: Windows PowerShell 5.1 / py${{ matrix.python }}
     runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
-        shell:
-          - powershell
-          - pwsh
         python:
           - '3.11'
           - '3.13'
@@ -46,7 +52,7 @@ jobs:
           python-version: ${{ matrix.python }}
 
       - name: Install analysis modules
-        shell: ${{ matrix.shell }}
+        shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
           # -SkipPublisherCheck: Pester 3.4.0 ships with Windows and is signed
@@ -55,11 +61,45 @@ jobs:
           Install-Module PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
 
       - name: Report the runner environment
-        shell: ${{ matrix.shell }}
+        shell: powershell
         run: ./scripts/Get-WinScriptEnvironment.ps1
 
       - name: Run every suite
-        shell: ${{ matrix.shell }}
+        shell: powershell
+        run: ./tests/run-all.ps1
+
+  pwsh:
+    name: PowerShell 7 / py${{ matrix.python }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python:
+          - '3.11'
+          - '3.13'
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install analysis modules
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Install-Module Pester -RequiredVersion 5.7.1 -Scope CurrentUser -Force -SkipPublisherCheck
+          Install-Module PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
+
+      - name: Report the runner environment
+        shell: pwsh
+        run: ./scripts/Get-WinScriptEnvironment.ps1
+
+      - name: Run every suite
+        shell: pwsh
         run: ./tests/run-all.ps1
 
   docs:
@@ -73,6 +113,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+
+      - name: Install the workflow contract dependency
+        # tests/evals/test_workflows.py parses the workflow files. PyYAML is not
+        # in the runner image, and a skipped parse is the same as no gate.
+        run: python -m pip install --disable-pip-version-check pyyaml
 
       - name: Check SKILL.md size, routing and hygiene
         run: python -m unittest discover -s tests/evals -v

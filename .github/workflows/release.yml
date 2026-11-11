@@ -42,6 +42,16 @@ jobs:
         shell: pwsh
         run: ./tests/run-all.ps1
 
+      - name: Install analysis modules for Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # pwsh 7 installed its copy under Documents/PowerShell/Modules, which
+          # Windows PowerShell 5.1 does not search. Without this step the 5.1
+          # verification below fails before it runs a single test.
+          Install-Module Pester -RequiredVersion 5.7.1 -Scope CurrentUser -Force -SkipPublisherCheck
+          Install-Module PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
+
       - name: Verify on Windows PowerShell 5.1
         shell: powershell
         run: ./tests/run-all.ps1
