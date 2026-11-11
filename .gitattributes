@@ -1,0 +1,28 @@
+# Normalize text files, but never touch binary fixtures.
+#
+# The fixtures under tests/fixtures/data must reach disk byte-for-byte: the whole
+# point of the suite is to assert on exact BOM and code page bytes. Any EOL
+# conversion there would silently invalidate every test.
+
+* text=auto eol=lf
+
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+*.psd1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.py text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+
+tests/fixtures/data/** -text
+tests/fixtures/data/*.ps1 -text
+tests/fixtures/data/*.bat -text
+tests/fixtures/data/*.py -text
+tests/fixtures/data/*.sh -text
+tests/fixtures/data/*.txt -text
+tests/fixtures/data/*.json -text
+tests/fixtures/data/*.bin -text

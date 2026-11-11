@@ -1,0 +1,2 @@
+GREETING = "😀"
+NAME = "中文"
