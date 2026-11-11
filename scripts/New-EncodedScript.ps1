@@ -1,19 +1,390 @@
+#Requires -Version 5.1
+<#
+.SYNOPSIS
+    Writes a text file in a chosen encoding without ever corrupting the original.
+
+.DESCRIPTION
+    The writer takes strictly valid UTF-8 as input, converts it with a strict
+    encoder, writes to a temporary file in the target directory, verifies the
+    bytes by reading them back, and only then publishes the result:
+
+      * new file          -> File.Move (same volume, same directory)
+      * existing file     -> File.Replace (atomic on NTFS)
+
+    If anything fails the original file is left untouched and the temporary file
+    is removed.
+
+    Safety defaults:
+      * refuses to overwrite unless -Force is given
+      * never substitutes characters that the target encoding cannot represent
+      * -WhatIf and -Confirm are supported through ShouldProcess
+
+.PARAMETER Path
+    Destination file.
+
+.PARAMETER ContentFile
+    Source file. Must be valid UTF-8 (a leading BOM is stripped).
+
+.PARAMETER Content
+    Literal text. Only safe for ASCII payloads: a non-ASCII literal travels
+    through the command line, which is code page dependent. Prefer -ContentFile.
+
+.PARAMETER Encoding
+    utf8-bom (default for scripts), utf8-nobom, or gbk.
+
+.PARAMETER Force
+    Allow replacing an existing file.
+
+.PARAMETER Backup
+    With -Force on an existing file, keep the previous content next to the
+    target as <name>.bak-<timestamp>.
+
+.PARAMETER Output
+    text (default) or json.
+
+.OUTPUTS
+    Exit codes: 0 success, 2 content or write failure, 3 parameter or I/O error.
+
+.EXAMPLE
+    .\New-EncodedScript.ps1 -Path .\build.ps1 -ContentFile .\build.txt -Encoding utf8-bom
+
+.EXAMPLE
+    .\New-EncodedScript.ps1 -Path .\legacy.cmd -ContentFile .\legacy.txt -Encoding gbk -Force -Backup
+#>
+[CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium', DefaultParameterSetName = 'File')]
 param(
-    [Parameter(Mandatory = $true)][string]$Path,
-    [Parameter(Mandatory = $true)][string]$ContentFile,
-    [ValidateSet('utf8-nobom', 'utf8-bom', 'gbk')][string]$Encoding = 'utf8-nobom'
+    [Parameter(Mandatory = $true, Position = 0)]
+    [string]$Path,
+
+    [Parameter(Position = 1, ParameterSetName = 'File')]
+    [string]$ContentFile,
+
+    [Parameter(Mandatory = $true, ParameterSetName = 'Text')]
+    [string]$Content,
+
+    [ValidateSet('utf8-bom', 'utf8-nobom', 'gbk')]
+    [string]$Encoding = 'utf8-nobom',
+
+    [switch]$Force,
+
+    [switch]$Backup,
+
+    [ValidateSet('text', 'json')]
+    [string]$Output = 'text'
 )
-# Keep this file pure ASCII. Chinese content comes from $ContentFile (UTF-8 source),
-# never from argv: cmd/PowerShell argv on CP936 is lossy for non-ASCII.
-$utf8Strict = New-Object System.Text.UTF8Encoding($false, $true)
-$text = [System.IO.File]::ReadAllText($ContentFile, $utf8Strict)
-switch ($Encoding) {
-    'utf8-nobom' { $enc = New-Object System.Text.UTF8Encoding($false) }
-    'utf8-bom'   { $enc = New-Object System.Text.UTF8Encoding($true) }
-    'gbk'        { $enc = [System.Text.Encoding]::GetEncoding(936) }
+
+Set-StrictMode -Version 2.0
+$ErrorActionPreference = 'Stop'
+
+$result = [ordered]@{
+    Tool       = 'New-EncodedScript.ps1'
+    Version    = '1.0.0'
+    Runtime    = $PSVersionTable.PSEdition
+    Target     = $null
+    Written    = $null
+    Encoding   = $Encoding
+    Bytes      = 0
+    Bom        = 'NONE'
+    Verified   = $false
+    Backup     = $null
+    Replaced   = $false
+    Error      = $null
+    ExitCode   = 3
 }
-$dir = Split-Path -Parent $Path
-if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
-[System.IO.File]::WriteAllText($Path, $text, $enc)
-$b = [System.IO.File]::ReadAllBytes($Path)
-Write-Output ("WROTE={0} ENC={1} BYTES={2} HEAD={3}" -f $Path, $Encoding, $b.Length, (($b | Select-Object -First 4) -join ' '))
+
+function Complete-Write {
+    param(
+        [int]$Code,
+        [string]$ErrorCode,
+        [string]$Detail
+    )
+
+    if ($ErrorCode) { $result.Error = $ErrorCode }
+    if ($Detail) { $result.Detail = $Detail }
+    $result.ExitCode = $Code
+
+    if ($Output -eq 'json') {
+        $result | ConvertTo-Json -Depth 4
+    }
+    else {
+        foreach ($key in @('Target', 'Written', 'Encoding', 'Bytes', 'Bom', 'Verified', 'Backup', 'Replaced', 'Error', 'Detail')) {
+            $value = $result[$key]
+            if ($null -eq $value) { continue }
+            $label = $key.ToUpperInvariant()
+            if ($label -eq 'TARGET') { $label = 'TARGET' }
+            if ($label -eq 'WRITTEN') { $label = 'WROTE' }
+            Write-Output ($label + '=' + $value)
+        }
+        Write-Output ('EXITCODE=' + $Code)
+    }
+
+    exit $Code
+}
+
+function Get-CodePageEncoding {
+    param([int]$CodePage)
+
+    try {
+        return [System.Text.Encoding]::GetEncoding($CodePage)
+    }
+    catch {
+        # .NET Core does not carry the code page encodings by default. PowerShell 7
+        # registers them at startup; a hosted runspace may not, so register here.
+        try {
+            $providerType = [System.Type]::GetType(
+                'System.Text.CodePagesEncodingProvider, System.Text.Encoding.CodePages',
+                $false)
+            if ($providerType) {
+                $instance = $providerType.GetProperty('Instance').GetValue($null, $null)
+                [System.Text.Encoding]::RegisterProvider($instance)
+                return [System.Text.Encoding]::GetEncoding($CodePage)
+            }
+        }
+        catch {
+            Write-Verbose ('code page provider could not be registered: ' + $_.Exception.Message)
+        }
+        return $null
+    }
+}
+
+function Get-StrictEncoder {
+    param([string]$Name)
+
+    switch ($Name) {
+        'utf8-bom' {
+            # Second argument: throw on invalid bytes instead of substituting.
+            return New-Object System.Text.UTF8Encoding($true, $true)
+        }
+        'utf8-nobom' {
+            return New-Object System.Text.UTF8Encoding($false, $true)
+        }
+        'gbk' {
+            $base = Get-CodePageEncoding -CodePage 936
+            if (-not $base) { return $null }
+            return [System.Text.Encoding]::GetEncoding(
+                936,
+                [System.Text.EncoderFallback]::ExceptionFallback,
+                [System.Text.DecoderFallback]::ExceptionFallback)
+        }
+        default { return $null }
+    }
+}
+
+# --- 1. resolve the destination -----------------------------------------
+try {
+    $target = [System.IO.Path]::GetFullPath($Path)
+}
+catch {
+    Complete-Write -Code 3 -ErrorCode 'INVALID_PATH' -Detail $_.Exception.Message
+}
+$result.Target = $target
+$result.Written = $target
+
+if (Test-Path -LiteralPath $target -PathType Container) {
+    Complete-Write -Code 2 -ErrorCode 'TARGET_IS_DIRECTORY' -Detail $target
+}
+
+$targetExists = Test-Path -LiteralPath $target -PathType Leaf
+if ($targetExists -and -not $Force) {
+    Complete-Write -Code 2 -ErrorCode 'EXISTS' -Detail 'refusing to overwrite without -Force'
+}
+
+# --- 2. read the source text --------------------------------------------
+if ($PSCmdlet.ParameterSetName -eq 'File') {
+    if (-not $ContentFile) {
+        Complete-Write -Code 3 -ErrorCode 'CONTENT_FILE_REQUIRED' -Detail 'supply -ContentFile or -Content'
+    }
+    $sourcePath = $null
+    try {
+        $sourcePath = (Resolve-Path -LiteralPath $ContentFile -ErrorAction Stop).ProviderPath
+    }
+    catch {
+        Complete-Write -Code 3 -ErrorCode 'INPUT_NOT_FOUND' -Detail $ContentFile
+    }
+
+    $sourceBytes = $null
+    try {
+        $sourceBytes = [System.IO.File]::ReadAllBytes($sourcePath)
+    }
+    catch {
+        Complete-Write -Code 3 -ErrorCode 'INPUT_READ_FAILED' -Detail $_.Exception.Message
+    }
+
+    $strictUtf8 = New-Object System.Text.UTF8Encoding($false, $true)
+    try {
+        $text = $strictUtf8.GetString($sourceBytes)
+    }
+    catch {
+        Complete-Write -Code 2 -ErrorCode 'INPUT_NOT_STRICT_UTF8' -Detail 'convert the source to UTF-8 first'
+    }
+}
+else {
+    $text = $Content
+}
+
+# A source file saved as UTF-8 with BOM decodes to a leading U+FEFF. Strip it so
+# the output does not end up with two preambles.
+if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) {
+    $text = $text.Substring(1)
+}
+
+# --- 3. encode -----------------------------------------------------------
+$encoder = Get-StrictEncoder -Name $Encoding
+if (-not $encoder) {
+    Complete-Write -Code 2 -ErrorCode 'ENCODER_UNAVAILABLE' -Detail ("cannot create a strict encoder for " + $Encoding)
+}
+
+try {
+    $payload = $encoder.GetBytes($text)
+}
+catch {
+    Complete-Write -Code 2 -ErrorCode 'UNREPRESENTABLE_CHARACTER' -Detail ("content contains characters that " + $Encoding + " cannot represent")
+}
+
+$preamble = $encoder.GetPreamble()
+$bytes = New-Object 'byte[]' ($preamble.Length + $payload.Length)
+if ($preamble.Length -gt 0) {
+    [Array]::Copy($preamble, 0, $bytes, 0, $preamble.Length)
+}
+[Array]::Copy($payload, 0, $bytes, $preamble.Length, $payload.Length)
+
+$result.Bytes = $bytes.Length
+if ($preamble.Length -gt 0) {
+    $result.Bom = (($preamble | ForEach-Object { $_.ToString('X2') }) -join '')
+}
+
+# --- 4. honour -WhatIf / -Confirm ---------------------------------------
+if (-not $PSCmdlet.ShouldProcess($target, ('write ' + $Encoding))) {
+    $result.ExitCode = 0
+    if ($Output -eq 'json') {
+        $result | ConvertTo-Json -Depth 4
+    }
+    else {
+        Write-Output ('WOULD_WRITE=' + $target)
+        Write-Output ('WOULD_ENCODING=' + $Encoding)
+        Write-Output ('WOULD_BYTES=' + $bytes.Length)
+        Write-Output 'EXITCODE=0'
+    }
+    exit 0
+}
+
+# --- 5. write, verify, publish ------------------------------------------
+$directory = [System.IO.Path]::GetDirectoryName($target)
+if (-not $directory) { $directory = (Get-Location).ProviderPath }
+
+try {
+    [void][System.IO.Directory]::CreateDirectory($directory)
+}
+catch {
+    Complete-Write -Code 3 -ErrorCode 'DIRECTORY_NOT_WRITABLE' -Detail $_.Exception.Message
+}
+
+$tempPath = $target + '.tmp-' + ([guid]::NewGuid().ToString('N').Substring(0, 8))
+$failureCode = $null
+$failureDetail = $null
+$backupPath = $null
+$throwawayBackup = $null
+
+try {
+    [System.IO.File]::WriteAllBytes($tempPath, $bytes)
+
+    # Read back through the same code path a consumer would use, and compare both
+    # the bytes and the decoded text. A short write or a silent replacement would
+    # be caught here, before the original is touched.
+    $writtenBytes = [System.IO.File]::ReadAllBytes($tempPath)
+    $sameBytes = ($writtenBytes.Length -eq $bytes.Length)
+    if ($sameBytes) {
+        for ($i = 0; $i -lt $bytes.Length; $i++) {
+            if ($writtenBytes[$i] -ne $bytes[$i]) { $sameBytes = $false; break }
+        }
+    }
+
+    $sameText = $false
+    if ($sameBytes) {
+        try {
+            $decoded = $encoder.GetString($writtenBytes, $preamble.Length, $writtenBytes.Length - $preamble.Length)
+            $sameText = ($decoded -ceq $text)
+        }
+        catch {
+            $sameText = $false
+        }
+    }
+
+    if (-not ($sameBytes -and $sameText)) {
+        $failureCode = 'VERIFY_FAILED'
+        $failureDetail = 'the file read back does not match what was written'
+    }
+    else {
+        $result.Verified = $true
+
+        if ($targetExists) {
+            if ($Backup) {
+                $backupPath = $target + '.bak-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
+            }
+            try {
+                # File.Replace always needs a backup path: passing $null from
+                # PowerShell binds to an empty string, which .NET rejects as an
+                # illegal path. When the caller did not ask for a backup, use a
+                # throwaway file next to the target and delete it afterwards.
+                if ($null -ne $backupPath) {
+                    [System.IO.File]::Replace($tempPath, $target, $backupPath, $true)
+                }
+                else {
+                    $throwawayBackup = $target + '.tmp-' + ([guid]::NewGuid().ToString('N').Substring(0, 8))
+                    [System.IO.File]::Replace($tempPath, $target, $throwawayBackup, $true)
+                }
+                $result.Replaced = $true
+            }
+            catch {
+                $failureCode = 'REPLACE_FAILED'
+                $failureDetail = $_.Exception.Message
+            }
+        }
+        else {
+            try {
+                [System.IO.File]::Move($tempPath, $target)
+            }
+            catch {
+                $failureCode = 'MOVE_FAILED'
+                $failureDetail = $_.Exception.Message
+            }
+        }
+    }
+}
+catch {
+    if (-not $failureCode) {
+        $failureCode = 'WRITE_FAILED'
+        $failureDetail = $_.Exception.Message
+    }
+}
+finally {
+    if (Test-Path -LiteralPath $tempPath) {
+        Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
+    }
+    if ($throwawayBackup -and (Test-Path -LiteralPath $throwawayBackup)) {
+        Remove-Item -LiteralPath $throwawayBackup -Force -ErrorAction SilentlyContinue
+    }
+}
+
+if ($failureCode) {
+    Complete-Write -Code 2 -ErrorCode $failureCode -Detail $failureDetail
+}
+
+$result.Backup = $backupPath
+
+if ($Output -eq 'json') {
+    $result.ExitCode = 0
+    $result | ConvertTo-Json -Depth 4
+}
+else {
+    Write-Output ('WROTE=' + $target)
+    Write-Output ('ENCODING=' + $Encoding)
+    Write-Output ('BYTES=' + $bytes.Length)
+    Write-Output ('BOM=' + $result.Bom)
+    Write-Output ('VERIFIED=' + $result.Verified)
+    if ($result.Replaced) { Write-Output 'REPLACED=True' }
+    if ($backupPath) { Write-Output ('BACKUP=' + $backupPath) }
+    Write-Output 'EXITCODE=0'
+}
+
+exit 0
