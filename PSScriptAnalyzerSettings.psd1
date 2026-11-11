@@ -18,5 +18,10 @@
         # The tools emit ASCII-only structured output on purpose; Write-Output is
         # used instead of Write-Host everywhere.
         'PSAvoidUsingWriteHost'
+
+        # "Bytes" and "CodePoints" are mass nouns. Renaming Get-FileBytes to
+        # Get-FileByte or Test-StartsWithBytes to Test-StartsWithByte would
+        # satisfy the rule and make the name wrong.
+        'PSUseSingularNouns'
     )
 }

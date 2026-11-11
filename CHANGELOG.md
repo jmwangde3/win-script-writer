@@ -19,7 +19,16 @@
   `dual-version-compatibility`、`cmd-bat`、`python`、`git-bash`、
   `execution`、`security`、`troubleshooting`。
 - `tests/analyze.ps1` 与 `tests/run-all.ps1 -Suite analyze`：静态分析
-  成为测试矩阵的一员，而不是"记得就跑一次"的命令。
+  成为测试矩阵的一员，而不是"记得就跑一次"的命令。分析范围从
+  `scripts/` 扩到 `scripts/` + `tests/`，其中测试树单独排除
+  `PSUseDeclaredVarsMoreThanAssignments`（Pester 5 的 `BeforeAll` 作用域
+  会让真用到的变量看起来没用到），`tests/fixtures/data` 作为测试载荷
+  整体跳过。
+- `tests/package.ps1`：发布打包与 release notes 生成，可本地复跑。CI 的
+  发布作业调用它，而不是把逻辑写进 YAML。
+- 三个工作流：`test.yml`（5.1 / 7 × Python 3.11 / 3.13 矩阵 + 文档契约）、
+  `cp936.yml`（自托管 936 runner，宿主不是 936 时直接失败而不是跳过）、
+  `release.yml`（只在推 `v*` 标签时运行）。
 - `CONTRIBUTING.md`、本 `CHANGELOG.md`。
 
 ### Changed
@@ -37,6 +46,18 @@
   PowerShell 会跳过 `process` 块但照常绑定参数，脚本因此从未打开文件却
   退出码 0。现在逐文件工作抽成 `Add-Inspection`，`end` 里在
   `$script:pipelineRan` 仍为 false 时补跑。
+- **打包脚本把 release notes 写成了乱码。** `Get-Content` 不带
+  `-Encoding` 时 5.1 按 CP936 解码这份 UTF-8 的 `CHANGELOG.md`，中文全部
+  损坏。这是本仓库记录的第一条断链，出现在本仓库自己的构建脚本里。
+- **`Compress-Archive` 在 5.1 上把 zip 条目名写成反斜杠**
+  （`win-script-writer\SKILL.md`），不符合 APPNOTE，在按规范处理的解压
+  工具上会变成一个文件名含反斜杠的怪文件。改为逐条
+  `ZipFileExtensions::CreateEntryFromFile` 并显式把分隔符归一成 `/`，
+  打包后重新打开 zip 校验，发现反斜杠即以非零退出码失败。
+- **静态分析在参数绑定时只打警告、仍然报 `ANALYZER_CLEAN`。**
+  `Invoke-ScriptAnalyzer -Path` 不接受文件数组，绑定失败是非终止错误，
+  原来会被吞掉。现在每次调用都 `-ErrorAction Stop`，并且打印
+  `ANALYZED_FILES=`，分析 0 个文件也算失败。
 - `New-EncodedScript.ps1` 覆盖已有文件时 `File.Replace` 传 `$null` 会报
   "The path is not of a legal form"：`$null` 被绑成空字符串。改为使用
   一次性备份路径并在 `finally` 清理。
@@ -44,6 +65,8 @@
   没有未定义字节（`0xFF` → `U+F8F5`），导致它被正确判为 gbk。改用
   `0x81 0x20`（前导字节 + 非法尾字节）。
 - 三参数 `Join-Path` 在 5.1 上不可用的写法从测试与工具里全部移除。
+- `tests/Common/TestHelpers.ps1` 里的两个死变量（`RepoRootPath`、
+  `buffer`）与一个空 `catch` 块。
 
 ### Security
 

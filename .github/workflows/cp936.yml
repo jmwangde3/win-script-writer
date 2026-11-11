@@ -1,0 +1,77 @@
+# The CP936 gate.
+#
+# tests/integration skips its CP936-only assertions when the host ANSI code
+# page is not 936, because a hosted runner is en-US. Skipping is honest but it
+# is not coverage, so this workflow runs the same suite on a self-hosted zh-CN
+# Windows runner and *fails* if the runner turns out not to be 936 -- a silent
+# skip here would defeat the purpose.
+#
+# Runner requirements (labels: self-hosted, windows, cp936):
+#   * Windows 10/11 with the Chinese (Simplified) system locale, ACP 936
+#   * Windows PowerShell 5.1 and PowerShell 7.4+ on PATH
+#   * Python 3.9+ on PATH
+#   * Pester 5.7.1 and PSScriptAnalyzer installed for the runner account
+
+name: cp936
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: CP936 behavioural gate
+    runs-on: [self-hosted, windows, cp936]
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Assert the runner really is CP936
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $acp = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Nls\CodePage').ACP
+          $oem = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Nls\CodePage').OEMCP
+          Write-Output "ACP=$acp OEMCP=$oem"
+          if ([int]$acp -ne 936) {
+            throw "this gate needs ACP 936, the runner reports $acp"
+          }
+
+      - name: Confirm the shared module versions
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pester = Get-Module -ListAvailable Pester | Where-Object { $_.Version.ToString() -eq '5.7.1' }
+          if (-not $pester) { throw 'Pester 5.7.1 is not installed for this runner account' }
+          if (-not (Get-Module -ListAvailable PSScriptAnalyzer)) { throw 'PSScriptAnalyzer is not installed' }
+
+      - name: Environment report
+        shell: powershell
+        run: ./scripts/Get-WinScriptEnvironment.ps1
+
+      - name: Full matrix on 5.1
+        shell: powershell
+        run: ./tests/run-all.ps1
+
+      - name: Full matrix on 7
+        shell: pwsh
+        run: ./tests/run-all.ps1
+
+      - name: Prove the CP936 assertions actually ran
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # The suite prints a skip reason when the host is not 936. A gate that
+          # silently skipped is worse than no gate, so fail if that line appears.
+          $out = & python -m unittest discover -s tests/integration -v 2>&1 | Out-String
+          $code = $LASTEXITCODE
+          if ($out -match 'host ANSI code page is .* not 936') {
+            throw 'the CP936 integration tests were skipped on a 936 host'
+          }
+          if ($code -ne 0) { throw 'integration suite failed' }
+          Write-Output 'CP936_ASSERTIONS_EXECUTED'

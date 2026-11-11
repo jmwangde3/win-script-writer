@@ -1,0 +1,78 @@
+# Runs the whole test matrix on both PowerShell editions.
+#
+# The matrix is the point: every claim in this repository is verified twice,
+# once on Windows PowerShell 5.1 and once on PowerShell 7. A green run on one
+# edition says nothing about the other, which is exactly the failure mode the
+# skill exists to prevent.
+#
+# A GitHub hosted runner is en-US (ANSI code page 1252, not 936). Everything
+# that only makes sense on a CP936 host lives in tests/integration, where it
+# skips itself, and is gated separately by cp936.yml on a self-hosted runner.
+
+name: test
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  matrix:
+    name: ${{ matrix.shell }} / py${{ matrix.python }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shell:
+          - powershell
+          - pwsh
+        python:
+          - '3.11'
+          - '3.13'
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install analysis modules
+        shell: ${{ matrix.shell }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # -SkipPublisherCheck: Pester 3.4.0 ships with Windows and is signed
+          # differently, so the check rejects the 5.x package.
+          Install-Module Pester -RequiredVersion 5.7.1 -Scope CurrentUser -Force -SkipPublisherCheck
+          Install-Module PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
+
+      - name: Report the runner environment
+        shell: ${{ matrix.shell }}
+        run: ./scripts/Get-WinScriptEnvironment.ps1
+
+      - name: Run every suite
+        shell: ${{ matrix.shell }}
+        run: ./tests/run-all.ps1
+
+  docs:
+    name: docs contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Check SKILL.md size, routing and hygiene
+        run: python -m unittest discover -s tests/evals -v

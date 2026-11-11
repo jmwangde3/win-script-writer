@@ -1,0 +1,74 @@
+# Packages a release when a maintainer pushes a v* tag.
+#
+# Nothing here runs on a branch push, and no tag is created by this repository
+# on its own: publishing a release is a deliberate act by a maintainer, not a
+# side effect of merging code. Pushing the tag is the authorisation.
+#
+# The artefact is a plain zip of the parts a consumer needs -- SKILL.md,
+# references/, scripts/ -- so it can be unpacked straight into
+# ~/.claude/skills/win-script-writer/ without carrying the tests along.
+
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: verify, package, publish
+    runs-on: windows-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install analysis modules
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Install-Module Pester -RequiredVersion 5.7.1 -Scope CurrentUser -Force -SkipPublisherCheck
+          Install-Module PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
+
+      - name: Verify before publishing
+        shell: pwsh
+        run: ./tests/run-all.ps1
+
+      - name: Verify on Windows PowerShell 5.1
+        shell: powershell
+        run: ./tests/run-all.ps1
+
+      - name: Build the package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = $env:GITHUB_REF_NAME
+          $zip = Join-Path $env:RUNNER_TEMP ("win-script-writer-{0}.zip" -f $tag)
+          $notes = Join-Path $env:RUNNER_TEMP 'release-notes.md'
+          # The logic lives in a script, not in this YAML, so the packaging that
+          # runs on a tag is the same code that was exercised locally.
+          ./tests/package.ps1 -Tag $tag -OutputPath $zip -NotesPath $notes
+          if ($LASTEXITCODE -ne 0) { throw "packaging failed with $LASTEXITCODE" }
+          "ZIP_PATH=$zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "NOTES_PATH=$notes" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Publish the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = $env:GITHUB_REF_NAME
+          # $args is an automatic variable, so the argument list gets its own name.
+          $ghArgs = @('release', 'create', $tag, $env:ZIP_PATH,
+            '--title', $tag, '--notes-file', $env:NOTES_PATH)
+          & gh @ghArgs
+          if ($LASTEXITCODE -ne 0) { throw "gh release create failed with $LASTEXITCODE" }

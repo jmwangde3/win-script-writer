@@ -14,7 +14,6 @@ $HelperDir = $PSScriptRoot
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $HelperDir)
 $ScriptsDir = Join-Path $RepoRoot 'scripts'
 $FixturesDir = [System.IO.Path]::Combine($RepoRoot, 'tests', 'fixtures', 'data')
-$RepoRootPath = $RepoRoot
 
 function Get-CurrentPowerShellExe {
     <#
@@ -80,13 +79,13 @@ function Invoke-Process {
     # Read both streams concurrently through the async APIs, then drain them.
     $outBuf = New-Object System.IO.MemoryStream
     $errBuf = New-Object System.IO.MemoryStream
-    $buffer = New-Object 'byte[]' 8192
 
     $outTask = $outStream.CopyToAsync($outBuf)
     $errTask = $errStream.CopyToAsync($errBuf)
 
     if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
-        try { $proc.Kill() } catch { }
+        try { $proc.Kill() }
+        catch { Write-Verbose ('the timed out child could not be killed: ' + $_.Exception.Message) }
         throw ("process timed out after {0}s: {1}" -f $TimeoutSeconds, $FilePath)
     }
     [void]$outTask.Wait(5000)
