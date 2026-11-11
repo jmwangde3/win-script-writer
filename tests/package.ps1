@@ -69,6 +69,18 @@ try {
         Copy-Item -LiteralPath $source -Destination $stagingDir -Recurse
     }
 
+    # Byte-compiled caches are a side effect of running the suite, not part of
+    # the deliverable. CI runs the tests in the same checkout before packaging,
+    # so the first real release shipped
+    # scripts/__pycache__/run_ps.cpython-313.pyc. It never showed up locally,
+    # where the checkout happened to be clean.
+    Get-ChildItem -LiteralPath $stagingDir -Recurse -File |
+        Where-Object { $_.Extension -in @('.pyc', '.pyo') } |
+        ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force }
+    Get-ChildItem -LiteralPath $stagingDir -Recurse -Directory |
+        Where-Object { $_.Name -eq '__pycache__' } |
+        ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
+
     $files = Get-ChildItem -LiteralPath $stagingDir -Recurse -File | Sort-Object FullName
     if ($files.Count -eq 0) { throw 'staging directory is empty' }
 
@@ -110,10 +122,25 @@ try {
 
     $backslashed = @($names | Where-Object { $_.Contains('\') })
     if ($backslashed.Count -gt 0) {
-        Write-Output ('ERROR=ENTRY_USES_BACKSLASH count=' + $backslashed.Count)
-        exit 1
+        throw ('entry uses a backslash separator: ' + ($backslashed -join ', '))
     }
     Write-Output 'ENTRY_SEPARATOR=FORWARD_SLASH_OK'
+
+    # An allow list, not a deny list. A deny list only removes the artefacts
+    # someone already thought of, and the .pyc file that shipped in the first
+    # release attempt is proof of how that goes. Anything that is not a
+    # document, a script or the licence is a packaging mistake.
+    $allowedExtensions = @('.md', '.ps1', '.py')
+    $unexpected = @($names | Where-Object {
+            $leaf = $_ -replace '.*/', ''
+            if ($leaf -eq 'LICENSE') { return $false }
+            $ext = [System.IO.Path]::GetExtension($leaf).ToLowerInvariant()
+            return ($allowedExtensions -notcontains $ext)
+        })
+    if ($unexpected.Count -gt 0) {
+        throw ('unexpected entries in the package: ' + ($unexpected -join ', '))
+    }
+    Write-Output 'ENTRY_ALLOWLIST=OK'
 
     if ($NotesPath) {
         # Release notes come from the changelog, not from a separate document

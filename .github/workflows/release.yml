@@ -65,8 +65,13 @@ jobs:
           $notes = Join-Path $env:RUNNER_TEMP 'release-notes.md'
           # The logic lives in a script, not in this YAML, so the packaging that
           # runs on a tag is the same code that was exercised locally.
+          #
+          # The exit code is deliberately not inspected afterwards. The packaging
+          # script throws on every failure path and sets nothing on success, so the
+          # variable stayed null and a null-vs-zero comparison failed a perfectly
+          # good package on the first release attempt. An uncaught exception is
+          # already a non-zero step exit.
           ./tests/package.ps1 -Tag $tag -OutputPath $zip -NotesPath $notes
-          if ($LASTEXITCODE -ne 0) { throw "packaging failed with $LASTEXITCODE" }
           "ZIP_PATH=$zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "NOTES_PATH=$notes" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 

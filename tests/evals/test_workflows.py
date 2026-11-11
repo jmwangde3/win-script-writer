@@ -217,5 +217,19 @@ class TestReleaseWiring(unittest.TestCase):
         self.assertIn("vars.CP936_RUNNER", str(job["if"]))
 
 
+    def test_release_step_does_not_poll_the_exit_code(self):
+        # The packaging script throws on every failure path and leaves the
+        # exit-code variable unset on success. A null-vs-zero comparison in the
+        # workflow therefore failed a perfectly good package on the first
+        # release attempt, one step before the archive was even uploaded.
+        document = load("release.yml")
+        offenders = []
+        for _, step in steps_of(document):
+            for line in (step.get("run") or "").splitlines():
+                if "LASTEXITCODE" in line and "packaging failed" in line:
+                    offenders.append(line.strip())
+        self.assertEqual(offenders, [], "the release job fails a good package")
+
+
 if __name__ == "__main__":
     unittest.main()
