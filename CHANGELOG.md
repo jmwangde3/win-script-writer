@@ -42,6 +42,13 @@
 
 ### Fixed
 
+- **`run_ps.py --console-encoding` 让 `param()` 静默失效。** prelude 拼在
+  用户脚本前面，而 `param(...)` 与 `[CmdletBinding()]` 只允许是第一条语句，
+  于是 PowerShell 报 `param : The term 'param' is not recognized`，**照常
+  跑完剩下的语句并退出 0**。带参数块的真实脚本走 `--file` 时会静默丢掉所有
+  参数。现在只在需要注入 prelude 时才把脚本体包进 `& { … }`，默认路径一个
+  字节都不变。新增三个用例：`param()` 不被挤掉、prelude 在包装内仍然生效、
+  末尾注释不会把收尾的 `}` 吃掉。
 - **检测器在 `-File` 加重定向 stdin 时静默返回 `files=0`。** Windows
   PowerShell 会跳过 `process` 块但照常绑定参数，脚本因此从未打开文件却
   退出码 0。现在逐文件工作抽成 `Add-Inspection`，`end` 里在

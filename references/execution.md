@@ -74,6 +74,39 @@ python scripts/run_ps.py --input-encoding gbk --file legacy.ps1
 python scripts/run_ps.py --timeout 30 --command '...'
 ```
 
+### 用了 `--console-encoding` 时脚本会被包一层
+
+`--console-encoding` 要在你的脚本之前插入几句设置。但 `param(...)` 和
+`[CmdletBinding()]` 只允许出现在脚本或脚本块的**第一条语句**，直接前置会让
+PowerShell 报 `param : The term 'param' is not recognized`，然后**照常把
+剩下的语句跑完并退出 0**——一个静默失效。
+
+所以带上这个参数时，脚本会被包成：
+
+```powershell
+<prelude>; & {
+<你的脚本>
+}
+```
+
+两个可见影响：报错行号会整体偏移一行以上；脚本体在一个子作用域里执行
+（`$script:` 仍指向外层脚本作用域，`exit` 仍退出整个进程）。不带
+`--console-encoding` 时不会加这层包装，脚本原样执行。
+
+### stderr 里可能出现 `#< CLIXML`
+
+PowerShell 在输出流被重定向时，会把 `Write-Progress` 之类的进度记录序列化成
+CLIXML 写进 stderr。这不是错误，也不是 `run_ps.py` 加的——它是子进程真实的
+stderr 字节。第一次运行（模块首次加载）最容易碰到。
+
+需要干净 stderr 时，在自己的脚本开头写：
+
+```powershell
+$ProgressPreference = 'SilentlyContinue'
+```
+
+`run_ps.py` 不替你设这个，因为它会改变脚本自己的可见行为。
+
 ## 3. 退出码
 
 `run_ps.py` 的退出码是**契约**，不要改：

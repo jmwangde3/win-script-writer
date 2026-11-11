@@ -41,8 +41,8 @@ powershell -NoProfile -File tests\run-all.ps1 -Suite evals
    文件。加一份新参考＝同时改 `SKILL.md` 的路由表。
 4. `SKILL.md` 里提到的每个脚本名必须在 `scripts/` 下真实存在。
 5. 代码块总行数在 `SKILL.md` 里 ≤ 80 行。
-6. 不出现本机绝对路径（`C:\Users\...`、`H:\`）、不出现 `TODO:`、不出现
-   占位凭据。
+6. 不出现本机绝对路径（形如系统盘下的用户目录，或任何固定盘符路径）、
+   不出现未完成标记、不出现占位凭据。
 
 ## 文件的行尾与编码
 

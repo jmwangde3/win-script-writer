@@ -198,6 +198,44 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn(b"65001", r.stdout)
 
+    def test_prelude_does_not_displace_a_param_block(self):
+        # param() and [CmdletBinding()] are only legal as the first statement of
+        # a script or script block. Concatenating the prelude in front of them
+        # used to make PowerShell report "param is not recognized", run the rest
+        # of the script anyway, and still exit 0.
+        with tempfile.TemporaryDirectory() as tmp:
+            script = pathlib.Path(tmp) / "params.ps1"
+            script.write_text(
+                "[CmdletBinding()]\n"
+                "param([int]$Value = 7)\n"
+                'Write-Output ("VALUE=" + $Value)\n',
+                encoding="utf-8",
+            )
+            plain = invoke(["--file", str(script)])
+            self.assertEqual(plain.returncode, 0, plain.stderr)
+            self.assertIn(b"VALUE=7", plain.stdout)
+
+            with_prelude = invoke(["--console-encoding", "utf8", "--file", str(script)])
+            self.assertEqual(with_prelude.returncode, 0, with_prelude.stderr)
+            self.assertIn(b"VALUE=7", with_prelude.stdout)
+            self.assertNotIn(b"is not recognized", with_prelude.stderr)
+
+    def test_prelude_still_applies_inside_the_wrapper(self):
+        # The wrapper must not put the prelude out of scope: the script inside it
+        # still has to see the encodings the flag asked for.
+        r = invoke(["--console-encoding", "utf8",
+                    'Write-Output $OutputEncoding.WebName; Write-Output ([Console]::OutputEncoding.CodePage)'])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn(b"utf-8", r.stdout)
+        self.assertIn(b"65001", r.stdout)
+
+    def test_wrapper_survives_a_trailing_comment(self):
+        # Without the newline before the closing brace the comment would swallow
+        # the brace and the payload would not parse.
+        r = invoke(["--console-encoding", "utf8", 'Write-Output "OK" # trailing comment'])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn(b"OK", r.stdout)
+
     def test_no_temp_script_is_left_behind(self):
         pattern = "ws-run-ps-"
         before = {p.name for p in pathlib.Path(tempfile.gettempdir()).iterdir() if pattern in p.name}

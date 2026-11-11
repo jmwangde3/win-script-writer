@@ -190,11 +190,32 @@ def error(message):
     write_stream(sys.stderr, ("run_ps.py: " + message + "\n").encode("utf-8", "replace"))
 
 
+def wrap_script(script):
+    """Wrap script text in a script block.
+
+    Needed only when a prelude is injected. ``param(...)`` and
+    ``[CmdletBinding()]`` are only legal as the first statement of a script or a
+    script block, so concatenating a prelude in front of them silently turns them
+    into commands that do not exist: PowerShell reports "param : The term 'param'
+    is not recognized", the rest of the script still runs, and the process still
+    exits 0. Wrapping keeps the user's text at the start of a block while the
+    prelude stays outside it.
+
+    The newlines matter: without the one before the closing brace, a script whose
+    last line ends in a comment would comment out the brace itself.
+    """
+    return "& {\n" + script + "\n}"
+
+
 def run(script, *, shell="powershell", timeout=300.0, execution_policy=None,
         console_encoding=None, keep_temp=False):
     """Execute script text and return (exit_code, stdout_bytes, stderr_bytes)."""
     prelude = build_prelude(console_encoding)
-    payload = prelude + script
+    # Only pay for the wrapper when there is a prelude to keep out of the way.
+    if prelude:
+        payload = prelude + wrap_script(script)
+    else:
+        payload = script
     encoded = base64.b64encode(payload.encode("utf-16-le")).decode("ascii")
 
     exe = resolve_shell(shell)
