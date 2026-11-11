@@ -12,14 +12,14 @@
         pwsh       -NoProfile -File tests/run-all.ps1 -Suite pester
 
 .PARAMETER Suite
-    all | pester | python | evals | integration
+    all | pester | python | evals | integration | analyze
 
 .PARAMETER PesterVersion
     Pester version to load. Defaults to 5.7.1, the version pinned in CI.
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('all', 'pester', 'python', 'evals', 'integration')]
+    [ValidateSet('all', 'pester', 'python', 'evals', 'integration', 'analyze')]
     [string]$Suite = 'all',
 
     [string]$PesterVersion = '5.7.1'
@@ -28,7 +28,13 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
+$testsRoot = Join-Path $repoRoot 'tests'
 $failures = New-Object System.Collections.ArrayList
+
+# The host running this script, so every child suite is executed by the same
+# edition. That is how "must pass under 5.1 and 7" gets verified rather than
+# assumed.
+$currentExe = (Get-Process -Id $PID).Path
 
 function Get-PythonCommand {
     <#
@@ -56,7 +62,6 @@ function Invoke-PesterSuite {
     Import-Module Pester -RequiredVersion $PesterVersion -Force
 
     $config = New-PesterConfiguration
-    $testsRoot = Join-Path $repoRoot 'tests'
     $config.Run.Path = (Join-Path $testsRoot 'powershell')
     $config.Run.Exit = $false
     $config.Run.PassThru = $true
@@ -80,7 +85,6 @@ function Invoke-PythonSuite {
 
     # Join-Path only gained -AdditionalChildPath in PowerShell 6. Nesting is the
     # only form that works in both 5.1 and 7.
-    $testsRoot = Join-Path $repoRoot 'tests'
     $suitePath = Join-Path $testsRoot $Directory
 
     $argv = $prefix + @('-m', 'unittest', 'discover', '-s', $suitePath, '-v')
@@ -93,7 +97,24 @@ function Invoke-PythonSuite {
     }
 }
 
+function Invoke-AnalyzerSuite {
+    <#
+        Static analysis runs inside its own process so the rule set can never be
+        relaxed by whatever the Pester host has already imported.
+    #>
+    $analyzer = Join-Path $testsRoot 'analyze.ps1'
+    $argv = @('-NoProfile', '-NonInteractive', '-File', $analyzer)
+    & $currentExe @argv
+    if ($LASTEXITCODE -ne 0) {
+        [void]$failures.Add('analyze')
+        Write-Output 'ANALYZER_SUITE_FAILED'
+    } else {
+        Write-Output 'ANALYZER_SUITE_OK'
+    }
+}
+
 if ($Suite -eq 'all' -or $Suite -eq 'pester') { Invoke-PesterSuite }
+if ($Suite -eq 'all' -or $Suite -eq 'analyze') { Invoke-AnalyzerSuite }
 if ($Suite -eq 'all' -or $Suite -eq 'python') { Invoke-PythonSuite -Directory 'python' }
 if ($Suite -eq 'all' -or $Suite -eq 'evals') { Invoke-PythonSuite -Directory 'evals' }
 if ($Suite -eq 'all' -or $Suite -eq 'integration') { Invoke-PythonSuite -Directory 'integration' }
