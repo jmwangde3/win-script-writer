@@ -74,6 +74,27 @@
 - 三参数 `Join-Path` 在 5.1 上不可用的写法从测试与工具里全部移除。
 - `tests/Common/TestHelpers.ps1` 里的两个死变量（`RepoRootPath`、
   `buffer`）与一个空 `catch` 块。
+- **CI 工作流把矩阵表达式喂给了 `shell` 键。** GitHub 在展开矩阵之前就解析
+  `jobs.<id>.steps[*].shell`，`shell: ${{ matrix.shell }}` 被判为
+  `Unrecognized named-value: 'matrix'`，首次推送 0 秒失败，一个 job 都没起。
+  改为每个宿主一个 job，`shell` 一律写字面量。同一处还修掉了 7 把模块装到
+  `Documents/PowerShell/Modules` 而 5.1 只查
+  `Documents/WindowsPowerShell/Modules` 的问题——共用一个安装步骤等于让 5.1
+  那一路退回系统自带的 Pester 3.4。
+- **测试依赖的解析散落在每个入口，漏一处就红。** 文档契约要解析工作流文件，
+  需要 PyYAML；矩阵 job 装了、发布 job 忘了，于是全绿的分支推 tag 后 1 分 40
+  秒失败。改为在测试入口脚本里统一探测并安装，所有入口共用一条路径。过程中
+  踩到两个坑：`$ErrorActionPreference = 'Stop'` 会把原生程序的 stderr 变成
+  终止错误，于是"预期失败"的探测直接终止脚本；`pip install yaml` 找不到发行
+  包——模块名是 `yaml`，发行包名是 `PyYAML`，而且装完必须再探测一次才算数，
+  pip 返回 0 从来不能证明 `import` 会成功。
+- **发布包里混进了 `scripts/__pycache__/*.pyc`。** 打包直接复制目录，本地检出
+  干净，所以十次手跑都是 18 个条目；CI 在同一个检出里先跑测试、留下了字节码
+  缓存，实际发出 19 个。现在归档前清掉缓存，并把条目对照扩展名白名单校验
+  ——黑名单只能挡住已经想到的东西。同一次发布还暴露了
+  `if ($LASTEXITCODE -ne 0)` 把成功的打包判成失败：脚本成功时不设置
+  `$LASTEXITCODE`，`$null -ne 0` 成立，报错信息因此打印成 "packaging failed
+  with " 后面什么都没有。
 
 ### Security
 
@@ -88,10 +109,14 @@ Windows PowerShell 5.1.26100（Desktop）、PowerShell 7.6.9（Core），
 Pester 5.7.1，PSScriptAnalyzer 1.24.0，Python 3.13。
 
 - Pester：50 项，5.1 与 7 各跑一遍，全通过。
-- Python：26 项，全通过。
+- Python：29 项，全通过。
 - 集成：7 项，全通过（其中 CP936 专有 3 项在非 936 宿主上跳过）。
-- 文档契约：16 项，全通过。
+- 文档契约：28 项，全通过。
 - PSScriptAnalyzer：`scripts/` 全干净，两个宿主各跑一遍。
+- GitHub Actions：`windows-latest` 上 5.1 与 7 各配 Python 3.11 / 3.13，
+  四个组合全部 `RESULT=PASSED`；`ubuntu-latest` 跑文档契约。CP936 门禁需要
+  带 `self-hosted, windows, cp936` 标签的 runner，未配置时该 job 显示
+  skipped，而不是无限排队。
 
 ## [0.1.0] - 2026-11-09
 
