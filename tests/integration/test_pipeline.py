@@ -39,6 +39,29 @@ def ps_tool(name, args, timeout=180):
     return subprocess.run(argv, capture_output=True, timeout=timeout, stdin=subprocess.DEVNULL)
 
 
+def ps_file(script, timeout=120):
+    """Runs a bare script file with the same host a user would get."""
+    argv = [powershell_exe(), "-NoProfile", "-NonInteractive", "-File", str(script)]
+    return subprocess.run(argv, capture_output=True, timeout=timeout, stdin=subprocess.DEVNULL)
+
+
+def host_output_codepage():
+    """Code page Windows PowerShell uses to encode its redirected stdout.
+
+    PowerShell 5.1 derives its output encoding from the console output code
+    page it inherits: 936 on a plain zh-CN console, 65001 as soon as the caller
+    has switched the console to UTF-8. Tests that hard-code either value pass or
+    fail depending on who launched them, so they decode with the real value.
+    """
+    import ctypes
+
+    return int(ctypes.windll.kernel32.GetConsoleOutputCP())
+
+
+def decode_console_output(raw):
+    return raw.decode("cp%d" % host_output_codepage(), "replace")
+
+
 def run_ps(args, stdin_bytes=None, timeout=180):
     kwargs = dict(capture_output=True, timeout=timeout)
     if stdin_bytes is None:
@@ -109,20 +132,17 @@ class TestCp936Host(unittest.TestCase):
             raise unittest.SkipTest("host ANSI code page is %d, not 936" % cls.acp)
 
     def test_ps51_parses_bomless_utf8_as_gbk(self):
-        # Documents the defect the detector exists to catch.
-        script = FIXTURES / "ps51-utf8nobom-cn.ps1"
-        argv = [powershell_exe(), "-NoProfile", "-NonInteractive", "-File", str(script)]
-        r = subprocess.run(argv, capture_output=True, timeout=120, stdin=subprocess.DEVNULL)
+        # Documents the defect the detector exists to catch: without a BOM,
+        # Windows PowerShell 5.1 decodes the bytes as the ANSI code page, so the
+        # Chinese text arrives mangled no matter how the console encodes stdout.
+        r = ps_file(FIXTURES / "ps51-utf8nobom-cn.ps1")
         self.assertEqual(r.returncode, 0)
-        expected = ZH.encode("gbk")
-        self.assertNotIn(expected, r.stdout)
+        self.assertNotIn(ZH, decode_console_output(r.stdout))
 
     def test_ps51_parses_utf8_bom_correctly(self):
-        script = FIXTURES / "ps51-utf8bom.ps1"
-        argv = [powershell_exe(), "-NoProfile", "-NonInteractive", "-File", str(script)]
-        r = subprocess.run(argv, capture_output=True, timeout=120, stdin=subprocess.DEVNULL)
+        r = ps_file(FIXTURES / "ps51-utf8bom.ps1")
         self.assertEqual(r.returncode, 0)
-        self.assertIn(ZH.encode("gbk"), r.stdout)
+        self.assertIn(ZH, decode_console_output(r.stdout))
 
     def test_writer_round_trip_is_idempotent(self):
         with tempfile.TemporaryDirectory() as tmp:

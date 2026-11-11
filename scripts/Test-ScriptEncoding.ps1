@@ -67,6 +67,7 @@ begin {
 
     $findings = New-Object System.Collections.ArrayList
     $ioError = $false
+    $script:pipelineRan = $false
 
     function Get-CodePageEncoding {
         param([int]$CodePage)
@@ -450,24 +451,30 @@ begin {
             Reasons = $reasons
         }
     }
-}
 
-process {
-    foreach ($candidate in $Path) {
+    function Add-Inspection {
+        param([string]$Candidate)
+
+        if (-not $Candidate) {
+            $script:ioError = $true
+            [Console]::Error.WriteLine('ERROR=EMPTY_PATH')
+            return
+        }
+
         $resolved = $null
         try {
-            $resolved = (Resolve-Path -LiteralPath $candidate -ErrorAction Stop).ProviderPath
+            $resolved = (Resolve-Path -LiteralPath $Candidate -ErrorAction Stop).ProviderPath
         }
         catch {
-            $ioError = $true
-            [Console]::Error.WriteLine(('ERROR=NOT_FOUND path=' + $candidate))
-            continue
+            $script:ioError = $true
+            [Console]::Error.WriteLine(('ERROR=NOT_FOUND path=' + $Candidate))
+            return
         }
 
         if (Test-Path -LiteralPath $resolved -PathType Container) {
-            $ioError = $true
+            $script:ioError = $true
             [Console]::Error.WriteLine(('ERROR=IS_DIRECTORY path=' + $resolved))
-            continue
+            return
         }
 
         $resolvedProfile = Resolve-TargetProfile -Requested $Profile -FilePath $resolved
@@ -476,9 +483,9 @@ process {
             $bytes = [System.IO.File]::ReadAllBytes($resolved)
         }
         catch {
-            $ioError = $true
+            $script:ioError = $true
             [Console]::Error.WriteLine(('ERROR=READ_FAILED path=' + $resolved + ' ' + $_.Exception.Message))
-            continue
+            return
         }
 
         $measured = Get-EncodingSnapshot -Bytes $bytes
@@ -517,7 +524,24 @@ process {
     }
 }
 
+process {
+    $script:pipelineRan = $true
+    foreach ($candidate in $Path) {
+        Add-Inspection -Candidate $candidate
+    }
+}
+
 end {
+    # Windows PowerShell skips the process block entirely when the host
+    # redirects stdin and the script is started with -File, even though the
+    # parameters bound correctly. Without this fallback the tool would report
+    # "files=0 exit=0" for a file it never inspected -- a silent false pass.
+    if (-not $script:pipelineRan) {
+        foreach ($candidate in $Path) {
+            Add-Inspection -Candidate $candidate
+        }
+    }
+
     $okCount = 0
     $warnCount = 0
     $failCount = 0
