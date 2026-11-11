@@ -4,13 +4,19 @@
 
 - Windows 10/11 简体中文（本项目的目标环境，也是唯一验证过的环境）
 - Windows PowerShell 5.1（系统自带）与 PowerShell 7.4+
-- Python 3.9+（只用标准库）
+- Python 3.9+（`scripts/run_ps.py` 只用标准库）
 - Pester 5.7.1、PSScriptAnalyzer
+- PyYAML —— 只有 `tests/evals` 需要：那份契约测试要解析工作流文件，
+  纯文本匹配抓不到结构错误
 
 ```powershell
 Install-Module Pester -RequiredVersion 5.7.1 -Scope CurrentUser
 Install-Module PSScriptAnalyzer -Scope CurrentUser
+python -m pip install pyyaml
 ```
+
+`scripts/` 下的工具刻意保持零第三方依赖：它们是要被拷到别人机器上直接跑的，
+多一个 import 就多一个失败点。PyYAML 只进测试，不进交付物。
 
 ## 跑测试
 
