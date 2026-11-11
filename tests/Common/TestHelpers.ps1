@@ -117,10 +117,39 @@ function Invoke-WsTool {
     return Invoke-Process -FilePath (Get-CurrentPowerShellExe) -Arguments $argv -TimeoutSeconds $TimeoutSeconds
 }
 
+function Invoke-PsSnippet {
+    <#
+        Runs an arbitrary ASCII snippet in the current PowerShell edition.
+
+        Needed because a string array cannot cross a process boundary through
+        -File: "-Path a b" binds only "a" to $Path and makes "b" a stray
+        positional argument. Tests that need a real array build a snippet.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Snippet,
+        [int]$TimeoutSeconds = 180
+    )
+    $tempRoot = [System.IO.Path]::GetTempPath()
+    $path = Join-Path $tempRoot ('ws-snippet-' + [guid]::NewGuid().ToString('N') + '.ps1')
+    try {
+        # "exit" inside a nested script only sets $LASTEXITCODE, it does not end
+        # the process. Re-exit so the caller observes the tool's real code.
+        $body = $Snippet.TrimEnd() + "`r`n" + 'exit $LASTEXITCODE' + "`r`n"
+        # UTF-8 with BOM: snippets carry real paths, which may contain non-ASCII
+        # characters that Windows PowerShell would otherwise read as the ANSI
+        # code page.
+        [System.IO.File]::WriteAllText($path, $body, (New-Object System.Text.UTF8Encoding($true)))
+        return Invoke-Process -FilePath (Get-CurrentPowerShellExe) -Arguments @('-NoProfile', '-NonInteractive', '-File', $path) -TimeoutSeconds $TimeoutSeconds
+    }
+    finally {
+        Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function New-FixtureCopy {
     <#
         Copies a fixture into $TestDrive and returns the new full path.
-        Tests mutate files, so fixtures themselves stay pristine.
+        Tests mutate files, so the fixtures themselves stay pristine.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Name,

@@ -113,9 +113,10 @@ Write-Fixture 'data-utf8nobom.json' (Get-EncodedBytes $utf8NoBom $jsonBody) 'UTF
 Write-Fixture 'data-gbk.txt' (Get-EncodedBytes $gbk ($zh + $ceshi + "`r`n")) 'CP936 plain text'
 
 # --- edge cases ----------------------------------------------------------
-# 0xFF is not a valid GBK lead byte and not a valid UTF-8 byte: the stream must
-# be reported as UNKNOWN, never as GBK.
-Write-Fixture 'invalid-bytes.bin' ([byte[]](0x41, 0xFF, 0x42, 0xFF, 0x43)) 'neither UTF-8 nor CP936'
+# 0x81 is a CP936 lead byte and 0x20 is not a valid trail byte, so the stream
+# decodes to a replacement character and cannot round trip. It is also invalid
+# UTF-8. 0xFF would have been a bad choice: Windows maps it to U+F8F5.
+Write-Fixture 'invalid-bytes.bin' ([byte[]](0x41, 0x81, 0x20, 0x42)) 'neither UTF-8 nor CP936'
 Write-Fixture 'empty.txt' ([byte[]]@()) 'zero length'
 
 # --- writer inputs -------------------------------------------------------

@@ -203,13 +203,13 @@ Describe 'Test-ScriptEncoding.ps1' {
         }
 
         It 'aggregates multiple paths using the worst verdict' {
-            $r = Invoke-Tool @(
-                '-Path', (Join-Path $FixturesDir 'ps51-utf8bom.ps1'),
-                (Join-Path $FixturesDir 'ps51-utf8nobom-cn.ps1'),
-                '-Profile', 'ps51'
-            )
+            $tool = Join-Path $ScriptsDir 'Test-ScriptEncoding.ps1'
+            $a = Join-Path $FixturesDir 'ps51-utf8bom.ps1'
+            $b = Join-Path $FixturesDir 'ps51-utf8nobom-cn.ps1'
+            $snippet = "& '$tool' -Path @('$a', '$b') -Profile ps51"
+            $r = Invoke-PsSnippet -Snippet $snippet
             $r.ExitCode | Should -Be 2
-            $r.StdOut | Should -Match 'SUMMARY .*files=2'
+            $r.StdOut | Should -Match 'SUMMARY files=2'
         }
 
         It 'handles a directory containing CJK characters' {
