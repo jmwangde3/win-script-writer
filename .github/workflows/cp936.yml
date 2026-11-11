@@ -26,6 +26,12 @@ permissions:
 jobs:
   gate:
     name: CP936 behavioural gate
+    # A job that asks for a self-hosted label nobody registered does not fail,
+    # it queues -- forever. That is worse than skipping, because a queued run
+    # looks like work in progress and keeps the branch red-ish indefinitely.
+    # Set the repository variable CP936_RUNNER=enabled once a runner with the
+    # labels below exists; until then this job reports skipped, honestly.
+    if: ${{ vars.CP936_RUNNER == 'enabled' }}
     runs-on: [self-hosted, windows, cp936]
     steps:
       - name: Check out

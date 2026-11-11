@@ -59,11 +59,6 @@ jobs:
           # differently, so the check rejects the 5.x package.
           Install-Module Pester -RequiredVersion 5.7.1 -Scope CurrentUser -Force -SkipPublisherCheck
           Install-Module PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
-          # tests/evals/test_workflows.py parses the workflow files. A native
-          # process exit code is not an exception in Windows PowerShell, so it
-          # has to be checked by hand or a failed install passes silently.
-          python -m pip install --disable-pip-version-check pyyaml
-          if ($LASTEXITCODE -ne 0) { throw "pip install pyyaml failed: $LASTEXITCODE" }
 
       - name: Report the runner environment
         shell: powershell
@@ -98,8 +93,6 @@ jobs:
           $ErrorActionPreference = 'Stop'
           Install-Module Pester -RequiredVersion 5.7.1 -Scope CurrentUser -Force -SkipPublisherCheck
           Install-Module PSScriptAnalyzer -Scope CurrentUser -Force -SkipPublisherCheck
-          python -m pip install --disable-pip-version-check pyyaml
-          if ($LASTEXITCODE -ne 0) { throw "pip install pyyaml failed: $LASTEXITCODE" }
 
       - name: Report the runner environment
         shell: pwsh

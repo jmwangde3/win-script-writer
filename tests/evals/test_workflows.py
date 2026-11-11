@@ -205,6 +205,17 @@ class TestReleaseWiring(unittest.TestCase):
         job = document["jobs"]["gate"]
         self.assertEqual(job["runs-on"], ["self-hosted", "windows", "cp936"])
 
+    def test_cp936_gate_is_gated_by_a_variable(self):
+        # A job that asks for a label no runner has does not fail, it queues
+        # indefinitely. The first `push: main` after the tag was pushed proved
+        # it: the run sat in `queued` until it was cancelled by hand. The gate
+        # now reports skipped until the repository variable says a runner
+        # exists, so a missing runner is visible instead of silently pending.
+        document = load("cp936.yml")
+        job = document["jobs"]["gate"]
+        self.assertIn("if", job, "the gate needs a variable switch")
+        self.assertIn("vars.CP936_RUNNER", str(job["if"]))
+
 
 if __name__ == "__main__":
     unittest.main()
