@@ -35,11 +35,15 @@ Describe 'Test-ScriptEncoding.ps1' {
             Get-Field $r.StdOut 'VERDICT' | Should -Be 'OK'
         }
 
-        It 'rejects UTF-16LE with BOM' {
+        It 'warns on UTF-16LE with BOM instead of claiming it cannot run' {
+            # Both runtimes do parse and run it; verified on 5.1.26100 and
+            # 7.6.9. The old assertion demanded FAIL for a file that executes
+            # correctly, which is a verdict nobody could act on.
             $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'ps51-utf16le-bom.ps1'), '-Profile', 'ps51')
-            $r.ExitCode | Should -Be 2
+            $r.ExitCode | Should -Be 1
             Get-Field $r.StdOut 'ENCODING' | Should -Be 'utf16le-bom'
-            Get-Field $r.StdOut 'VERDICT' | Should -Be 'FAIL'
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'WARN'
+            $r.StdOut | Should -Match 'UTF16LE_RUNNABLE_NOT_PREFERRED'
         }
 
         It 'rejects UTF-16BE with BOM' {
@@ -47,6 +51,69 @@ Describe 'Test-ScriptEncoding.ps1' {
             $r.ExitCode | Should -Be 2
             Get-Field $r.StdOut 'ENCODING' | Should -Be 'utf16be-bom'
             Get-Field $r.StdOut 'VERDICT' | Should -Be 'FAIL'
+            $r.StdOut | Should -Match 'UTF16BE_UNSUPPORTED'
+        }
+    }
+
+    Context 'BOM payload validation' {
+
+        It 'accepts a BOM with an empty payload' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'utf8bom-empty.ps1'), '-Profile', 'ps51')
+            $r.ExitCode | Should -Be 0
+            Get-Field $r.StdOut 'ENCODING' | Should -Be 'utf8-bom'
+            Get-Field $r.StdOut 'PAYLOAD_VALID' | Should -Be 'True'
+        }
+
+        It 'accepts a BOM followed by ASCII' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'utf8bom-ascii.ps1'), '-Profile', 'ps51')
+            $r.ExitCode | Should -Be 0
+            Get-Field $r.StdOut 'ENCODING' | Should -Be 'utf8-bom'
+        }
+
+        It 'fails a BOM followed by FF' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'utf8bom-invalid-ff.bin'), '-Profile', 'ps51')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'ENCODING' | Should -Be 'utf8-bom-invalid'
+            Get-Field $r.StdOut 'PAYLOAD_VALID' | Should -Be 'False'
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'FAIL'
+            $r.StdOut | Should -Match 'INVALID_ENCODING_PAYLOAD'
+            $r.StdOut | Should -Match 'byte 3'
+        }
+
+        It 'fails a BOM followed by C3 28' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'utf8bom-invalid-continuation.bin'), '-Profile', 'ps51')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'ENCODING' | Should -Be 'utf8-bom-invalid'
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'FAIL'
+        }
+
+        It 'fails a BOM followed by an incomplete multi-byte sequence' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'utf8bom-incomplete-sequence.bin'), '-Profile', 'ps51')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'ENCODING' | Should -Be 'utf8-bom-invalid'
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'FAIL'
+        }
+
+        It 'fails a UTF-16LE BOM with an odd byte count' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'utf16le-bom-truncated.ps1'), '-Profile', 'ps51')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'ENCODING' | Should -Be 'utf16le-bom-invalid'
+            $r.StdOut | Should -Match 'truncated'
+        }
+
+        It 'fails a UTF-16LE BOM with an unpaired surrogate' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'utf16le-bom-lone-surrogate.ps1'), '-Profile', 'ps51')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'ENCODING' | Should -Be 'utf16le-bom-invalid'
+            $r.StdOut | Should -Match 'INVALID_ENCODING_PAYLOAD'
+        }
+
+        It 'reports the same verdict for a damaged payload under every profile' {
+            $path = Join-Path $FixturesDir 'utf8bom-invalid-ff.bin'
+            foreach ($profile in @('ps51', 'ps7', 'cmd', 'python', 'bash', 'data')) {
+                $r = Invoke-Tool @('-Path', $path, '-Profile', $profile)
+                $r.ExitCode | Should -Be 2 -Because ("profile $profile must not rate a corrupt payload as readable")
+            }
         }
     }
 
@@ -161,6 +228,52 @@ Describe 'Test-ScriptEncoding.ps1' {
         It 'treats ascii as compatible with utf8-nobom' {
             $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'ps51-ascii.ps1'), '-Profile', 'ps51', '-ExpectedEncoding', 'utf8-nobom')
             $r.ExitCode | Should -Be 0
+        }
+
+        It 'fails the ascii expectation on BOM-less UTF-8 with CJK' {
+            # Under ps7 the profile alone would answer OK, so a failure here can
+            # only come from the expectation. The v1.0.0 detector had a
+            # symmetric exception that answered "match" for exactly this pair.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'ps51-utf8nobom-cn.ps1'), '-Profile', 'ps7', '-ExpectedEncoding', 'ascii')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'EXPECTED_MATCH' | Should -Be 'False'
+            $r.StdOut | Should -Match 'EXPECTED_MISMATCH'
+            $r.StdOut | Should -Match 'non-ASCII bytes'
+        }
+
+        It 'fails the ascii expectation on a Latin-1 range character' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'utf8nobom-latin1.txt'), '-Profile', 'data', '-ExpectedEncoding', 'ascii')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'ENCODING' | Should -Be 'utf8-nobom'
+            Get-Field $r.StdOut 'EXPECTED_MATCH' | Should -Be 'False'
+        }
+
+        It 'fails the ascii expectation on a file that carries a BOM' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'ps51-utf8bom.ps1'), '-Profile', 'ps51', '-ExpectedEncoding', 'ascii')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'EXPECTED_MATCH' | Should -Be 'False'
+            $r.StdOut | Should -Match 'BOM=EFBBBF'
+        }
+
+        It 'passes the ascii expectation on a pure ASCII file' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'ps51-ascii.ps1'), '-Profile', 'ps51', '-ExpectedEncoding', 'ascii')
+            $r.ExitCode | Should -Be 0
+            Get-Field $r.StdOut 'EXPECTED_MATCH' | Should -Be 'True'
+        }
+
+        It 'passes the ascii expectation on an empty file' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'empty.txt'), '-Profile', 'data', '-ExpectedEncoding', 'ascii')
+            $r.ExitCode | Should -Be 0
+            Get-Field $r.StdOut 'EXPECTED_MATCH' | Should -Be 'True'
+        }
+
+        It 'never reports a match together with a failed expectation' {
+            # The v1.0.0 output could print EXPECTED_MATCH=True next to
+            # VERDICT=FAIL. Both fields describe the same comparison, so they
+            # have to agree, whichever way it goes.
+            $ok = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'ps51-ascii.ps1'), '-Profile', 'ps51', '-ExpectedEncoding', 'utf8-bom')
+            Get-Field $ok.StdOut 'EXPECTED_MATCH' | Should -Be 'False'
+            $ok.StdOut | Should -Match 'EXPECTED_MISMATCH'
         }
     }
 
