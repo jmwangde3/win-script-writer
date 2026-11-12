@@ -303,6 +303,27 @@ Describe 'New-EncodedScript.ps1' {
             $r.ExitCode | Should -Be 3
             [System.IO.File]::ReadAllText($target) | Should -Be 'original'
         }
+
+        It 'reports REPLACE_FAILED and keeps the original when the target cannot be replaced' {
+            # A read-only destination makes File.Replace throw, which is the only
+            # failure that happens after the temporary file has been written and
+            # verified. The original must survive it, and the report must not
+            # claim a write that did not happen.
+            $target = Join-Path $TestDrive 'read-only.ps1'
+            [System.IO.File]::WriteAllText($target, 'original', $Utf8NoBom)
+            (Get-Item -LiteralPath $target).IsReadOnly = $true
+            try {
+                $r = Invoke-Tool @('-Path', $target, '-ContentFile', (Join-Path $FixturesDir 'content-utf8.txt'), '-Force')
+                $r.ExitCode | Should -Be 2
+                Get-Field $r.StdOut 'ERROR' | Should -Be 'REPLACE_FAILED'
+                Get-Field $r.StdOut 'WROTE' | Should -BeNullOrEmpty
+                [System.IO.File]::ReadAllText($target) | Should -Be 'original'
+                (Get-TempLeftovers $TestDrive).Count | Should -Be 0
+            }
+            finally {
+                (Get-Item -LiteralPath $target).IsReadOnly = $false
+            }
+        }
     }
 
     Context 'output formats' {

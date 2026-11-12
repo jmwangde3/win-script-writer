@@ -95,6 +95,10 @@ Write-Fixture 'ps51-gbk-cn.ps1' (Get-EncodedBytes $gbk $psBody) 'CP936 + CJK, no
 Write-Fixture 'ps51-utf16le-bom.ps1' (Get-EncodedBytes $utf16LeBom $psBody -WithBom) 'UTF-16LE with BOM'
 Write-Fixture 'ps51-utf16be-bom.ps1' (Get-EncodedBytes $utf16BeBom $psBody -WithBom) 'UTF-16BE with BOM'
 Write-Fixture 'utf16le-nobom.ps1' (Get-EncodedBytes $utf16LeNoBom ('Write-Output "hello"' + "`r`n")) 'UTF-16LE without BOM (NUL pattern)'
+# The BE counterpart is what proved the earlier verdict wrong: the previous
+# "UTF-16BE does not run" measurement had been taken on a BOM-less file, because
+# Python's utf-16-be codec does not emit a mark. With a real FE FF it runs.
+Write-Fixture 'utf16be-nobom.ps1' (Get-EncodedBytes (New-Object System.Text.UnicodeEncoding($true, $false)) ('Write-Output "hello"' + "`r`n")) 'UTF-16BE without BOM (NUL pattern)'
 
 # --- CMD fixtures --------------------------------------------------------
 Write-Fixture 'bat-ascii.bat' (Get-EncodedBytes $gbk ('@echo off' + "`r`n" + 'echo hello' + "`r`n")) 'ascii batch'

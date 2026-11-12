@@ -500,8 +500,8 @@ begin {
                         [void]$reasons.Add('UTF16LE_RUNNABLE_NOT_PREFERRED: verified on Windows PowerShell 5.1.26100 and PowerShell 7.6.9 that UTF-16LE with BOM is parsed and executed by both; it is still not the recommended storage because cmd.exe, git diff, editors and most text tools read it as binary or mojibake. Keep scripts in UTF-8 with BOM')
                     }
                     'utf16be-bom' {
-                        $verdict = 'FAIL'
-                        [void]$reasons.Add('UTF16BE_UNSUPPORTED: verified on both runtimes that the FE FF mark is not stripped; the file is tokenised as single-byte text, fails at the first character and still exits 0, which is worse than a parse error')
+                        $verdict = 'WARN'
+                        [void]$reasons.Add('UTF16BE_RUNNABLE_NOT_PREFERRED: verified on Windows PowerShell 5.1.26100 and PowerShell 7.7.0 that the FE FF mark is honoured and the script runs, CJK included. It is still not the recommended storage: cmd.exe, git diff, editors and most text tools read it as binary or mojibake. Keep scripts in UTF-8 with BOM')
                     }
                     'utf16le-no-bom-suspected' {
                         $verdict = 'FAIL'
@@ -533,8 +533,8 @@ begin {
                         [void]$reasons.Add('UTF16LE_RUNNABLE_NOT_PREFERRED: both runtimes do parse and run UTF-16LE with BOM, but the file is unreadable to git, editors and most tools. Keep scripts in UTF-8')
                     }
                     'utf16be-bom' {
-                        $verdict = 'FAIL'
-                        [void]$reasons.Add('UTF16BE_UNSUPPORTED: the FE FF mark is not stripped by either runtime; the script fails on the first character while still exiting 0')
+                        $verdict = 'WARN'
+                        [void]$reasons.Add('UTF16BE_RUNNABLE_NOT_PREFERRED: both runtimes parse it, but nothing else on the machine expects UTF-16BE. Keep scripts in UTF-8')
                     }
                     'utf16le-no-bom-suspected' {
                         $verdict = 'FAIL'
