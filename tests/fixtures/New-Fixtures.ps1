@@ -149,8 +149,14 @@ Write-Fixture 'utf16le-bom-lone-surrogate.ps1' ([byte[]](0xFF, 0xFE) + $utf16Bod
 # --- non-ASCII outside CJK (v1.0.1) --------------------------------------
 # U+00E9 (e acute) is a single two byte UTF-8 sequence. It exists so the ascii
 # expectation has a case that is neither CJK nor a BOM.
+#
+# The line ends with a bare LF although every other text fixture uses CRLF. This
+# directory is marked -text, so the CR would reach the blob and `git diff --check`
+# reads it as trailing whitespace (core.whitespace has no cr-at-eol here). The
+# fixture exists to carry the e acute, not to pin a line ending; an LF keeps the
+# whitespace check quiet without weakening the case.
 $eacute = ConvertFrom-CodePoints @(0x00E9)
-Write-Fixture 'utf8nobom-latin1.txt' (Get-EncodedBytes $utf8NoBom ('caf' + $eacute + "`r`n")) 'UTF-8 no BOM, Latin-1 range character'
+Write-Fixture 'utf8nobom-latin1.txt' (Get-EncodedBytes $utf8NoBom ('caf' + $eacute + "`n")) 'UTF-8 no BOM, Latin-1 range character'
 
 # --- writer inputs -------------------------------------------------------
 $contentBody = $zh + $ceshi + ': content source for the writer.' + "`r`n"
