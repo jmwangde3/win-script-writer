@@ -102,6 +102,35 @@ jobs:
         shell: pwsh
         run: ./tests/run-all.ps1
 
+  python-utf8-mode:
+    # PEP 686 makes UTF-8 mode the default in Python 3.15: open() stops following
+    # the ANSI code page. This repository's whole subject is "the default encoding
+    # is not what you think", so the suite has to keep passing the day that
+    # default moves. PYTHONUTF8=1 is the preview of that behaviour, not a 3.15
+    # interpreter -- say so rather than implying real 3.15 coverage.
+    name: Python UTF-8 mode (3.15 default preview)
+    runs-on: windows-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Executor suite with UTF-8 mode forced on
+        env:
+          PYTHONUTF8: '1'
+          PYTHONIOENCODING: 'utf-8'
+        run: python -m unittest discover -s tests/python -v
+
+      - name: Integration suite with UTF-8 mode forced on
+        env:
+          PYTHONUTF8: '1'
+          PYTHONIOENCODING: 'utf-8'
+        run: python -m unittest discover -s tests/integration -v
+
   docs:
     name: docs contract
     runs-on: ubuntu-latest

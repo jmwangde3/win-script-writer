@@ -174,6 +174,32 @@ class TestMatrixCoversBothEditions(unittest.TestCase):
                     )
 
 
+class TestPythonUtf8Mode(unittest.TestCase):
+    def test_one_job_forces_utf8_mode(self):
+        # PEP 686 flips the interpreter default in Python 3.15. A job that forces
+        # the mode on is the only thing between that change and a surprise, and a
+        # job that is deleted in a refactor is invisible without this assertion.
+        document = load("test.yml")
+        candidates = [
+            (job_id, job)
+            for job_id, job in (document.get("jobs") or {}).items()
+            if any((s.get("env") or {}).get("PYTHONUTF8") == "1" for s in job.get("steps") or [])
+        ]
+        self.assertEqual(len(candidates), 1, "exactly one job must force UTF-8 mode")
+        job_id, job = candidates[0]
+        runs = "\n".join(s.get("run") or "" for s in job["steps"])
+        self.assertIn("tests/python", runs, job_id)
+        self.assertIn("tests/integration", runs, job_id)
+
+    def test_the_utf8_job_does_not_claim_to_run_python_315(self):
+        # Honesty in the job name: forcing the mode is a preview, not a 3.15 run.
+        document = load("test.yml")
+        names = [job.get("name", "") for job in (document.get("jobs") or {}).values()]
+        utf8_names = [n for n in names if "UTF-8" in n]
+        self.assertEqual(len(utf8_names), 1, names)
+        self.assertIn("preview", utf8_names[0].lower())
+
+
 class TestReleaseWiring(unittest.TestCase):
     def test_release_runs_only_on_a_tag(self):
         document = load("release.yml")
