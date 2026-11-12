@@ -46,12 +46,28 @@ Describe 'Test-ScriptEncoding.ps1' {
             $r.StdOut | Should -Match 'UTF16LE_RUNNABLE_NOT_PREFERRED'
         }
 
-        It 'rejects UTF-16BE with BOM' {
+        It 'warns on UTF-16BE with BOM for the same reason' {
+            # Same measurement: the FE FF mark is honoured and the script runs.
+            # Not preferred is a portability statement, not a parse failure.
             $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'ps51-utf16be-bom.ps1'), '-Profile', 'ps51')
-            $r.ExitCode | Should -Be 2
+            $r.ExitCode | Should -Be 1
             Get-Field $r.StdOut 'ENCODING' | Should -Be 'utf16be-bom'
-            Get-Field $r.StdOut 'VERDICT' | Should -Be 'FAIL'
-            $r.StdOut | Should -Match 'UTF16BE_UNSUPPORTED'
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'WARN'
+            $r.StdOut | Should -Match 'UTF16BE_RUNNABLE_NOT_PREFERRED'
+        }
+
+        It 'fails UTF-16LE without a BOM, which really does not run' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'utf16le-nobom.ps1'), '-Profile', 'ps51')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'ENCODING' | Should -Be 'utf16le-no-bom-suspected'
+            $r.StdOut | Should -Match 'UTF16_NO_BOM'
+        }
+
+        It 'fails UTF-16BE without a BOM too' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'utf16be-nobom.ps1'), '-Profile', 'ps51')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'ENCODING' | Should -Be 'utf16be-no-bom-suspected'
+            $r.StdOut | Should -Match 'UTF16_NO_BOM'
         }
     }
 

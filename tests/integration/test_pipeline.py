@@ -115,6 +115,77 @@ class TestPipeline(unittest.TestCase):
         self.assertIn(b"ACP=%d" % acp, r.stdout)
 
 
+class TestUtf16Scripts(unittest.TestCase):
+    """What UTF-16 really does, so the verdicts are backed by execution.
+
+    The detector rates UTF-16LE with a BOM as WARN (runnable, not preferred) and
+    UTF-16BE as FAIL. Both claims are assertions about a real interpreter, so
+    they are executed here rather than assumed.
+    """
+
+    def _write(self, tmp, encoding, with_bom, marker):
+        body = 'Write-Output "%s"\n' % marker
+        path = pathlib.Path(tmp) / ("probe-%s.ps1" % encoding)
+        raw = body.encode(encoding)
+        if with_bom:
+            raw = (b"\xff\xfe" if encoding == "utf-16-le" else b"\xfe\xff") + raw
+        path.write_bytes(raw)
+        return path
+
+    def test_utf16le_with_bom_runs_correctly(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._write(tmp, "utf-16-le", True, "utf16le-ran")
+            r = run_ps(["--invoke-file", str(path)])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn(b"utf16le-ran", r.stdout)
+
+    def test_utf16be_with_bom_also_runs(self):
+        # Measured, not assumed: with a real FE FF mark both runtimes honour it
+        # and execute the script. The first version of this test asserted the
+        # opposite and was wrong -- the fixture it used had been written by a
+        # codec that does not emit a BOM, so it was measuring BOM-less UTF-16.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._write(tmp, "utf-16-be", True, "utf16be-ran")
+            r = run_ps(["--invoke-file", str(path)])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn(b"utf16be-ran", r.stdout)
+
+    def test_utf16_without_a_bom_does_not_run_and_still_exits_zero(self):
+        # This is the form that really fails: the NUL pattern is tokenised as
+        # single-byte text, the script dies at the first character, and the
+        # process still reports success.
+        for encoding, bom in (("utf-16-le", b""), ("utf-16-be", b"")):
+            with self.subTest(encoding=encoding):
+                with tempfile.TemporaryDirectory() as tmp:
+                    path = self._write(tmp, encoding, False, "nobom-ran")
+                    r = run_ps(["--invoke-file", str(path)])
+                self.assertEqual(r.returncode, 0, r.stderr)
+                self.assertNotIn(b"nobom-ran", r.stdout)
+
+    def test_detector_verdicts_match_the_execution_results(self):
+        for fixture, code, reason in (
+            ("ps51-utf16le-bom.ps1", 1, b"UTF16LE_RUNNABLE_NOT_PREFERRED"),
+            ("ps51-utf16be-bom.ps1", 1, b"UTF16BE_RUNNABLE_NOT_PREFERRED"),
+            ("utf16le-nobom.ps1", 2, b"UTF16_NO_BOM"),
+            ("utf16be-nobom.ps1", 2, b"UTF16_NO_BOM"),
+        ):
+            with self.subTest(fixture=fixture):
+                r = ps_tool("Test-ScriptEncoding.ps1", ["-Path", str(FIXTURES / fixture), "-Profile", "ps51"])
+                self.assertEqual(r.returncode, code, r.stdout)
+                self.assertIn(reason, r.stdout)
+
+
+class TestBomPayloadPipeline(unittest.TestCase):
+    def test_a_bom_with_a_corrupt_payload_is_rejected_before_it_runs(self):
+        # The file executes in 5.1 -- partially, with an error, and exit 0. The
+        # detector is the only thing standing between that and a green build.
+        fixture = FIXTURES / "utf8bom-invalid-ff.bin"
+        t = ps_tool("Test-ScriptEncoding.ps1", ["-Path", str(fixture), "-Profile", "ps51"])
+        self.assertEqual(t.returncode, 2, t.stdout)
+        self.assertIn(b"PAYLOAD_VALID=False", t.stdout)
+        self.assertIn(b"INVALID_ENCODING_PAYLOAD", t.stdout)
+
+
 class TestCp936Host(unittest.TestCase):
     """Only meaningful on a host whose ANSI code page really is 936.
 
