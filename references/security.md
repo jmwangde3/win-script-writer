@@ -62,6 +62,10 @@ protection"用例，断言不带 `-Force` 时目标文件字节不变。
 **怎么做**：模块 docstring 的 "What it does not do" 一节第一句就是
 `It is not a sandbox.`；`SKILL.md` 与 `references/execution.md` 各重申一次。
 
+`--invoke-file` 同样不是沙箱，只是更"薄"：它把路径原样交给子进程，不读、
+不解码、不复制、不改写文件，因此它能给的东西只有"文件上下文真实"，没有任何
+隔离能力。
+
 **推论**：不要把 `run_ps.py` 当作"执行不可信代码"的方案。不可信代码需要
 的是容器、受限账户或 AppContainer，不是一层 base64。
 
@@ -76,6 +80,8 @@ protection"用例，断言不带 `-Force` 时目标文件字节不变。
   GBK 表达不了的字符直接报 `UNREPRESENTABLE_CHARACTER`，不替换。
 - `Test-ScriptEncoding.ps1` 检测 CP936 时要求"解码再编码"字节完全一致，
   才敢标 `gbk`，且只给 `confidence=medium`。
+- `Test-ScriptEncoding.ps1` 看到 BOM 也会把标记之后的字节解码一遍：BOM 是
+  声明，不是内容合法的证据。`EF BB BF FF` 报 `FAIL`，不报 `OK`。
 - 工具自身的输出一律 ASCII（`VERDICT=OK`、`ENCODING=gbk`），不依赖任何
   代码页。
 
@@ -105,6 +111,7 @@ fixture 断言非零退出码与明确的错误码。
 | 放宽执行策略 | 不加 | `--execution-policy` |
 | 改控制台编码 | 不改 | `--console-encoding` |
 | 保留临时文件 | 删除 | `--keep-temp` |
+| 改写脚本文件 | 永不 | `--invoke-file` 也不改写；要写文件只有 `New-EncodedScript.ps1` |
 | 改系统代码页 | 永不 | 不做，也不提供开关 |
 
 最后一行是刻意的：有些事不是"默认关掉"就够了，而是不应该有这个功能。

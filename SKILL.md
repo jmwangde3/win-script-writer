@@ -45,9 +45,11 @@ PowerShell 5.1、PowerShell 7.4+、未开启系统级 UTF-8；Git Bash / MSYS2
 2. **不要用 `>`、`>>`、`Out-File`、`Set-Content` 写文件。** 5.1 下它们
    产出 UTF-16LE + BOM 或 ANSI，Python、Node、git 读进来就是乱码。改
    `[System.IO.File]::WriteAllText($p, $s, $utf8NoBom)`，写前读回校验。
-3. **不要拼 `-Command` 传中文。** 命令行按 ANSI 代码页解码，中文参数和
-   嵌套引号都会在路上损坏。要么把脚本落盘成 `.ps1` 再用 `-File` 跑，要
-   么用 `scripts/run_ps.py`（UTF-16LE Base64 + `-EncodedCommand`）。
+3. **中文与嵌套引号不要手拼命令行。** 用 argv 列表调用时 Windows 的命令行
+   本身是 Unicode，不丢字；丢字发生在字节层：GBK 的 `.bat` 里写的命令、
+   Shell 把参数重新拼成字符串、以及把 stdout 按错的代码页解码。要稳就走
+   文件：`-File`，或 `scripts/run_ps.py`。需要真实文件语义（`$PSScriptRoot`、
+   相对 dot-source）用它的 `--invoke-file`，见 `references/execution.md`。
 4. **不要假设 profile 生效。** agent 宿主普遍以
    `-NoProfile -NonInteractive` 启动，`$PROFILE` 不会被加载。需要编码
    兜底就在脚本开头显式写，不要依赖用户配置。
@@ -66,9 +68,11 @@ PowerShell 5.1、PowerShell 7.4+、未开启系统级 UTF-8；Git Bash / MSYS2
 - `scripts/New-EncodedScript.ps1` —— 按指定编码落盘。中文内容通过文件
   传入而不走命令行；先写临时文件、读回复验、再原子替换；默认拒绝覆盖，
   要覆盖必须显式 `-Force`。
-- `scripts/run_ps.py` —— 编码无关地执行脚本。默认不改执行策略、不改控
-  制台编码；它不是沙箱。退出码：子进程原样透传，3 本地错误，124 超时，
-  127 找不到指定 shell。
+- `scripts/run_ps.py` —— 编码无关地执行脚本。`--command` / `--file` /
+  `--stdin` 把正文走 `-EncodedCommand`，没有文件上下文；`--invoke-file`
+  用原生 `-File`，保留 `$PSScriptRoot` 与 `$PSCommandPath`。默认不改执行
+  策略、不改控制台编码；它不是沙箱。退出码：子进程原样透传，3 本地错误，
+  124 超时，127 找不到指定 shell。
 
 ## 4. 边界
 

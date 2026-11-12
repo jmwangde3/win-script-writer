@@ -53,11 +53,16 @@ PSEDITION=Desktop       # Desktop = 5.1，Core = 7
 powershell -NoProfile -File scripts/Test-ScriptEncoding.ps1 -Path .\build.ps1
 ```
 
-按指定编码落盘（默认拒绝覆盖）：
+按指定编码落盘（默认拒绝覆盖；不传 `-Encoding` 时按扩展名选）：
 
 ```powershell
+# .ps1 自动用 utf8-bom，正是 5.1 与 7 都认的存法
 powershell -NoProfile -File scripts/New-EncodedScript.ps1 `
-    -Path .\build.ps1 -ContentFile .\source.txt -Encoding utf8-bom
+    -Path .\build.ps1 -ContentFile .\source.txt
+
+# 需要别的编码就显式传
+powershell -NoProfile -File scripts/New-EncodedScript.ps1 `
+    -Path .\legacy.cmd -ContentFile .\source.txt -Encoding gbk -Force -Backup
 ```
 
 含中文地执行一段脚本：
@@ -65,6 +70,9 @@ powershell -NoProfile -File scripts/New-EncodedScript.ps1 `
 ```bash
 python scripts/run_ps.py 'Write-Output "hello"'
 python scripts/run_ps.py --shell pwsh --command '$PSVersionTable.PSEdition'
+
+# 需要一个真实文件上下文（$PSScriptRoot、相对 dot-source）时：
+python scripts/run_ps.py --invoke-file .\script.ps1
 ```
 
 ## 四个工具
@@ -72,11 +80,11 @@ python scripts/run_ps.py --shell pwsh --command '$PSVersionTable.PSEdition'
 | 工具 | 作用 | 只读 |
 | --- | --- | --- |
 | `scripts/Get-WinScriptEnvironment.ps1` | 报告 ACP / OEMCP / 控制台代码页 / `$OutputEncoding` / 运行时版本 | 是 |
-| `scripts/Test-ScriptEncoding.ps1` | 字节级检测编码，按目标消费方给 OK/WARN/FAIL | 是 |
-| `scripts/New-EncodedScript.ps1` | 按指定编码落盘，临时文件 + 读回校验 + 原子替换 | 否，需显式 `-Force` 才覆盖 |
-| `scripts/run_ps.py` | 编码无关地执行脚本，UTF-16LE base64 传输 | 否，执行指定内容 |
+| `scripts/Test-ScriptEncoding.ps1` | 字节级检测编码：连 BOM 之后的负载一起验，按目标消费方给 OK/WARN/FAIL | 是 |
+| `scripts/New-EncodedScript.ps1` | 按编码落盘，临时文件 + 读回校验 + 原子替换；默认编码按扩展名推导 | 否，需显式 `-Force` 才覆盖 |
+| `scripts/run_ps.py` | 编码无关地执行脚本。文本模式走 UTF-16LE base64，`--invoke-file` 走原生 `-File` | 否，执行指定内容 |
 
-退出码是契约：检测器 `0/1/2/3`，写入器 `0/1/2/3`，
+退出码是契约：检测器 `0/1/2/3`，写入器 `0/2/3`，
 `run_ps.py` 子进程码透传 + `3/124/127`。
 
 ## 装成 skill
@@ -161,11 +169,15 @@ Install-Module PSScriptAnalyzer -Scope CurrentUser
 ## 已验证范围
 
 本仓库的所有实测数字来自：Windows 11 简体中文，ACP=936，OEMCP=936，
-Windows PowerShell 5.1.26100（Desktop）、PowerShell 7.6.9（Core），
-Pester 5.7.1，PSScriptAnalyzer 1.24.0，Python 3.13。
+Windows PowerShell 5.1.26100（Desktop）、PowerShell 7.7.0（Core），
+Pester 5.7.1，PSScriptAnalyzer 1.24.0，Python 3.13.9。
 
 其他环境没有实测过。判据可以复用，数字请自己跑
 `Get-WinScriptEnvironment.ps1` 确认。
+
+CP936 相关的断言只在真正 ACP=936 的机器上有意义，GitHub 托管 runner 是
+en-US（ACP 1252），那部分用例会在那里跳过自己。本机（ACP=936）的一次性
+验证记录与"跳过不等于覆盖"的说明在 `tests/cp936/README.md`。
 
 ## 许可
 

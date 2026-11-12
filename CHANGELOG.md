@@ -3,6 +3,84 @@
 格式参照 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号按 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.1] - 2026-11-12
+
+稳定性修复。1.0.0 的三个编码判定错误、`run_ps.py` 的文件语义含糊、写入器
+默认值与它自己的规范互相矛盾，这三类问题都在这一版修掉，并且每条都换成了
+"先测量再判定"的实现。
+
+### Changed（会改变既有行为，需注意）
+
+- **`Test-ScriptEncoding.ps1` 对 UTF-16 脚本的判定从 `FAIL` 改为 `WARN`。**
+  1.0.0 的理由是"Windows PowerShell 5.1 无法可靠解析 UTF-16 脚本"，这句
+  话没有验证过，而且是错的：实测 5.1.26100 与 7.7.0 都能解析执行带 BOM 的
+  UTF-16LE 与 UTF-16BE 脚本，中文正确。`WARN` 表达的是"能跑但不推荐"——
+  `cmd.exe`、`git diff`、多数编辑器按单字节读。真实不成立的是**没有 BOM**
+  的 UTF-16，那个仍然 `FAIL`。
+  **影响**：用 `-Profile ps51` / `ps7` 检查 UTF-16LE/BE 文件时退出码从 2
+  变成 1；带 `-FailOnWarning` 的调用方退出码仍是 2。
+- **`New-EncodedScript.ps1` 的默认编码按扩展名推导。** 1.0.0 对任何目标都
+  默认 `utf8-nobom`，于是用它写一个含中文的 `.ps1`，产出的正是检测器
+  （`-Profile ps51`）判 `FAIL` 的文件——两个工具互相矛盾。现在 `.ps1` /
+  `.psm1` / `.psd1` → `utf8-bom`，`.bat` / `.cmd` → `gbk`，其余 →
+  `utf8-nobom`；显式 `-Encoding` 永远优先。结果新增
+  `ENCODING_SOURCE=explicit|extension`。
+- **`run_ps.py` 的用法错误退出码从 2 改为 3。** argparse 默认用 2 表示用法
+  错误，与"子进程退出 2"撞车。
+
+### Added
+
+- **`run_ps.py --invoke-file <path>`：保留真实文件上下文的执行模式。**
+  路径原样交给子进程的 `-File`，不读、不解码、不复制、不改写文件，因此
+  `$PSScriptRoot`、`$PSCommandPath`、`$MyInvocation.MyCommand.Path`、
+  `param()`、`[CmdletBinding()]`、相对 dot-source 全部按原生行为工作。
+  `--script-args` 之后的内容原样转发给脚本（argv 列表，无 shell）。
+  与 `--console-encoding` / `--input-encoding` / `--command` / `--file` /
+  `--stdin` / 位置参数互斥，冲突时退出码 3 并说明原因。
+- 检测器输出新增 `PAYLOAD_VALID` 与 `PAYLOAD_PROBLEM` 两个字段；编码名新增
+  `utf8-bom-invalid` / `utf16le-bom-invalid` / `utf16be-bom-invalid`。
+- `tests/cp936/verify-local.ps1`：在真实 zh-CN 机器上一次性跑完 CP936 门禁
+  的全部检查，不需要注册自托管 runner。
+- `tests/integration/test_package.py`：解压发布包并实际执行里面的工具。
+- `test.yml` 新增 `python-utf8-mode` 作业：用 `PYTHONUTF8=1` 模拟 Python
+  3.15 的默认 UTF-8 模式（PEP 686），确认默认值改变后行为不退化。
+
+### Fixed
+
+- **UTF-8 BOM 被当成"文件是 UTF-8"的证据，从不检查后面的字节。**
+  `EF BB BF FF`、`EF BB BF C3 28`、`EF BB BF E4 B8` 全部返回
+  `ENCODING=utf8-bom`、`STRICT_UTF8=True`、`VERDICT=OK`、退出码 0。BOM 是
+  声明，不是内容合法的证明，现在标记之后的字节一律严格解码，失败就
+  `FAIL` 并给出首个坏字节的偏移。UTF-16 的 BOM 同理，另外单独拦奇数字节与
+  孤立代理项。
+- **`-ExpectedEncoding ascii` 与 `utf8-nobom` 被当成互兼容。** 一个含 18 个
+  非 ASCII 字节的文件在 `-Profile ps7` 下通过了 `-ExpectedEncoding ascii`，
+  输出还会出现 `EXPECTED_MATCH=True` 与 `VERDICT=FAIL` 并存的自相矛盾行。
+  现在 ascii 的含义是"每个字节都在 0x00–0x7F"，方向不对称：纯 ASCII 满足
+  `utf8-nobom`，反之不成立；带 BOM 不算 ASCII。
+- **`run_ps.py --file` 的文件上下文随脚本长度变化。** 短脚本走
+  `-EncodedCommand`，`$PSScriptRoot` 为空；长脚本被写成临时文件走 `-File`，
+  `$PSScriptRoot` 变成临时目录。同一个脚本因长度不同换语义，且没有任何
+  提示。现在降级时在 stderr 打三行 `run_ps.py: note:`，点名
+  `--invoke-file`。
+- **写入器的备份文件会被覆盖。** 备份名是秒级时间戳，而 `File.Replace`
+  会覆盖同名备份，同一秒内两次写入会销毁前一个备份。现在遇到同名自动加
+  序号。
+- **写入失败仍打印 `WROTE=<路径>`。** 失败路径上"已写入"这一行最容易被
+  当真，现在非零退出码不再输出该字段。
+- `run_ps.py` 的临时目录创建失败、清理失败不再抛异常：分别返回 3 与保持
+  子进程退出码。
+
+### Verified
+
+- Windows PowerShell 5.1.26100（Desktop）与 PowerShell 7.7.0（Core）各跑
+  一遍完整矩阵：Pester 77、Python 47、文档契约 30、集成 20、
+  PSScriptAnalyzer 12 文件 0 告警。
+- CP936：本机 ACP=936，`CP936_ASSERTIONS_EXECUTED`。**GitHub 上的
+  `cp936` 工作流仍未运行**——仓库没有注册自托管 runner，也没有设置
+  `CP936_RUNNER` 变量，每次 push 的结果都是 `skipped`。跳过不等于通过，
+  记录见 `tests/cp936/README.md`。
+
 ## [1.0.0] - 2026-11-11
 
 第一个按契约重写的版本。0.1.0 是一份写给人看的规则加两个脚本；1.0.0 把

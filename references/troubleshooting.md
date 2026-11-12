@@ -142,6 +142,60 @@ git -c core.quotepath=false status
 先看是不是踩了 `references/dual-version-compatibility.md` 的语法禁区——那些
 是**解析期**错误，5.1 上 `try/catch` 抓不到。
 
+### `Test-ScriptEncoding.ps1` 报 `PAYLOAD_VALID=False`
+
+BOM 存在，但标记之后的字节不是合法 UTF-8 / UTF-16。这是坏文件，不是检测器
+太严：
+
+```text
+ENCODING=utf8-bom-invalid
+PAYLOAD_VALID=False
+PAYLOAD_PROBLEM=UTF-8 BOM followed by invalid UTF-8 at byte 3: ...
+```
+
+修法只有重写：把内容按 UTF-8 重新保存。别去动 BOM，也别把它当 ASCII 用——
+`EF BB BF FF` 这种文件在 5.1 里会跑完前半段并以退出码 0 结束。
+
+### 检测器说 UTF-16 文件是 `WARN`
+
+带 BOM 的 UTF-16LE/BE 脚本两个版本都能跑，所以判 `WARN` 而不是 `FAIL`。
+WARN 说的是"能用但别用"：`git diff` 当二进制、编辑器读成乱码、`cmd.exe`
+完全不认。改造方法是重新存成 UTF-8 with BOM。
+
+判 `FAIL` 的是**没有 BOM** 的 UTF-16（`UTF16_NO_BOM`）——那个真的跑不起来，
+而且退出码是 0。
+
+### `run_ps.py --file` 里 `$PSScriptRoot` 是空的
+
+文本模式本来就没有文件上下文：正文走 `-EncodedCommand`，磁盘上没有这个
+脚本。换成原始文件模式：
+
+```bash
+python scripts/run_ps.py --invoke-file .\script.ps1
+```
+
+### `run_ps.py` 在 stderr 打了三行 `note:`，`$PSScriptRoot` 变成临时目录
+
+脚本太长，超过命令行上限，被写成临时文件再 `-File`。这是唯一的合法降级，
+但上下文变了，所以它会明说。要真实位置就改 `--invoke-file`。
+
+### `run_ps.py` 说 `--invoke-file cannot honour ...`
+
+`--invoke-file` 和 `--console-encoding` / `--input-encoding` / `--command` /
+`--file` / `--stdin` 互斥：这几个都要求改写脚本正文，而原始文件模式承诺
+不改写。去掉其中一边。
+
+### 写入器报 `REPLACE_FAILED`
+
+临时文件写成功、读回校验也通过，但替换目标失败——最常见是目标只读或被
+占用。原文件保持不动，报错里带 .NET 的原始消息。
+
+### `New-EncodedScript.ps1` 写入的编码不是我想要的
+
+不传 `-Encoding` 时按扩展名选：`.ps1/.psm1/.psd1` → `utf8-bom`，
+`.bat/.cmd` → `gbk`，其余 → `utf8-nobom`。结果里的
+`ENCODING_SOURCE=extension|explicit` 告诉你是哪条规则生效的。
+
 ## 3. 三步定位法
 
 1. **看机器**：`Get-WinScriptEnvironment.ps1` → 四个代码页 + 版本。
