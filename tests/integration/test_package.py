@@ -80,6 +80,9 @@ class TestReleasePackage(unittest.TestCase):
             )
         with zipfile.ZipFile(cls.zip_path) as archive:
             cls.entries = archive.namelist()
+            # Read every entry once: several tests compare bytes, and reopening
+            # the archive six times makes the failure harder to read, not easier.
+            cls.blobs = {name: archive.read(name) for name in cls.entries}
 
     @classmethod
     def tearDownClass(cls):
@@ -119,6 +122,43 @@ class TestReleasePackage(unittest.TestCase):
     def test_all_references_are_present(self):
         references = [n for n in self.entries if "/references/" in n]
         self.assertEqual(len(references), REFERENCE_COUNT, references)
+
+    def test_every_entry_matches_the_checkout(self):
+        # "The zip contains what the tag contains" is the only property that makes
+        # a release artefact trustworthy.
+        #
+        # The comparison is against the checkout, not against `git show HEAD:`,
+        # because .gitattributes stores .ps1 with LF while the checkout (and
+        # therefore the package) uses CRLF; a raw blob comparison reports three
+        # false mismatches for exactly that reason. The next test pins the
+        # checkout to HEAD, and the two together say "packaged bytes == HEAD".
+        mismatched = []
+        for entry in self.entries:
+            relative = entry.split("win-script-writer/", 1)[1]
+            source = REPO_ROOT / relative
+            if not source.is_file():
+                mismatched.append(relative + " (missing)")
+                continue
+            if source.read_bytes() != self.blobs[entry]:
+                mismatched.append(relative)
+        self.assertEqual(mismatched, [], "packaged bytes differ from the checkout")
+
+    def test_the_checkout_is_clean_so_the_previous_test_speaks_for_head(self):
+        inside = subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            cwd=str(REPO_ROOT), capture_output=True, timeout=60,
+        )
+        if inside.returncode != 0:
+            self.skipTest("not a git checkout")
+        status = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=str(REPO_ROOT), capture_output=True, timeout=60,
+        )
+        dirty = [
+            line for line in status.stdout.decode("utf-8", "replace").splitlines()
+            if line.strip()
+        ]
+        self.assertEqual(dirty, [], "packaging a dirty tree does not prove the tag")
 
     def test_release_notes_are_utf8_and_come_from_the_changelog(self):
         raw = self.notes_path.read_bytes()
