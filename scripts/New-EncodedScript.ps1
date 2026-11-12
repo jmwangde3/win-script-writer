@@ -30,7 +30,16 @@
     through the command line, which is code page dependent. Prefer -ContentFile.
 
 .PARAMETER Encoding
-    utf8-bom (default for scripts), utf8-nobom, or gbk.
+    utf8-bom, utf8-nobom, or gbk. When omitted, the target extension decides:
+
+      .ps1 .psm1 .psd1   utf8-bom   the only form both Windows PowerShell 5.1
+                                    and PowerShell 7 parse identically
+      .bat .cmd          gbk        what a CP936 cmd.exe expects; pass
+                                    -Encoding explicitly on another code page
+      anything else      utf8-nobom the safe default for data files
+
+    The chosen name and its source (explicit or extension) are reported, so a
+    caller never has to guess which one it got.
 
 .PARAMETER Force
     Allow replacing an existing file.
@@ -63,7 +72,7 @@ param(
     [string]$Content,
 
     [ValidateSet('utf8-bom', 'utf8-nobom', 'gbk')]
-    [string]$Encoding = 'utf8-nobom',
+    [string]$Encoding,
 
     [switch]$Force,
 
@@ -77,19 +86,69 @@ Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
 $result = [ordered]@{
-    Tool       = 'New-EncodedScript.ps1'
-    Version    = '1.0.0'
-    Runtime    = $PSVersionTable.PSEdition
-    Target     = $null
-    Written    = $null
-    Encoding   = $Encoding
-    Bytes      = 0
-    Bom        = 'NONE'
-    Verified   = $false
-    Backup     = $null
-    Replaced   = $false
-    Error      = $null
-    ExitCode   = 3
+    Tool           = 'New-EncodedScript.ps1'
+    Version        = '1.0.1'
+    Runtime        = $PSVersionTable.PSEdition
+    Target         = $null
+    Written        = $null
+    Encoding       = $null
+    EncodingSource = $null
+    Bytes          = 0
+    Bom            = 'NONE'
+    Verified       = $false
+    Backup         = $null
+    Replaced       = $false
+    Error          = $null
+    ExitCode       = 3
+}
+
+function Resolve-TargetEncoding {
+    <#
+        Explicit wins. Otherwise the extension decides, because the extension is
+        the consumer's only hint about what the bytes should be:
+
+          * a .ps1 that contains non-ASCII characters has to carry a BOM, or
+            Windows PowerShell 5.1 decodes it with the ANSI code page. The old
+            default was utf8-nobom for every target, which wrote exactly the file
+            the detector rejects.
+          * a .bat / .cmd is read by cmd.exe with the OEM code page, so CP936 is
+            the only form a zh-CN console shows correctly.
+
+        Anything else keeps the previous default.
+    #>
+    param([string]$Requested, [string]$TargetPath)
+
+    if ($Requested) {
+        return [pscustomobject]@{ Name = $Requested; Source = 'explicit' }
+    }
+
+    $extension = [System.IO.Path]::GetExtension($TargetPath).ToLowerInvariant()
+    switch ($extension) {
+        '.ps1' { return [pscustomobject]@{ Name = 'utf8-bom'; Source = 'extension' } }
+        '.psm1' { return [pscustomobject]@{ Name = 'utf8-bom'; Source = 'extension' } }
+        '.psd1' { return [pscustomobject]@{ Name = 'utf8-bom'; Source = 'extension' } }
+        '.bat' { return [pscustomobject]@{ Name = 'gbk'; Source = 'extension' } }
+        '.cmd' { return [pscustomobject]@{ Name = 'gbk'; Source = 'extension' } }
+        default { return [pscustomobject]@{ Name = 'utf8-nobom'; Source = 'extension' } }
+    }
+}
+
+function Get-UniqueBackupPath {
+    <#
+        A backup name is a second-resolution timestamp, so two writes inside the
+        same second used to produce the same name -- and File.Replace overwrites
+        an existing backup file, which silently destroyed the first one.
+    #>
+    param([string]$TargetPath)
+
+    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $candidate = $TargetPath + '.bak-' + $stamp
+    $counter = 0
+    while (Test-Path -LiteralPath $candidate) {
+        $counter++
+        $candidate = $TargetPath + '.bak-' + $stamp + '-' + $counter
+    }
+    return $candidate
 }
 
 function Complete-Write {
@@ -107,7 +166,7 @@ function Complete-Write {
         $result | ConvertTo-Json -Depth 4
     }
     else {
-        foreach ($key in @('Target', 'Written', 'Encoding', 'Bytes', 'Bom', 'Verified', 'Backup', 'Replaced', 'Error', 'Detail')) {
+        foreach ($key in @('Target', 'Written', 'Encoding', 'EncodingSource', 'Bytes', 'Bom', 'Verified', 'Backup', 'Replaced', 'Error', 'Detail')) {
             $value = $result[$key]
             if ($null -eq $value) { continue }
             $label = $key.ToUpperInvariant()
@@ -179,6 +238,14 @@ catch {
 }
 $result.Target = $target
 $result.Written = $target
+
+# Resolved before anything is written, and reported, so the caller can see which
+# encoding it ended up with even when it never asked for one.
+$encodingChoice = Resolve-TargetEncoding -Requested $Encoding -TargetPath $target
+# From here on $Encoding is the resolved name, not the raw parameter.
+$Encoding = $encodingChoice.Name
+$result.Encoding = $encodingChoice.Name
+$result.EncodingSource = $encodingChoice.Source
 
 if (Test-Path -LiteralPath $target -PathType Container) {
     Complete-Write -Code 2 -ErrorCode 'TARGET_IS_DIRECTORY' -Detail $target
@@ -262,6 +329,7 @@ if (-not $PSCmdlet.ShouldProcess($target, ('write ' + $Encoding))) {
     else {
         Write-Output ('WOULD_WRITE=' + $target)
         Write-Output ('WOULD_ENCODING=' + $Encoding)
+        Write-Output ('WOULD_ENCODING_SOURCE=' + $encodingChoice.Source)
         Write-Output ('WOULD_BYTES=' + $bytes.Length)
         Write-Output 'EXITCODE=0'
     }
@@ -319,7 +387,7 @@ try {
 
         if ($targetExists) {
             if ($Backup) {
-                $backupPath = $target + '.bak-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
+                $backupPath = Get-UniqueBackupPath -TargetPath $target
             }
             try {
                 # File.Replace always needs a backup path: passing $null from
@@ -379,6 +447,7 @@ if ($Output -eq 'json') {
 else {
     Write-Output ('WROTE=' + $target)
     Write-Output ('ENCODING=' + $Encoding)
+    Write-Output ('ENCODING_SOURCE=' + $encodingChoice.Source)
     Write-Output ('BYTES=' + $bytes.Length)
     Write-Output ('BOM=' + $result.Bom)
     Write-Output ('VERIFIED=' + $result.Verified)
