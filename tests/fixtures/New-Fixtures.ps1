@@ -119,6 +119,35 @@ Write-Fixture 'data-gbk.txt' (Get-EncodedBytes $gbk ($zh + $ceshi + "`r`n")) 'CP
 Write-Fixture 'invalid-bytes.bin' ([byte[]](0x41, 0x81, 0x20, 0x42)) 'neither UTF-8 nor CP936'
 Write-Fixture 'empty.txt' ([byte[]]@()) 'zero length'
 
+# --- BOM payload validation (v1.0.1) -------------------------------------
+# A byte order mark is a claim, not a proof. Every fixture below starts with a
+# valid BOM, and the detector used to answer "utf8-bom / OK / exit 0" for all of
+# them without ever decoding the payload.
+$utf8Bom = [byte[]](0xEF, 0xBB, 0xBF)
+Write-Fixture 'utf8bom-empty.ps1' ($utf8Bom) 'BOM and nothing else: valid, empty payload'
+Write-Fixture 'utf8bom-ascii.ps1' ($utf8Bom + [byte[]](0x41)) 'BOM + "A": valid UTF-8'
+# 0xFF can never appear in UTF-8.
+Write-Fixture 'utf8bom-invalid-ff.bin' ($utf8Bom + [byte[]](0xFF)) 'BOM + FF: invalid UTF-8'
+# C3 starts a two byte sequence, 0x28 is not a continuation byte.
+Write-Fixture 'utf8bom-invalid-continuation.bin' ($utf8Bom + [byte[]](0xC3, 0x28)) 'BOM + C3 28: invalid continuation'
+# E4 B8 is the first two thirds of a three byte sequence.
+Write-Fixture 'utf8bom-incomplete-sequence.bin' ($utf8Bom + [byte[]](0xE4, 0xB8)) 'BOM + E4 B8: truncated sequence'
+
+# UTF-16 payload damage. 0xD800 is a high surrogate with no low surrogate after
+# it, which is not text; the odd length fixture drops the final byte of a code
+# unit. Windows PowerShell 5.1 runs the readable prefix of both and exits 0.
+$utf16Body = $utf16LeBom.GetBytes('Write-Output "hello"' + "`r`n")
+$utf16Truncated = New-Object 'byte[]' ($utf16Body.Length - 1)
+[Array]::Copy($utf16Body, 0, $utf16Truncated, 0, $utf16Truncated.Length)
+Write-Fixture 'utf16le-bom-truncated.ps1' ([byte[]](0xFF, 0xFE) + $utf16Truncated) 'UTF-16LE BOM + odd byte count'
+Write-Fixture 'utf16le-bom-lone-surrogate.ps1' ([byte[]](0xFF, 0xFE) + $utf16Body + [byte[]](0x00, 0xD8)) 'UTF-16LE BOM + unpaired high surrogate'
+
+# --- non-ASCII outside CJK (v1.0.1) --------------------------------------
+# U+00E9 (e acute) is a single two byte UTF-8 sequence. It exists so the ascii
+# expectation has a case that is neither CJK nor a BOM.
+$eacute = ConvertFrom-CodePoints @(0x00E9)
+Write-Fixture 'utf8nobom-latin1.txt' (Get-EncodedBytes $utf8NoBom ('caf' + $eacute + "`r`n")) 'UTF-8 no BOM, Latin-1 range character'
+
 # --- writer inputs -------------------------------------------------------
 $contentBody = $zh + $ceshi + ': content source for the writer.' + "`r`n"
 Write-Fixture 'content-utf8.txt' (Get-EncodedBytes $utf8NoBom $contentBody) 'strict UTF-8 writer input'
