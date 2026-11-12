@@ -74,12 +74,19 @@
 ### Verified
 
 - Windows PowerShell 5.1.26100（Desktop）与 PowerShell 7.7.0（Core）各跑
-  一遍完整矩阵：Pester 77、Python 47、文档契约 30、集成 20、
+  一遍完整矩阵：Pester 77、Python 47、文档契约 38、集成 22、
   PSScriptAnalyzer 12 文件 0 告警。
 - CP936：本机 ACP=936，`CP936_ASSERTIONS_EXECUTED`。**GitHub 上的
   `cp936` 工作流仍未运行**——仓库没有注册自托管 runner，也没有设置
   `CP936_RUNNER` 变量，每次 push 的结果都是 `skipped`。跳过不等于通过，
   记录见 `tests/cp936/README.md`。
+- Python 3.13.9 在默认模式与 `PYTHONUTF8=1`（`sys.flags.utf8_mode=1`）下
+  各跑一遍：Python 47、集成 22，全部通过。**没有 3.15 解释器，Python 3.15
+  本身未验证**，`python-utf8-mode` 作业只模拟它的默认值。
+- 发布包：18 个条目、72,867 字节、全正斜杠、无 `.pyc` 与测试物料，
+  每个条目与检出逐字节一致；解压到干净目录后三个工具实跑通过，
+  `--invoke-file` 的 `$PSScriptRoot` 指向脚本自身目录。
+- `git diff --check origin/main..HEAD` 无告警。
 
 ## [1.0.0] - 2026-11-11
 

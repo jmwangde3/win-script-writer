@@ -64,11 +64,11 @@ Windows PowerShell:
 | Suite | Result |
 | --- | --- |
 | Runtime | Desktop 5.1.26100.9711 |
-| Pester | 74 passed, 0 failed, 0 skipped |
+| Pester | 77 passed, 0 failed, 0 skipped |
 | PSScriptAnalyzer | 12 files, clean |
 | Python unit | 47 passed |
-| Docs contract | 28 passed |
-| Integration | 7 passed |
+| Docs contract | 38 passed |
+| Integration | 22 passed |
 | CP936 assertions | `CP936_ASSERTIONS_EXECUTED` |
 
 PowerShell 7:
@@ -76,11 +76,11 @@ PowerShell 7:
 | Suite | Result |
 | --- | --- |
 | Runtime | Core 7.7.0 |
-| Pester | 74 passed, 0 failed, 0 skipped |
+| Pester | 77 passed, 0 failed, 0 skipped |
 | PSScriptAnalyzer | 12 files, clean |
 | Python unit | 47 passed |
-| Docs contract | 28 passed |
-| Integration | 7 passed |
+| Docs contract | 38 passed |
+| Integration | 22 passed |
 | CP936 assertions | `CP936_ASSERTIONS_EXECUTED` |
 
 Both runs ended with `RESULT=PASSED` and exit code 0. The transcript carries no
