@@ -167,6 +167,9 @@ function Complete-Write {
     }
     else {
         foreach ($key in @('Target', 'Written', 'Encoding', 'EncodingSource', 'Bytes', 'Bom', 'Verified', 'Backup', 'Replaced', 'Error', 'Detail')) {
+            # A failed run never wrote anything, and "WROTE=<path>" next to
+            # "ERROR=REPLACE_FAILED" is the kind of line an operator believes.
+            if ($key -eq 'Written' -and $Code -ne 0) { continue }
             $value = $result[$key]
             if ($null -eq $value) { continue }
             $label = $key.ToUpperInvariant()
