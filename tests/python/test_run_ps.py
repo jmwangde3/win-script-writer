@@ -244,5 +244,211 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(before - after, set())
 
 
+CONTEXT_PROBE = (
+    'Write-Output ("ROOT=[" + $PSScriptRoot + "]")\n'
+    'Write-Output ("CMD=[" + $PSCommandPath + "]")\n'
+    'Write-Output ("MINE=[" + $MyInvocation.MyCommand.Path + "]")\n'
+)
+
+
+def field(stdout, key):
+    for line in stdout.decode("utf-8", "replace").splitlines():
+        if line.startswith(key + "=["):
+            return line[len(key) + 2:-1]
+    return None
+
+
+class TestTextModeHasNoFileContext(unittest.TestCase):
+    """Pins the documented difference instead of pretending it is not there."""
+
+    def test_file_flag_leaves_the_context_variables_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            script = pathlib.Path(tmp) / "probe.ps1"
+            script.write_text(CONTEXT_PROBE, encoding="utf-8")
+            r = invoke(["--file", str(script)])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(field(r.stdout, "ROOT"), "")
+        self.assertEqual(field(r.stdout, "CMD"), "")
+        self.assertEqual(field(r.stdout, "MINE"), "")
+
+    def test_a_long_payload_changes_the_context_and_says_so(self):
+        # The same script, past the command line limit, is staged as a file and
+        # therefore sees a temp directory as $PSScriptRoot. The behaviour is
+        # different, so it must be announced rather than discovered.
+        with tempfile.TemporaryDirectory() as tmp:
+            script = pathlib.Path(tmp) / "long.ps1"
+            filler = "\n".join("# padding line %d" % i for i in range(2200))
+            script.write_text(filler + "\n" + CONTEXT_PROBE, encoding="utf-8")
+            r = invoke(["--file", str(script)])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("ws-run-ps-", field(r.stdout, "ROOT") or "")
+        self.assertIn(b"exceeded the command line limit", r.stderr)
+        self.assertIn(b"--invoke-file", r.stderr)
+
+    def test_a_short_payload_prints_no_note(self):
+        r = invoke(['Write-Output "short"'])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertNotIn(b"exceeded the command line limit", r.stderr)
+
+
+class TestInvokeFile(unittest.TestCase):
+    """--invoke-file must reproduce the child's own -File semantics."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self._tmp.name)
+        self.folder = self.root / (ZH + "_dir")
+        self.folder.mkdir()
+        self.script = self.folder / (CESHI + ".ps1")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_keeps_script_root_and_command_path(self):
+        self.script.write_text(CONTEXT_PROBE, encoding="utf-8")
+        r = invoke(["--invoke-file", str(self.script)])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(field(r.stdout, "ROOT"), str(self.folder))
+        self.assertEqual(field(r.stdout, "CMD"), str(self.script))
+        self.assertEqual(field(r.stdout, "MINE"), str(self.script))
+
+    def test_relative_dot_sourcing_resolves_next_to_the_script(self):
+        (self.folder / "helper.ps1").write_text(
+            "function Get-HelperValue { return 'from-helper' }\n", encoding="utf-8"
+        )
+        self.script.write_text(
+            '. "$PSScriptRoot\\helper.ps1"\nWrite-Output ("HELPER=" + (Get-HelperValue))\n',
+            encoding="utf-8",
+        )
+        r = invoke(["--invoke-file", str(self.script)])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn(b"HELPER=from-helper", r.stdout)
+
+    def test_param_block_keeps_its_default(self):
+        self.script.write_text(
+            "[CmdletBinding()]\nparam([int]$Value = 7)\nWrite-Output (\"VALUE=\" + $Value)\n",
+            encoding="utf-8",
+        )
+        r = invoke(["--invoke-file", str(self.script)])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn(b"VALUE=7", r.stdout)
+
+    def test_script_args_reach_the_param_block(self):
+        self.script.write_text(
+            "[CmdletBinding()]\nparam([int]$Value = 7)\nWrite-Output (\"VALUE=\" + $Value)\n",
+            encoding="utf-8",
+        )
+        r = invoke(["--invoke-file", str(self.script), "--script-args", "-Value", "11"])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn(b"VALUE=11", r.stdout)
+
+    def test_exit_code_is_propagated(self):
+        self.script.write_text("exit 9\n", encoding="utf-8")
+        self.assertEqual(invoke(["--invoke-file", str(self.script)]).returncode, 9)
+
+    def test_native_command_failure_sets_a_non_zero_code(self):
+        self.script.write_text(
+            "cmd /c exit 4\nWrite-Output (\"LASTEXITCODE=\" + $LASTEXITCODE)\nexit $LASTEXITCODE\n",
+            encoding="utf-8",
+        )
+        r = invoke(["--invoke-file", str(self.script)])
+        self.assertEqual(r.returncode, 4, r.stdout)
+        self.assertIn(b"LASTEXITCODE=4", r.stdout)
+
+    def test_missing_file_returns_3(self):
+        r = invoke(["--invoke-file", str(self.root / "nope.ps1")])
+        self.assertEqual(r.returncode, 3)
+        self.assertIn(b"not found", r.stderr.lower())
+
+    def test_no_execution_policy_is_injected_by_default(self):
+        self.script.write_text('Write-Output "ok"\n', encoding="utf-8")
+        captured = {}
+        original = run_ps.spawn
+
+        def spy(exe, argv, timeout):
+            captured["argv"] = list(argv)
+            return original(exe, argv, timeout)
+
+        run_ps.spawn = spy
+        try:
+            code, _, _ = run_ps.run_file(str(self.script))
+        finally:
+            run_ps.spawn = original
+        self.assertEqual(code, 0)
+        self.assertNotIn("-ExecutionPolicy", captured["argv"])
+        self.assertEqual(captured["argv"][-2], "-File")
+
+    def test_a_restrictive_policy_fails_instead_of_being_bypassed(self):
+        self.script.write_text('Write-Output "should-not-run"\n', encoding="utf-8")
+        r = invoke(["--invoke-file", str(self.script), "--execution-policy", "Restricted"])
+        self.assertNotEqual(r.returncode, 0)
+        self.assertNotIn(b"should-not-run", r.stdout)
+        self.assertTrue(
+            b"cannot be loaded" in r.stderr or b"disabled" in r.stderr,
+            r.stderr,
+        )
+
+    def test_incompatible_flags_are_rejected_not_ignored(self):
+        self.script.write_text('Write-Output "x"\n', encoding="utf-8")
+        cases = [
+            ["--console-encoding", "utf8"],
+            ["--input-encoding", "gbk"],
+            ["--command", "Write-Output 1"],
+            ["--file", str(self.script)],
+            ["--stdin"],
+        ]
+        for extra in cases:
+            r = invoke(["--invoke-file", str(self.script)] + extra)
+            self.assertEqual(r.returncode, 3, extra)
+            self.assertIn(b"cannot honour", r.stderr, extra)
+
+    def test_script_args_without_invoke_file_is_rejected(self):
+        r = invoke(["--command", "Write-Output 1", "--script-args", "--nope"])
+        self.assertEqual(r.returncode, 3)
+        self.assertIn(b"only valid with --invoke-file", r.stderr)
+
+    def test_usage_error_returns_3_not_argparse_2(self):
+        r = invoke(["--bogus-flag"])
+        self.assertEqual(r.returncode, 3)
+
+
+class TestStagingFailures(unittest.TestCase):
+    """The staging path must fail with 3, never with a traceback."""
+
+    def test_temp_directory_failure_returns_3(self):
+        import unittest.mock
+
+        with unittest.mock.patch.object(
+            run_ps.tempfile, "mkdtemp", side_effect=OSError("no space")
+        ):
+            code, out, err = run_ps.run("x" * 40000)
+        self.assertEqual(code, 3)
+        self.assertEqual(out, b"")
+        self.assertIn(b"cannot stage the script", err)
+
+    def test_cleanup_failure_does_not_replace_the_exit_code(self):
+        import unittest.mock
+
+        real_mkdtemp = run_ps.tempfile.mkdtemp
+        with unittest.mock.patch.object(run_ps.tempfile, "mkdtemp", real_mkdtemp):
+            with unittest.mock.patch.object(
+                run_ps.shutil, "rmtree", side_effect=OSError("locked")
+            ):
+                code, out, err = run_ps.run('Write-Output "cleanup"')
+        self.assertEqual(code, 0, err)
+        self.assertIn(b"cleanup", out)
+
+    def test_missing_shell_returns_127(self):
+        import unittest.mock
+
+        with unittest.mock.patch.object(run_ps, "resolve_shell", return_value=None):
+            code, out, err = run_ps.run('Write-Output "x"')
+            code_file, _, err_file = run_ps.run_file("whatever.ps1")
+        self.assertEqual(code, 127)
+        self.assertEqual(code_file, 127)
+        self.assertIn(b"not found", err)
+        self.assertIn(b"not found", err_file)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
