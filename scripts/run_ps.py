@@ -16,11 +16,30 @@ It is not a sandbox. It does not change ``[Console]::OutputEncoding`` or
 ``$OutputEncoding`` unless you ask with ``--console-encoding``, and it does not
 inject ``-ExecutionPolicy Bypass`` unless you ask with ``--execution-policy``.
 
+Two execution modes, and they are not the same thing
+----------------------------------------------------
+``--command`` / ``--file`` / ``--stdin`` / a positional snippet all take script
+**text** and send it through ``-EncodedCommand``. The text is not a file, so
+inside it ``$PSScriptRoot``, ``$PSCommandPath`` and
+``$MyInvocation.MyCommand.Path`` are all empty. ``--file`` reads the file; it
+does not reproduce ``-File``. A script longer than the command line limit is
+written to a temporary file and run with ``-File``, which means those three
+variables suddenly point at a temporary directory instead of staying empty --
+the same script, two different contexts, decided by its length.
+
+``--invoke-file <path>`` is the mode that keeps file semantics. The path is
+passed to the child as ``-File <path>`` and the file is never read, decoded,
+rewritten or moved, so ``$PSScriptRoot`` and ``$PSCommandPath`` are the real
+ones and relative dot-sourcing works. ``--console-encoding`` and
+``--input-encoding`` are rejected in this mode rather than silently ignored:
+both would require rewriting the file.
+
 Usage
 -----
     python run_ps.py 'Write-Output "hello"'
     python run_ps.py --command 'Get-ChildItem -LiteralPath "C:\\some\\dir"'
     python run_ps.py --file .\\script.ps1
+    python run_ps.py --invoke-file .\\script.ps1
     python run_ps.py - < script.ps1
     echo 'Get-Date' | python run_ps.py --stdin
     python run_ps.py --shell pwsh --command '$PSVersionTable.PSEdition'
@@ -45,15 +64,27 @@ import subprocess
 import sys
 import tempfile
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 EXIT_LOCAL_ERROR = 3
 EXIT_TIMEOUT = 124
 EXIT_NO_SHELL = 127
 
+DEFAULT_INPUT_ENCODING = "utf-8-sig"
+
 #: Windows caps a process command line at 32767 characters. Keep a margin for the
 #: executable path and the fixed switches.
 MAX_COMMAND_LINE_CHARS = 30000
+
+#: Printed on stderr when a text payload is too long for the command line. The
+#: caller has to be told, because the fallback silently changes the file context
+#: a script observes.
+FALLBACK_NOTE = (
+    b"run_ps.py: note: the script exceeded the command line limit and was written to a\n"
+    b"run_ps.py: note: temporary file. $PSScriptRoot, $PSCommandPath and\n"
+    b"run_ps.py: note: $MyInvocation.MyCommand.Path point at that temporary directory,\n"
+    b"run_ps.py: note: not at your file. Use --invoke-file for real -File semantics.\n"
+)
 
 EXECUTION_POLICIES = (
     "Bypass",
@@ -134,6 +165,8 @@ def needs_file_fallback(length):
 
 def read_source(args):
     """Return (script_text, error_message). Exactly one error field is set."""
+    encoding = args.input_encoding or DEFAULT_INPUT_ENCODING
+
     if args.file:
         path = os.path.abspath(args.file)
         if not os.path.isfile(path):
@@ -143,7 +176,7 @@ def read_source(args):
                 raw = handle.read()
         except OSError as exc:
             return None, "cannot read %s: %s" % (path, exc)
-        return decode(raw, args.input_encoding)
+        return decode(raw, encoding)
 
     if args.command is not None:
         return args.command, None
@@ -155,11 +188,11 @@ def read_source(args):
         if sys.stdin is None:
             return None, "stdin is not available"
         raw = sys.stdin.buffer.read()
-        return decode(raw, args.input_encoding)
+        return decode(raw, encoding)
 
     if not sys.stdin.isatty():
         raw = sys.stdin.buffer.read()
-        return decode(raw, args.input_encoding)
+        return decode(raw, encoding)
 
     return None, "no script supplied"
 
@@ -207,6 +240,35 @@ def wrap_script(script):
     return "& {\n" + script + "\n}"
 
 
+def spawn(exe, argv, timeout):
+    """Start the child and return (exit_code, stdout_bytes, stderr_bytes).
+
+    Every failure mode is mapped onto the documented exit codes instead of
+    escaping as a traceback: 124 for a timeout, 127 for a missing shell and 3
+    for anything the wrapper itself could not do.
+    """
+    effective_timeout = None if not timeout or timeout <= 0 else timeout
+    try:
+        completed = subprocess.run(
+            argv,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            timeout=effective_timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        out = exc.stdout or b""
+        err = (exc.stderr or b"") + (
+            "run_ps.py: timed out after %s seconds\n" % timeout
+        ).encode()
+        return EXIT_TIMEOUT, out, err
+    except FileNotFoundError:
+        return EXIT_NO_SHELL, b"", ("requested shell not found: %s\n" % exe).encode()
+    except OSError as exc:
+        return EXIT_LOCAL_ERROR, b"", ("failed to start %s: %s\n" % (exe, exc)).encode()
+
+    return completed.returncode, completed.stdout, completed.stderr
+
+
 def run(script, *, shell="powershell", timeout=300.0, execution_policy=None,
         console_encoding=None, keep_temp=False):
     """Execute script text and return (exit_code, stdout_bytes, stderr_bytes)."""
@@ -223,42 +285,62 @@ def run(script, *, shell="powershell", timeout=300.0, execution_policy=None,
         return EXIT_NO_SHELL, b"", ("requested shell not found: %s\n" % shell).encode()
 
     temp_dir = None
+    note = b""
     try:
         if needs_file_fallback(len(exe) + len(encoded) + 64):
             # Long payloads cannot travel on the command line. A UTF-8 file with a
             # BOM is the one form that both PS 5.1 and PS 7 parse identically.
-            temp_dir = tempfile.mkdtemp(prefix="ws-run-ps-")
-            script_path = os.path.join(temp_dir, "script.ps1")
-            with open(script_path, "wb") as handle:
-                handle.write(b"\xef\xbb\xbf")
-                handle.write(payload.encode("utf-8"))
+            try:
+                temp_dir = tempfile.mkdtemp(prefix="ws-run-ps-")
+                script_path = os.path.join(temp_dir, "script.ps1")
+                with open(script_path, "wb") as handle:
+                    handle.write(b"\xef\xbb\xbf")
+                    handle.write(payload.encode("utf-8"))
+            except OSError as exc:
+                return EXIT_LOCAL_ERROR, b"", (
+                    "cannot stage the script for execution: %s\n" % exc
+                ).encode()
+            note = FALLBACK_NOTE
             argv = build_argv(exe, script_path=script_path, execution_policy=execution_policy)
         else:
             argv = build_argv(exe, encoded=encoded, execution_policy=execution_policy)
 
-        effective_timeout = None if not timeout or timeout <= 0 else timeout
-        try:
-            completed = subprocess.run(
-                argv,
-                stdin=subprocess.DEVNULL,
-                capture_output=True,
-                timeout=effective_timeout,
-            )
-        except subprocess.TimeoutExpired as exc:
-            out = exc.stdout or b""
-            err = (exc.stderr or b"") + (
-                "run_ps.py: timed out after %s seconds\n" % timeout
-            ).encode()
-            return EXIT_TIMEOUT, out, err
-        except FileNotFoundError:
-            return EXIT_NO_SHELL, b"", ("requested shell not found: %s\n" % exe).encode()
-        except OSError as exc:
-            return EXIT_LOCAL_ERROR, b"", ("failed to start %s: %s\n" % (exe, exc)).encode()
-
-        return completed.returncode, completed.stdout, completed.stderr
+        code, out, err = spawn(exe, argv, timeout)
+        return code, out, note + err
     finally:
         if temp_dir and not keep_temp:
-            shutil.rmtree(temp_dir, ignore_errors=True)
+            # A cleanup failure must not replace the child's exit code: the
+            # caller cares about the run, not about a leftover temp directory.
+            try:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+            except OSError:
+                pass
+
+
+def run_file(path, *, shell="powershell", timeout=300.0, execution_policy=None,
+             script_args=()):
+    """Execute an existing file with the child's own ``-File`` switch.
+
+    The file is handed over untouched: not read, not decoded, not copied to a
+    temporary location. That is what keeps ``$PSScriptRoot``, ``$PSCommandPath``,
+    ``$MyInvocation.MyCommand.Path``, ``param()`` blocks and relative dot-sourcing
+    behaving exactly as they do when a user types ``powershell -File script.ps1``.
+
+    No execution policy is injected. Without ``--execution-policy`` the child
+    inherits the machine policy, and if that policy blocks the run the caller
+    sees the policy error and a non-zero exit code rather than a silent bypass.
+    """
+    exe = resolve_shell(shell)
+    if not exe:
+        return EXIT_NO_SHELL, b"", ("requested shell not found: %s\n" % shell).encode()
+
+    resolved = os.path.abspath(path)
+    if not os.path.isfile(resolved):
+        return EXIT_LOCAL_ERROR, b"", ("input file not found: %s\n" % resolved).encode()
+
+    argv = build_argv(exe, script_path=resolved, execution_policy=execution_policy)
+    argv += list(script_args)
+    return spawn(exe, argv, timeout)
 
 
 def build_parser():
@@ -269,12 +351,23 @@ def build_parser():
     )
     parser.add_argument("snippet", nargs="?", help="script text, or - to read stdin")
     parser.add_argument("-c", "--command", help="script text (named form of snippet)")
-    parser.add_argument("-f", "--file", help="read the script from a file")
+    parser.add_argument("-f", "--file", help="read the script text from a file (not -File semantics)")
+    parser.add_argument(
+        "--invoke-file",
+        metavar="PATH",
+        help="run an existing file with the child's own -File, keeping $PSScriptRoot and $PSCommandPath",
+    )
+    parser.add_argument(
+        "--script-args",
+        nargs=argparse.REMAINDER,
+        metavar="ARG",
+        help="arguments forwarded to the script; only valid with --invoke-file, and must come last",
+    )
     parser.add_argument("--stdin", action="store_true", help="read the script from stdin")
     parser.add_argument(
         "--input-encoding",
-        default="utf-8-sig",
-        help="encoding of stdin or --file input (default: utf-8-sig)",
+        default=None,
+        help="encoding of stdin or --file input (default: %s)" % DEFAULT_INPUT_ENCODING,
     )
     parser.add_argument(
         "--shell",
@@ -305,7 +398,13 @@ def build_parser():
 
 def main(argv=None):
     parser = build_parser()
-    args = parser.parse_args(argv)
+    try:
+        args = parser.parse_args(argv)
+    except SystemExit as exc:
+        # argparse exits 2 on a usage error, which collides with "the child
+        # exited 2". Everything the wrapper rejects has to leave through 3.
+        code = exc.code if isinstance(exc.code, int) else EXIT_LOCAL_ERROR
+        return 0 if code == 0 else EXIT_LOCAL_ERROR
 
     if args.execution_policy:
         normalized = args.execution_policy.strip().capitalize()
@@ -314,6 +413,45 @@ def main(argv=None):
             error("unknown execution policy: %s" % args.execution_policy)
             return EXIT_LOCAL_ERROR
         args.execution_policy = match[0]
+
+    if args.invoke_file:
+        # Anything that would need the file to be rewritten, re-decoded or
+        # wrapped is a hard error here. Silently ignoring a flag the caller
+        # passed is how a "safe" wrapper ends up not doing what it says.
+        conflicts = []
+        if args.snippet is not None:
+            conflicts.append("positional script text")
+        if args.command is not None:
+            conflicts.append("--command")
+        if args.file:
+            conflicts.append("--file")
+        if args.stdin:
+            conflicts.append("--stdin")
+        if args.input_encoding:
+            conflicts.append("--input-encoding")
+        if args.console_encoding:
+            conflicts.append("--console-encoding")
+        if conflicts:
+            error(
+                "--invoke-file hands the file to the child unchanged and cannot honour "
+                + ", ".join(conflicts)
+            )
+            return EXIT_LOCAL_ERROR
+
+        code, out, err = run_file(
+            args.invoke_file,
+            shell=args.shell,
+            timeout=args.timeout,
+            execution_policy=args.execution_policy,
+            script_args=args.script_args or (),
+        )
+        write_stream(sys.stdout, out)
+        write_stream(sys.stderr, err)
+        return code
+
+    if args.script_args:
+        error("--script-args is only valid with --invoke-file")
+        return EXIT_LOCAL_ERROR
 
     sources = [
         args.snippet is not None,
