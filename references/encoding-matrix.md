@@ -30,6 +30,7 @@
 | `.sh` / `.bash` | UTF-8 | **不要** | BOM 会跑到 shebang 前面，脚本不再是可执行文件 |
 | `.json` / `.yaml` / `.ini` / `.csv` | UTF-8 | **不要** | 大量解析器直接拒绝 BOM |
 | 要给别的程序读的数据文件 | UTF-8 | **不要** | 宁可显式 `latin` 也不要用系统默认 |
+| 任何 `.ps1`（UTF-16LE/BE） | 别这么存 | 有 BOM 才能跑 | 见 3.1：能执行但没人能 review，改造工具链成本远大于收益 |
 
 一句话判据：**只有当消费方是 Windows PowerShell 5.1 的脚本时才需要 BOM，
 其他一律不要 BOM。**
@@ -47,6 +48,30 @@
 注意 CP936 在 .NET 里**没有"未定义字节"**：`0xFF` 会被映射到 `U+F8F5`，
 所以"解不出 UTF-8"根本不能证明"就是 GBK"。检测工具要求 CP936 往返
 （解码再编码）字节完全一致才敢标 `gbk`，并且只给 `confidence=medium`。
+
+## 3.1 「能跑」和「推荐」是两件事
+
+BOM 只说明生产者声明了什么，不说明文件内容是不是合法文本。这两件事必须分开
+判断，否则会得到两个方向都错的结论：把坏文件判成 OK，或者把能跑的判成不能跑。
+
+实测（Windows PowerShell 5.1.26100 与 PowerShell 7.7.0，各跑一次）：
+
+| 文件形式 | 能否被 PowerShell 解析执行 | 推荐 | 检测器判定 |
+| --- | --- | --- | --- |
+| UTF-8 + BOM，内容是合法 UTF-8 | 能 | ✅ `.ps1` 的标准存法 | `OK` |
+| UTF-8 + BOM，内容不合法（`EF BB BF FF`） | 半个文件跑完，有报错，退出码 0 | ❌ 文件已损坏 | `FAIL`（`INVALID_ENCODING_PAYLOAD`） |
+| UTF-16LE + BOM | 能，中文正确 | ⚠️ 可用但别用 | `WARN` |
+| UTF-16BE + BOM | 能，中文正确 | ⚠️ 可用但别用 | `WARN` |
+| UTF-16 无 BOM | **不能**：按单字节切词，首字符就失败，退出码仍是 0 | ❌ | `FAIL` |
+| UTF-16 + BOM，奇数字节 / 孤立代理项 | 跑完能读的前半段，退出码 0 | ❌ 不是文本 | `FAIL` |
+
+两条结论：
+
+1. **"PowerShell 不支持 UTF-16 脚本"是错的。** 带 BOM 的 LE 和 BE 都能跑。
+   不推荐的理由是生态，不是解析器：`cmd.exe`、`git diff`、多数编辑器按单字节
+   读，仓库里放 UTF-16 脚本等于没人能 review。
+2. **退出码 0 不能证明脚本跑对了。** 上表里三行"能跑/半个跑"都是 0。判断文件
+   是否可读只能看字节，这就是检测器存在的理由。
 
 ## 4. 已实测的写入行为（同一句代码，两个版本不同）
 
@@ -88,8 +113,11 @@
 1. 跑 `Get-WinScriptEnvironment.ps1`，确认 ACP、控制台代码页、
    `$OutputEncoding` 三个值。
 2. 对目标文件跑 `Test-ScriptEncoding.ps1 -Path <文件>`，看 `ENCODING=`、
-   `BOM=`、`STRICT_UTF8=`、`GBK_ROUNDTRIP=` 四个字段，而不是看结论。
+   `BOM=`、`STRICT_UTF8=`、`PAYLOAD_VALID=`、`GBK_ROUNDTRIP=` 五个字段，
+   而不是只看结论。
 3. 按第 2 节的表决定目标编码。
-4. 用 `New-EncodedScript.ps1` 落盘，不要用编辑器"另存为"。
+4. 用 `New-EncodedScript.ps1` 落盘，不要用编辑器"另存为"。不传 `-Encoding`
+   时它按扩展名选：`.ps1/.psm1/.psd1` → `utf8-bom`，`.bat/.cmd` → `gbk`，
+   其余 → `utf8-nobom`，并在结果里报 `ENCODING_SOURCE=extension`。
 5. 再跑一次 `Test-ScriptEncoding.ps1`，要求 `VERDICT=OK`、退出码 0。
 6. 真要跑一次，别只看检测结果。

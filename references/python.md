@@ -101,8 +101,18 @@ PowerShell 的 `-Command` 是同一个坑，见 `references/execution.md`。
 
 所以它们能当**加固**，不能当**前提**。代码里的 `encoding=` 才是前提。
 
-Python 3.15 起 UTF-8 模式成为默认（PEP 686），届时这条会缓解，但
-"第三方库自己用 locale 编码"的问题不会自动消失。
+Python 3.15 起 UTF-8 模式成为默认（PEP 686）：届时 `open()`、
+`locale.getpreferredencoding()` 在不设环境变量时也是 UTF-8，上表右列会
+整体左移。这不改变本页的结论——`encoding=` 仍然要显式写，因为
+
+- 第三方库可能仍按 locale 编码开文件；
+- `sys.stdout` 的编码还取决于终端与宿主；
+- 有人会用 `-X utf8=0` 或 `PYTHONUTF8=0` 把默认值退回去。
+
+本项目验证这条的方式是把 UTF-8 模式**强制打开**跑一遍（`PYTHONUTF8=1`），
+`tests/python` 与 `tests/integration` 都必须照常通过。CI 里对应
+`test.yml` 的 `python-utf8-mode` 作业，本机则用
+`set PYTHONUTF8=1` 后跑同一套。这是 3.15 行为的模拟，不是 3.15 本身。
 
 ## 6. 与 PowerShell 交接
 
