@@ -189,6 +189,122 @@ Describe 'New-EncodedScript.ps1' {
         }
     }
 
+    Context 'default encoding by extension' {
+
+        It 'writes a .ps1 as UTF-8 with BOM when no encoding is given' {
+            # v1.0.0 defaulted every target to utf8-nobom, so the writer produced
+            # exactly the file the detector rejects under -Profile ps51.
+            $target = Join-Path $TestDrive 'default-script.ps1'
+            $src = Join-Path $FixturesDir 'content-utf8.txt'
+            $r = Invoke-Tool @('-Path', $target, '-ContentFile', $src)
+            $r.ExitCode | Should -Be 0
+            Get-Field $r.StdOut 'ENCODING' | Should -Be 'utf8-bom'
+            Get-Field $r.StdOut 'ENCODING_SOURCE' | Should -Be 'extension'
+            $actual = Get-FileBytes $target
+            (Test-StartsWithBytes -Bytes $actual -Prefix ([byte[]](0xEF, 0xBB, 0xBF))) | Should -BeTrue
+        }
+
+        It 'defaults .psm1 and .psd1 to UTF-8 with BOM too' {
+            foreach ($name in @('module.psm1', 'manifest.psd1')) {
+                $target = Join-Path $TestDrive $name
+                $r = Invoke-Tool @('-Path', $target, '-ContentFile', (Join-Path $FixturesDir 'content-utf8.txt'))
+                $r.ExitCode | Should -Be 0
+                Get-Field $r.StdOut 'ENCODING' | Should -Be 'utf8-bom'
+            }
+        }
+
+        It 'defaults a .bat to CP936 without BOM' {
+            # A BOM in front of "@echo off" makes cmd.exe report that the command
+            # does not exist, so the batch default must not carry one.
+            $target = Join-Path $TestDrive 'default-batch.bat'
+            $r = Invoke-Tool @('-Path', $target, '-ContentFile', (Join-Path $FixturesDir 'content-utf8.txt'))
+            $r.ExitCode | Should -Be 0
+            Get-Field $r.StdOut 'ENCODING' | Should -Be 'gbk'
+            Get-Field $r.StdOut 'BOM' | Should -Be 'NONE'
+            $actual = Get-FileBytes $target
+            (Test-StartsWithBytes -Bytes $actual -Prefix ([byte[]](0xEF, 0xBB, 0xBF))) | Should -BeFalse
+        }
+
+        It 'keeps UTF-8 without BOM for data files' {
+            $target = Join-Path $TestDrive 'default-data.txt'
+            $r = Invoke-Tool @('-Path', $target, '-ContentFile', (Join-Path $FixturesDir 'content-utf8.txt'))
+            $r.ExitCode | Should -Be 0
+            Get-Field $r.StdOut 'ENCODING' | Should -Be 'utf8-nobom'
+            Get-Field $r.StdOut 'BOM' | Should -Be 'NONE'
+        }
+
+        It 'lets an explicit encoding override the extension' {
+            $target = Join-Path $TestDrive 'explicit.ps1'
+            $r = Invoke-Tool @('-Path', $target, '-ContentFile', (Join-Path $FixturesDir 'content-utf8.txt'), '-Encoding', 'utf8-nobom')
+            $r.ExitCode | Should -Be 0
+            Get-Field $r.StdOut 'ENCODING' | Should -Be 'utf8-nobom'
+            Get-Field $r.StdOut 'ENCODING_SOURCE' | Should -Be 'explicit'
+            $actual = Get-FileBytes $target
+            (Test-StartsWithBytes -Bytes $actual -Prefix ([byte[]](0xEF, 0xBB, 0xBF))) | Should -BeFalse
+        }
+
+        It 'reports the default it would use under -WhatIf without writing' {
+            $target = Join-Path $TestDrive 'whatif-default.ps1'
+            $r = Invoke-Tool @('-Path', $target, '-ContentFile', (Join-Path $FixturesDir 'content-utf8.txt'), '-WhatIf')
+            $r.ExitCode | Should -Be 0
+            Get-Field $r.StdOut 'WOULD_ENCODING' | Should -Be 'utf8-bom'
+            Get-Field $r.StdOut 'WOULD_ENCODING_SOURCE' | Should -Be 'extension'
+            Test-Path -LiteralPath $target | Should -BeFalse
+        }
+
+        It 'produces a file the detector accepts' {
+            # The two tools are a pair; a default that fails the detector is a
+            # default that sends the caller round in circles.
+            $target = Join-Path $TestDrive 'round-trip.ps1'
+            $w = Invoke-Tool @('-Path', $target, '-ContentFile', (Join-Path $FixturesDir 'content-utf8.txt'))
+            $w.ExitCode | Should -Be 0
+            $t = Invoke-WsTool -Name 'Test-ScriptEncoding.ps1' -Arguments @('-Path', $target, '-Profile', 'ps51')
+            $t.ExitCode | Should -Be 0
+            $t.StdOut | Should -Match 'VERDICT=OK'
+        }
+    }
+
+    Context 'backup and failure safety' {
+
+        It 'never overwrites an earlier backup' {
+            # The backup name is a one second timestamp, and File.Replace
+            # overwrites an existing backup file, so two writes inside the same
+            # second used to destroy the first one.
+            $target = Join-Path $TestDrive 'twice.ps1'
+            $src = Join-Path $FixturesDir 'content-utf8.txt'
+            [System.IO.File]::WriteAllText($target, 'original', $Utf8NoBom)
+
+            $first = Invoke-Tool @('-Path', $target, '-ContentFile', $src, '-Force', '-Backup')
+            $first.ExitCode | Should -Be 0
+            $second = Invoke-Tool @('-Path', $target, '-ContentFile', $src, '-Force', '-Backup')
+            $second.ExitCode | Should -Be 0
+
+            $backups = @(Get-ChildItem -LiteralPath $TestDrive -File | Where-Object { $_.Name -like 'twice.ps1.bak-*' })
+            $backups.Count | Should -Be 2
+            $texts = @($backups | ForEach-Object { [System.IO.File]::ReadAllText($_.FullName) })
+            ($texts -contains 'original') | Should -BeTrue
+        }
+
+        It 'leaves the original untouched when the conversion fails' {
+            $target = Join-Path $TestDrive 'untouched.ps1'
+            [System.IO.File]::WriteAllText($target, 'original', $Utf8NoBom)
+            $r = Invoke-Tool @('-Path', $target, '-ContentFile', (Join-Path $FixturesDir 'content-emoji.txt'), '-Encoding', 'gbk', '-Force', '-Backup')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'ERROR' | Should -Be 'UNREPRESENTABLE_CHARACTER'
+            [System.IO.File]::ReadAllText($target) | Should -Be 'original'
+            $backups = @(Get-ChildItem -LiteralPath $TestDrive -File | Where-Object { $_.Name -like 'untouched.ps1.bak-*' })
+            $backups.Count | Should -Be 0
+        }
+
+        It 'leaves the original untouched when the content source is unreadable' {
+            $target = Join-Path $TestDrive 'unreadable.ps1'
+            [System.IO.File]::WriteAllText($target, 'original', $Utf8NoBom)
+            $r = Invoke-Tool @('-Path', $target, '-ContentFile', (Join-Path $TestDrive 'missing-source.txt'), '-Force')
+            $r.ExitCode | Should -Be 3
+            [System.IO.File]::ReadAllText($target) | Should -Be 'original'
+        }
+    }
+
     Context 'output formats' {
 
         It 'emits machine readable json' {

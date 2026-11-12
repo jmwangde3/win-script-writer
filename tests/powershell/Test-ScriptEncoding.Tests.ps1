@@ -110,9 +110,9 @@ Describe 'Test-ScriptEncoding.ps1' {
 
         It 'reports the same verdict for a damaged payload under every profile' {
             $path = Join-Path $FixturesDir 'utf8bom-invalid-ff.bin'
-            foreach ($profile in @('ps51', 'ps7', 'cmd', 'python', 'bash', 'data')) {
-                $r = Invoke-Tool @('-Path', $path, '-Profile', $profile)
-                $r.ExitCode | Should -Be 2 -Because ("profile $profile must not rate a corrupt payload as readable")
+            foreach ($profileName in @('ps51', 'ps7', 'cmd', 'python', 'bash', 'data')) {
+                $r = Invoke-Tool @('-Path', $path, '-Profile', $profileName)
+                $r.ExitCode | Should -Be 2 -Because ("profile $profileName must not rate a corrupt payload as readable")
             }
         }
     }
