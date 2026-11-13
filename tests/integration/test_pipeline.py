@@ -59,6 +59,25 @@ def shell_switch():
     return "pwsh" if selected_host()[1] == "Core" else "powershell"
 
 
+def run_python_fixture(path, timeout=120):
+    """Execute a fixture with the current interpreter and capture its output.
+
+    PYTHONIOENCODING is pinned to utf-8, on purpose. Whether the interpreter can
+    write CJK to stdout depends on the encoding of that stream -- the host ANSI
+    code page on Windows, which is 1252 on a hosted runner -- and has nothing to
+    do with the encoding of the source file. Leaving it unset made these tests
+    pass on a zh-CN machine and die with UnicodeEncodeError on every CI runner,
+    which is a fact about the runner, not about PEP 263. Pinning the output
+    stream leaves the source declaration as the only variable under test.
+    """
+    return subprocess.run(
+        [sys.executable, str(path)],
+        capture_output=True,
+        timeout=timeout,
+        env=dict(os.environ, PYTHONIOENCODING="utf-8"),
+    )
+
+
 def ps_tool(name, args, timeout=180, exe=None):
     host = exe or selected_host()[0]
     argv = [host, "-NoProfile", "-NonInteractive", "-File", str(SCRIPTS / name)] + list(args)
@@ -294,7 +313,7 @@ class TestPythonSourceCoding(unittest.TestCase):
         for fixture, py_code, detector_code, reason in self.CASES:
             with self.subTest(fixture=fixture):
                 path = FIXTURES / fixture
-                run = subprocess.run([sys.executable, str(path)], capture_output=True, timeout=120)
+                run = run_python_fixture(path)
                 self.assertEqual(run.returncode, py_code, (fixture, run.stderr[:400]))
                 t = ps_tool("Test-ScriptEncoding.ps1", ["-Path", str(path), "-Profile", "python"])
                 self.assertEqual(t.returncode, detector_code, t.stdout)
@@ -302,14 +321,14 @@ class TestPythonSourceCoding(unittest.TestCase):
 
     def test_a_declared_gbk_file_really_prints_its_cjk(self):
         path = FIXTURES / "py-coding-gbk.py"
-        run = subprocess.run([sys.executable, str(path)], capture_output=True, timeout=120)
+        run = run_python_fixture(path)
         self.assertEqual(run.returncode, 0, run.stderr)
         self.assertIn(b"PYCODING_GBK_OK", run.stdout)
         self.assertIn(ZH.encode("utf-8"), run.stdout)
 
     def test_without_a_declaration_the_interpreter_refuses_the_file(self):
         path = FIXTURES / "py-nocoding-gbk.py"
-        run = subprocess.run([sys.executable, str(path)], capture_output=True, timeout=120)
+        run = run_python_fixture(path)
         self.assertNotEqual(run.returncode, 0)
         self.assertIn(b"SyntaxError", run.stderr)
 
@@ -412,11 +431,17 @@ class TestLauncher(unittest.TestCase):
         return r.returncode, r.stdout.decode("utf-8", "replace"), r.stderr.decode("utf-8", "replace")
 
     def test_the_launcher_announces_the_host_it_exports(self):
-        code, out, err = self._run("evals")
+        # -Suite python is deliberate. This asserts what the launcher prints
+        # before it runs anything, and the python suite imports nothing outside
+        # the standard library. Driving the evals suite instead made the
+        # assertion depend on PyYAML being installed, so a host that had not
+        # installed the test requirements reported a failure about the launcher
+        # that was really a missing module.
+        code, out, err = self._run("python")
         self.assertEqual(code, 0, out + err)
         self.assertIn("INTEGRATION_PS_HOST=", out)
         self.assertIn("EDITION=", out)
-        self.assertIn("PYTHON_SUITE_OK=evals", out)
+        self.assertIn("PYTHON_SUITE_OK=python", out)
 
     def test_a_missing_dependency_is_reported_not_installed(self):
         # Shadowing the module on PYTHONPATH reproduces "not installed" without
