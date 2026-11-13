@@ -258,6 +258,24 @@ def field(stdout, key):
     return None
 
 
+def same_path(actual, expected):
+    """True when two spellings name the same directory or file.
+
+    PowerShell resolves the script path through the file system, so it returns
+    the long form even when the process was started with an 8.3 name. A hosted
+    runner's TEMP is `C:\\Users\\RUNNER~1\\AppData\\Local\\Temp`, which is the
+    same directory as `C:\\Users\\runneradmin\\AppData\\Local\\Temp`. Comparing
+    the raw strings would assert on the runner's environment variable rather
+    than on what the tool preserved -- the tool is supposed to pass the path
+    through untouched, and it does.
+    """
+    if actual is None:
+        return False
+    return os.path.normcase(os.path.realpath(actual)) == os.path.normcase(
+        os.path.realpath(expected)
+    )
+
+
 class TestTextModeHasNoFileContext(unittest.TestCase):
     """Pins the documented difference instead of pretending it is not there."""
 
@@ -308,9 +326,16 @@ class TestInvokeFile(unittest.TestCase):
         self.script.write_text(CONTEXT_PROBE, encoding="utf-8")
         r = invoke(["--invoke-file", str(self.script)])
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(field(r.stdout, "ROOT"), str(self.folder))
-        self.assertEqual(field(r.stdout, "CMD"), str(self.script))
-        self.assertEqual(field(r.stdout, "MINE"), str(self.script))
+        for key, expected in (
+            ("ROOT", self.folder),
+            ("CMD", self.script),
+            ("MINE", self.script),
+        ):
+            actual = field(r.stdout, key)
+            self.assertTrue(
+                same_path(actual, expected),
+                "%s reported %r, expected %r" % (key, actual, str(expected)),
+            )
 
     def test_relative_dot_sourcing_resolves_next_to_the_script(self):
         (self.folder / "helper.ps1").write_text(
