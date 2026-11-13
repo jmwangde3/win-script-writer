@@ -78,6 +78,27 @@ $emoji = ConvertFrom-CodePoints @(0xD83D, 0xDE00)
 $emojiBody = 'GREETING = "' + $emoji + '"' + "`n" + 'NAME = "' + $zh + '"' + "`n"
 
 # --- encoders ------------------------------------------------------------
+# PowerShell 7 does not ship the OEM code pages until the provider is
+# registered; Windows PowerShell has them in the box. The generator runs under
+# both, so it asks for the provider instead of assuming either.
+function Get-WindowsCodePage {
+    param([int]$CodePage)
+
+    try {
+        return [System.Text.Encoding]::GetEncoding($CodePage)
+    }
+    catch {
+        $providerType = [System.Type]::GetType(
+            'System.Text.CodePagesEncodingProvider, System.Text.Encoding.CodePages',
+            $false)
+        if ($providerType) {
+            [System.Text.Encoding]::RegisterProvider($providerType.GetProperty('Instance').GetValue($null, $null))
+            return [System.Text.Encoding]::GetEncoding($CodePage)
+        }
+    }
+    throw ('code page {0} is not available in this host' -f $CodePage)
+}
+
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 $utf8Strict = New-Object System.Text.UTF8Encoding($true)
 $gbk = [System.Text.Encoding]::GetEncoding(936)
@@ -182,6 +203,73 @@ Write-Fixture 'py-nocoding-gbk.py' (Get-EncodedBytes $gbk ($pyCodingBody)) 'CP93
 Write-Fixture 'py-coding-conflict-bom.py' (Get-EncodedBytes $utf8Strict ($pyCodingDash + 'print("conflict")' + "`n") -WithBom) 'UTF-8 BOM plus coding: gbk'
 # "utf-9" is not a codec. Python raises SyntaxError even for an ASCII body.
 Write-Fixture 'py-coding-unknown.py' (Get-EncodedBytes $utf8NoBom ('# coding: utf-9' + "`n" + 'print("unknown")' + "`n")) 'unknown source encoding'
+
+# --- Python source codec aliases (v1.0.3) --------------------------------
+# GBK, GB2312, HZ-GB-2312 and GB18030 are four different byte layouts, not
+# four spellings of code page 936. GB2312 is a subset of GBK, HZ is a 7 bit
+# escape encoding of GB2312, and GB18030 adds four byte sequences for the code
+# points neither of the others can carry. A detector that validates every
+# declaration with CP936 accepts files that Python rejects, and rejects files
+# that Python runs.
+$gb18030 = Get-WindowsCodePage 54936
+
+function ConvertTo-HzText {
+    <#
+        HZ-GB-2312 carries GB2312 in seven bit form: the double byte codes are
+        shifted down by 0x80 and wrapped in ~{ ... ~}. The shift can produce
+        '~' (0x7E), which HZ reserves for its escape sequences, so such a
+        payload cannot be represented and is a generator error rather than a
+        silently corrupt fixture.
+    #>
+    param([byte[]]$Gb2312Bytes)
+
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.Append('~{')
+    for ($i = 0; $i + 1 -lt $Gb2312Bytes.Length; $i += 2) {
+        $high = $Gb2312Bytes[$i] - 0x80
+        $low = $Gb2312Bytes[$i + 1] - 0x80
+        if ($high -eq 0x7E -or $low -eq 0x7E) {
+            throw 'this payload contains a byte that HZ has to escape; pick another character'
+        }
+        [void]$sb.Append([char]$high)
+        [void]$sb.Append([char]$low)
+    }
+    [void]$sb.Append('~}')
+    return $sb.ToString()
+}
+
+$pyGb2312Body = 'MARKER = "' + $zh + '"' + "`n" + 'print("PYCODING_GB2312_OK " + MARKER)' + "`n"
+Write-Fixture 'py-coding-gb2312.py' (Get-EncodedBytes $gbk ('# -*- coding: gb2312 -*-' + "`n" + $pyGb2312Body)) 'GB2312 bytes declared as gb2312'
+Write-Fixture 'py-coding-euc-cn.py' (Get-EncodedBytes $gbk ('# -*- coding: euc-cn -*-' + "`n" + $pyGb2312Body)) 'GB2312 bytes declared as euc-cn'
+
+# HZ output is pure ASCII by construction, so the file contains no byte above
+# 0x7F at all. Anything that only looks for high bytes calls it ASCII.
+$hzMarker = ConvertTo-HzText -Gb2312Bytes $gbk.GetBytes($zh)
+$hzBody = '# -*- coding: hz -*-' + "`n" + 'MARKER = "' + $hzMarker + '"' + "`n" + 'print("PYCODING_HZ_OK " + MARKER)' + "`n"
+Write-Fixture 'py-coding-hz.py' (Get-EncodedBytes $utf8NoBom $hzBody) 'HZ-GB-2312 source, seven bit only'
+
+# U+10000 has no GB2312 or GBK form: GB18030 writes it as 90 30 81 30.
+$bmpOutsideGbk = [char]::ConvertFromUtf32(0x10000)
+$gb18030Body = '# -*- coding: gb18030 -*-' + "`n" + 'MARKER = "' + $zh + $bmpOutsideGbk + '"' + "`n" + 'print("PYCODING_GB18030_OK " + MARKER)' + "`n"
+Write-Fixture 'py-coding-gb18030.py' (Get-EncodedBytes $gb18030 $gb18030Body) 'GB18030 with a four byte sequence'
+
+# U+4E02 exists in GBK (81 40) and nowhere in GB2312. Declaring gb2312 over
+# these bytes is a lie that CP936 validation cannot see.
+$gbkOnly = [char]::ConvertFromUtf32(0x4E02)
+$gbkOnlyBody = '# -*- coding: gb2312 -*-' + "`n" + 'MARKER = "' + $gbkOnly + '"' + "`n" + 'print("PYCODING_SHOULD_NOT_RUN")' + "`n"
+Write-Fixture 'py-coding-gbk-as-gb2312.py' (Get-EncodedBytes $gbk $gbkOnlyBody) 'GBK only bytes declared as gb2312'
+
+# codecs.lookup('windows-936') raises LookupError in CPython: the real aliases
+# are cp936, ms936 and 936. A detector that accepts this name passes a file
+# that Python refuses to even compile.
+Write-Fixture 'py-coding-windows936.py' (Get-EncodedBytes $gbk ('# -*- coding: windows-936 -*-' + "`n" + $pyGb2312Body)) 'a name CPython does not resolve'
+
+# Same trap, other family: 54936 is the Windows code page, not a Python codec
+# name, and GB18030's aliases are gb18030 and gb18030-2000.
+Write-Fixture 'py-coding-cp54936.py' (Get-EncodedBytes $gbk ('# -*- coding: cp54936 -*-' + "`n" + $pyGb2312Body)) 'a Windows code page used as a codec name'
+
+# A ~{ that never closes leaves the decoder inside GB mode at end of file.
+Write-Fixture 'py-coding-hz-truncated.py' (Get-EncodedBytes $utf8NoBom ('# -*- coding: hz -*-' + "`n" + 'MARKER = "~{VPND' + "`n")) 'HZ that never leaves GB mode'
 
 # --- writer inputs -------------------------------------------------------
 $contentBody = $zh + $ceshi + ': content source for the writer.' + "`r`n"

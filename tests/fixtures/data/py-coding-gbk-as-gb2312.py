@@ -1,0 +1,3 @@
+# -*- coding: gb2312 -*-
+MARKER = "Å@"
+print("PYCODING_SHOULD_NOT_RUN")

@@ -12,6 +12,12 @@
     labelled gbk only when the CP936 round trip is byte exact; everything else is
     reported as unknown with confidence=low.
 
+    Python source is judged against the codec the file names in its PEP 263
+    line, and each codec is checked with its own rules rather than with CP936:
+    GBK and GB2312 are different repertoires, HZ-GB-2312 is a seven bit escape
+    encoding, and GB18030 has four byte sequences. A name Python cannot resolve
+    is a failure, not a pass.
+
     A byte order mark is a claim, not a proof: when a file starts with EF BB BF,
     FF FE or FE FF, the bytes after the mark are still decoded strictly, and a
     payload that does not decode is reported as an invalid-encoding failure
@@ -336,10 +342,22 @@ begin {
 
     function Resolve-PythonCodingName {
         <#
-            Maps the name written in a PEP 263 line to the family this tool can
-            actually verify. Anything not listed returns $null and is treated as
-            unknown rather than guessed: Python refuses such a file with
+            Maps the name written in a PEP 263 line to the codec family this tool
+            can actually verify. Anything not listed returns $null and is treated
+            as unknown rather than guessed: Python refuses such a file with
             "unknown encoding", so answering OK for it would be a false pass.
+
+            The four Chinese families are kept apart on purpose. GBK, GB2312,
+            HZ-GB-2312 and GB18030 are four different byte layouts that happen to
+            share most of a repertoire, not four spellings of code page 936.
+            GB2312 is a subset of GBK; HZ is a seven bit escape encoding of
+            GB2312; GB18030 adds four byte sequences for everything neither can
+            carry. Folding them together and validating with CP936 accepts files
+            Python refuses, and refuses files Python runs.
+
+            Every alias below was checked with codecs.lookup() on CPython 3.13.
+            "windows-936" and "cp54936" read like aliases and are not: Python
+            rejects the declaration before it reads a byte of the file.
         #>
         param([string]$Raw)
 
@@ -348,12 +366,119 @@ begin {
             '^(utf[-_]?8|u8)$' { return 'utf-8' }
             '^(ascii|us[-_]?ascii|646)$' { return 'ascii' }
             '^(latin[-_]?1|iso[-_]?8859[-_]?1|8859)$' { return 'latin-1' }
-            '^(gbk|cp[-_]?936|ms936|windows[-_]?936|936|gb2312|euc[-_]?cn|hz)$' { return 'gbk' }
-            '^(gb18030|cp[-_]?54936|54936)$' { return 'gb18030' }
+            '^(gbk|cp[-_]?936|ms936|936)$' { return 'gbk' }
+            '^(gb2312|euc[-_]?cn|gb2312[-_]80|iso[-_]ir[-_]58|chinese)$' { return 'gb2312' }
+            # hzgb2312 is one word Python does not know; the separators matter.
+            '^(hz|hzgb|hz-gb-2312|hz_gb_2312)$' { return 'hz' }
+            '^(gb18030|gb18030[-_]2000)$' { return 'gb18030' }
             '^(utf[-_]?16|utf[-_]?16[-_]?le|utf[-_]?16[-_]?be|utf16)$' { return 'utf-16' }
             '^(utf[-_]?32|utf[-_]?32[-_]?le|utf[-_]?32[-_]?be|utf32)$' { return 'utf-32' }
         }
         return $null
+    }
+
+    function Test-Gb2312Cell {
+        <#
+            Is this double byte pair an assigned GB2312 cell?
+
+            Enumerated from the gb2312 codec of CPython 3.13: 7445 of the 8178
+            pairs in the A1-F7 / A1-FE grid decode and re-encode byte for byte.
+            The assigned area is not a rectangle: zone 10 to 15 (lead AA-AF) is
+            empty, and half a dozen symbol rows stop short of FE.
+
+            This is a real table and not a CP936 probe on purpose. CP936 assigns
+            much more of the same grid -- GBK extensions such as 81 40 -- so
+            asking CP936 accepts bytes that Python rejects under a gb2312
+            declaration.
+        #>
+        param([int]$Lead, [int]$Trail)
+
+        if ($Trail -lt 0xA1 -or $Trail -gt 0xFE) { return $false }
+        # Zones 1 and 3 are full rows, so are the 39 first level and 32 second
+        # level hanzi zones.
+        if ($Lead -eq 0xA1 -or $Lead -eq 0xA3) { return $true }
+        if ($Lead -ge 0xB0 -and $Lead -le 0xD6) { return $true }
+        if ($Lead -ge 0xD8 -and $Lead -le 0xF7) { return $true }
+        switch ($Lead) {
+            0xA2 {
+                return (($Trail -ge 0xB1 -and $Trail -le 0xE2) -or
+                    ($Trail -ge 0xE5 -and $Trail -le 0xEE) -or
+                    ($Trail -ge 0xF1 -and $Trail -le 0xFC))
+            }
+            0xA4 { return ($Trail -le 0xF3) }
+            0xA5 { return ($Trail -le 0xF6) }
+            0xA6 { return (($Trail -ge 0xA1 -and $Trail -le 0xB8) -or ($Trail -ge 0xC1 -and $Trail -le 0xD8)) }
+            0xA7 { return (($Trail -ge 0xA1 -and $Trail -le 0xC1) -or ($Trail -ge 0xD1 -and $Trail -le 0xF1)) }
+            0xA8 { return (($Trail -ge 0xA1 -and $Trail -le 0xBA) -or ($Trail -ge 0xC5 -and $Trail -le 0xE9)) }
+            0xA9 { return ($Trail -ge 0xA4 -and $Trail -le 0xEF) }
+            # The last hanzi zone stops one row early.
+            0xD7 { return ($Trail -le 0xF9) }
+        }
+        return $false
+    }
+
+    function Test-Gb2312Payload {
+        <#
+            EUC-CN as Python knows it: bytes below 0x80 are themselves, every
+            other byte starts a pair in the A1-F7 / A1-FE grid. There is no
+            single byte range above 0x7F and no lead past F7.
+        #>
+        param([byte[]]$Slice)
+
+        $i = 0
+        while ($i -lt $Slice.Length) {
+            $lead = $Slice[$i]
+            if ($lead -lt 0x80) {
+                $i++
+                continue
+            }
+            if ($lead -lt 0xA1 -or $lead -gt 0xF7) { return $false }
+            if ($i + 1 -ge $Slice.Length) { return $false }
+            if (-not (Test-Gb2312Cell -Lead $lead -Trail $Slice[$i + 1])) { return $false }
+            $i += 2
+        }
+        return $true
+    }
+
+    function Test-HzPayload {
+        <#
+            HZ-GB-2312 is a stateful seven bit encoding: ASCII until ~{ switches
+            to GB mode, where every pair of printable bytes is a GB2312 cell
+            shifted up by 0x80. ~~ is a literal tilde, a tilde before a newline
+            is a line continuation, ~} closes GB mode, and a file that ends
+            inside GB mode is truncated.
+
+            Validating this with CP936 would be meaningless twice over: the bytes
+            are all below 0x80, so CP936 accepts any of it without looking, and
+            the GB2312 cells still have to be checked one by one.
+        #>
+        param([byte[]]$Slice)
+
+        $i = 0
+        $inGb = $false
+        while ($i -lt $Slice.Length) {
+            $b = $Slice[$i]
+            if ($b -eq 0x7E) {
+                if ($i + 1 -ge $Slice.Length) { return $false }
+                $next = $Slice[$i + 1]
+                if ($next -eq 0x0A -or $next -eq 0x7E) { $i += 2; continue }
+                if (-not $inGb -and $next -eq 0x7B) { $inGb = $true; $i += 2; continue }
+                if ($inGb -and $next -eq 0x7D) { $inGb = $false; $i += 2; continue }
+                return $false
+            }
+            if (-not $inGb) {
+                if ($b -gt 0x7F) { return $false }
+                $i++
+                continue
+            }
+            if ($b -lt 0x21 -or $b -gt 0x7E) { return $false }
+            if ($i + 1 -ge $Slice.Length) { return $false }
+            $second = $Slice[$i + 1]
+            if ($second -lt 0x21 -or $second -gt 0x7E) { return $false }
+            if (-not (Test-Gb2312Cell -Lead ($b + 0x80) -Trail ($second + 0x80))) { return $false }
+            $i += 2
+        }
+        return (-not $inGb)
     }
 
     function Test-CodingDecodes {
@@ -375,6 +500,11 @@ begin {
                 return $true
             }
             'latin-1' { return $true }
+            # Neither of these is a Windows code page, so neither can be handled
+            # by the round trip below. GB2312 is a table of assigned cells and
+            # HZ is a state machine over that table; both are checked directly.
+            'gb2312' { return (Test-Gb2312Payload -Slice $Slice) }
+            'hz' { return (Test-HzPayload -Slice $Slice) }
             'gbk' { $codePage = 936 }
             'gb18030' { $codePage = 54936 }
             default { return $false }
@@ -410,11 +540,13 @@ begin {
         param([byte[]]$Bytes)
 
         $coding = [ordered]@{
-            Parsed    = $false
-            Raw       = ''
-            Canonical = ''
-            Line      = 0
-            Problem   = ''
+            Parsed     = $false
+            Raw        = ''
+            Canonical  = ''
+            Line       = 0
+            Problem    = ''
+            ProblemKind = ''
+            Repertoire = @()
         }
 
         # A UTF-8 BOM sits before the first line. It is not part of the comment,
@@ -454,12 +586,14 @@ begin {
 
         $canonical = Resolve-PythonCodingName -Raw $coding.Raw
         if (-not $canonical) {
+            $coding.ProblemKind = 'unknown-name'
             $coding.Problem = ("unknown source encoding '{0}'" -f $coding.Raw)
             return $coding
         }
         if ($canonical -eq 'utf-16' -or $canonical -eq 'utf-32') {
             # Python refuses these as source encodings outright.
             $coding.Canonical = $canonical
+            $coding.ProblemKind = 'unusable-codec'
             $coding.Problem = ("{0} is not usable as a Python source encoding" -f $coding.Raw)
             return $coding
         }
@@ -467,27 +601,45 @@ begin {
 
         $slice = Copy-Range -Bytes $Bytes -Offset $start
         if (-not (Test-CodingDecodes -Slice $slice -Canonical $canonical)) {
+            $coding.ProblemKind = 'bytes-mismatch'
             $coding.Problem = ("the bytes are not valid {0}, although line {1} declares it" -f $canonical, $coding.Line)
+            return $coding
         }
+
+        # Which labels the detector may legitimately produce for bytes that are
+        # known to be valid for this codec. Being a subset is not a conflict: a
+        # GB2312 body is also valid GBK, and a GBK body is also valid GB18030,
+        # so Python decodes either correctly under the wider declaration. The
+        # reverse is what the declaration has to rule out -- UTF-8 bytes are not
+        # a legal GBK source, they just decode into mojibake.
+        $repertoire = @()
+        switch ($canonical) {
+            'ascii' { $repertoire = @('ascii') }
+            'utf-8' { $repertoire = @('ascii', 'utf8-nobom', 'utf8-bom') }
+            'latin-1' { $repertoire = @('ascii') }
+            'gbk' { $repertoire = @('ascii', 'gbk') }
+            'gb2312' { $repertoire = @('ascii', 'gbk') }
+            'gb18030' { $repertoire = @('ascii', 'gbk', 'unknown') }
+            'hz' { $repertoire = @('ascii') }
+        }
+        $coding.Repertoire = $repertoire
         return $coding
     }
 
     function Test-PythonCodingAgrees {
         <#
-            The declaration has to match what the bytes actually are, not merely
-            decode. A UTF-8 file that says `coding: gbk` decodes as GBK into
-            mojibake, so "it decodes" would be the wrong question.
-        #>
-        param([string]$Detected, [string]$Canonical)
+            Is the detector's own label inside what the declared codec can hold?
 
-        if (-not $Canonical) { return $false }
-        switch ($Detected) {
-            'ascii' { return $true }
-            'utf8-nobom' { return ($Canonical -eq 'utf-8') }
-            'utf8-bom' { return ($Canonical -eq 'utf-8') }
-            'gbk' { return ($Canonical -eq 'gbk') }
-            default { return $false }
-        }
+            "Decodes" alone is the wrong question: a UTF-8 file that says
+            `coding: gbk` decodes as GBK, into mojibake, and Python runs it. The
+            answer is only honest if the bytes are already known to be valid for
+            the declared codec -- that is checked before this runs -- and the
+            detected label still sits inside the codec's repertoire.
+        #>
+        param([string]$Detected, [string[]]$Repertoire)
+
+        if (-not $Repertoire -or $Repertoire.Count -eq 0) { return $false }
+        return ($Repertoire -contains $Detected)
     }
 
     function Get-EncodingSnapshot {
@@ -510,6 +662,8 @@ begin {
             SourceCodingName    = ''
             SourceCodingLine    = 0
             SourceCodingProblem = ''
+            SourceCodingKind    = ''
+            SourceCodingRepertoire = @()
         }
 
         # Only Python has a source encoding declaration, so only the python
@@ -522,6 +676,8 @@ begin {
                 $result.SourceCodingName = $coding.Canonical
                 $result.SourceCodingLine = $coding.Line
                 $result.SourceCodingProblem = $coding.Problem
+                $result.SourceCodingKind = $coding.ProblemKind
+                $result.SourceCodingRepertoire = @($coding.Repertoire)
             }
         }
 
@@ -733,7 +889,9 @@ begin {
             [string]$SourceCoding = '',
             [string]$SourceCodingName = '',
             [int]$SourceCodingLine = 0,
-            [string]$SourceCodingProblem = ''
+            [string]$SourceCodingProblem = '',
+            [string]$SourceCodingKind = '',
+            [string[]]$SourceCodingRepertoire = @()
         )
 
         # A payload that does not decode is a failure in every profile: no
@@ -861,17 +1019,33 @@ begin {
                 }
             }
             'python' {
-                if ($SourceCodingProblem) {
+                if ($SourceCodingKind -eq 'bytes-mismatch') {
+                    # The declaration resolves, the bytes do not satisfy it. This
+                    # is the case CP936 validation used to miss: GBK extensions
+                    # are legal GBK and illegal GB2312.
+                    $verdict = 'FAIL'
+                    [void]$reasons.Add(('PY_SOURCE_CODING_INVALID_BYTES: {0}; Python 3 decodes the file with the declared codec and stops at the first byte that codec cannot map' -f $SourceCodingProblem))
+                }
+                elseif ($SourceCodingProblem) {
                     $verdict = 'FAIL'
                     [void]$reasons.Add(('PY_SOURCE_CODING_UNKNOWN: {0}; Python 3 raises SyntaxError for a declaration it cannot resolve' -f $SourceCodingProblem))
                 }
-                elseif ($SourceCoding -and -not (Test-PythonCodingAgrees -Detected $Encoding -Canonical $SourceCodingName)) {
+                elseif ($SourceCoding -and -not (Test-PythonCodingAgrees -Detected $Encoding -Repertoire $SourceCodingRepertoire)) {
                     $verdict = 'FAIL'
                     [void]$reasons.Add(('PY_SOURCE_CODING_CONFLICT: line {0} declares {1} but the bytes are {2}; Python would decode the file with the declared codec and read mojibake' -f $SourceCodingLine, $SourceCoding, $Encoding))
                 }
                 else {
                     switch ($Encoding) {
-                        'ascii' { }
+                        'ascii' {
+                            # Seven bit bytes decode identically under every ASCII
+                            # superset, so a declaration costs nothing here --
+                            # except for HZ, where those ASCII bytes are escape
+                            # sequences standing in for CJK text.
+                            if ($SourceCodingName -eq 'hz') {
+                                $verdict = 'WARN'
+                                [void]$reasons.Add(('PY_SOURCE_CODING_HZ: line {0} declares {1}. The bytes are seven bit HZ-GB-2312, where tilde-brace runs carry the GB2312 characters; every byte is ASCII, so editors, git and grep show the escape text instead of the CJK. Python 3 runs it. Re-save as UTF-8 to make the content readable' -f $SourceCodingLine, $SourceCoding))
+                            }
+                        }
                         'utf8-nobom' { }
                         'utf8-bom' {
                             $verdict = 'WARN'
@@ -897,8 +1071,16 @@ begin {
                             [void]$reasons.Add('UTF16_UNSUPPORTED: Python source must be UTF-8')
                         }
                         default {
-                            $verdict = 'WARN'
-                            [void]$reasons.Add('UNKNOWN_ENCODING: could not be determined')
+                            if ($SourceCoding) {
+                                # GB18030 four byte sequences land here: valid for
+                                # the declaration, undetectable by the CP936 probe.
+                                $verdict = 'WARN'
+                                [void]$reasons.Add(('PY_SOURCE_CODING_DECLARED: line {0} declares {1}, and Python 3 decodes the file with it. The file runs; it is still not UTF-8, so editors, git and every other tool read it as mojibake' -f $SourceCodingLine, $SourceCoding))
+                            }
+                            else {
+                                $verdict = 'WARN'
+                                [void]$reasons.Add('UNKNOWN_ENCODING: could not be determined')
+                            }
                         }
                     }
                 }
@@ -1023,7 +1205,8 @@ begin {
         $judgement = Get-EncodingVerdict -Encoding $measured.Encoding -EffectiveProfile $resolvedProfile `
             -NonAscii $measured.NonAscii -PayloadProblem $measured.PayloadProblem `
             -SourceCoding $measured.SourceCoding -SourceCodingName $measured.SourceCodingName `
-            -SourceCodingLine $measured.SourceCodingLine -SourceCodingProblem $measured.SourceCodingProblem
+            -SourceCodingLine $measured.SourceCodingLine -SourceCodingProblem $measured.SourceCodingProblem `
+            -SourceCodingKind $measured.SourceCodingKind -SourceCodingRepertoire $measured.SourceCodingRepertoire
 
         $expectedMatch = $null
         if ($ExpectedEncoding -ne 'any') {
@@ -1059,6 +1242,7 @@ begin {
             SourceCodingName    = $measured.SourceCodingName
             SourceCodingLine    = $measured.SourceCodingLine
             SourceCodingProblem = $measured.SourceCodingProblem
+            SourceCodingKind    = $measured.SourceCodingKind
             Expected       = $ExpectedEncoding
             ExpectedMatch  = $expectedMatch
             Verdict        = $judgement.Verdict
@@ -1117,7 +1301,7 @@ end {
     if ($Output -eq 'json') {
         $document = [ordered]@{
             Tool       = 'Test-ScriptEncoding.ps1'
-            Version    = '1.0.2'
+            Version    = '1.0.3'
             Runtime    = $PSVersionTable.PSEdition
             PSVersion  = $PSVersionTable.PSVersion.ToString()
             Profile    = $Profile
@@ -1160,6 +1344,7 @@ end {
             }
             if ($f.SourceCodingProblem) {
                 Write-Output ('SOURCE_CODING_PROBLEM=' + $f.SourceCodingProblem)
+                if ($f.SourceCodingKind) { Write-Output ('SOURCE_CODING_KIND=' + $f.SourceCodingKind) }
             }
             Write-Output ('EXPECTED=' + $f.Expected)
             Write-Output ('EXPECTED_MATCH=' + $f.ExpectedMatch)

@@ -279,6 +279,84 @@ Describe 'Test-ScriptEncoding.ps1' {
         }
     }
 
+    Context 'Python codec families' {
+
+        It 'resolves <Declaration> to <Canonical> and warns' -ForEach @(
+            @{ File = 'py-coding-gbk.py'; Declaration = 'gbk'; Canonical = 'gbk' }
+            @{ File = 'py-coding-equals.py'; Declaration = 'cp936'; Canonical = 'gbk' }
+            @{ File = 'py-coding-gb2312.py'; Declaration = 'gb2312'; Canonical = 'gb2312' }
+            @{ File = 'py-coding-euc-cn.py'; Declaration = 'euc-cn'; Canonical = 'gb2312' }
+            @{ File = 'py-coding-hz.py'; Declaration = 'hz'; Canonical = 'hz' }
+            @{ File = 'py-coding-gb18030.py'; Declaration = 'gb18030'; Canonical = 'gb18030' }
+        ) {
+            # A real interpreter runs every one of these to exit 0, so the only
+            # acceptable answer here is WARN. v1.0.2 folded gb2312 and hz into
+            # gbk, called the HZ file plain ASCII and refused the GB18030 one.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir $File), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'WARN'
+            Get-Field $r.StdOut 'SOURCE_CODING' | Should -Be $Declaration
+            Get-Field $r.StdOut 'SOURCE_CODING_NAME' | Should -Be $Canonical
+        }
+
+        It 'rejects GBK only bytes under a gb2312 declaration' {
+            # 81 40 is assigned in GBK and nowhere in GB2312. Validating the
+            # declaration with CP936 accepted it; Python raises SyntaxError.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-gbk-as-gb2312.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 2
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_INVALID_BYTES'
+            Get-Field $r.StdOut 'SOURCE_CODING_KIND' | Should -Be 'bytes-mismatch'
+        }
+
+        It 'accepts GB2312 bytes under the wider gbk declaration' {
+            # The subset direction must keep working: every GB2312 body is a
+            # legal GBK body, so this is not a conflict.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-gb2312.py'), '-Profile', 'python')
+            Get-Field $r.StdOut 'ENCODING' | Should -Be 'gbk'
+            $r.StdOut | Should -Not -Match 'PY_SOURCE_CODING_CONFLICT'
+            $r.ExitCode | Should -Be 1
+        }
+
+        It 'rejects the codec name <Name>, which CPython does not resolve' -ForEach @(
+            @{ File = 'py-coding-windows936.py'; Name = 'windows-936' }
+            @{ File = 'py-coding-cp54936.py'; Name = 'cp54936' }
+        ) {
+            # 936 and 54936 are code pages. A codec name has to be looked up in
+            # Python, and neither of these resolves, so the file never compiles.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir $File), '-Profile', 'python')
+            $r.ExitCode | Should -Be 2
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_UNKNOWN'
+            $r.StdOut | Should -Match ([regex]::Escape($Name))
+        }
+
+        It 'warns that an HZ body is escape text rather than CJK' {
+            # The file is seven bit, so the byte detector calls it ASCII and the
+            # generic ASCII case would pass it silently.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-hz.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            Get-Field $r.StdOut 'ENCODING' | Should -Be 'ascii'
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_HZ'
+        }
+
+        It 'fails HZ that never leaves the GB run' {
+            # A decoder left inside GB mode at end of file has a truncated
+            # character. All the bytes are still ASCII, so nothing but the state
+            # machine can see it.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-hz-truncated.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 2
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_INVALID_BYTES'
+        }
+
+        It 'leaves an ordinary UTF-8 source file alone' {
+            # The regression guard for this whole change: none of it may move a
+            # plain UTF-8 file off OK.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-utf8nobom.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 0
+            Get-Field $r.StdOut 'ENCODING' | Should -Be 'utf8-nobom'
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'OK'
+        }
+    }
+
     Context 'UTF-32 with a BOM' {
 
         It 'names <Encoding> and refuses it' -ForEach @(
