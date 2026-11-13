@@ -24,6 +24,10 @@ on:
     branches:
       - main
       - 'feature/**'
+      # A fix branch gets the same matrix a feature branch does. Without this,
+      # the only way to see a fix run is to open the pull request first, which
+      # makes "push and look at the jobs" impossible while iterating.
+      - 'fix/**'
   pull_request:
   workflow_dispatch:
 

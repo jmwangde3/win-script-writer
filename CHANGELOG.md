@@ -11,6 +11,47 @@
 
 ### Changed（会改变既有行为，需注意）
 
+- **GBK 网格由检测器自带，不再用 CP936 代验。** 两者差 2149 格：CPython 的
+  `gbk` 是 23940 个候选格中的 21791 格，CP936 把剩下的空洞全部映射到私用区
+  并往返成功，还把 `0x80` 解成 €、`0xFF` 解成 U+F8F5。`Test-GbkCell` 按实测
+  枚举的网格逐格判定（含 `A8` 低区只到 `95`、`A9` 低区缺 `58/5B/5D-5F/89-95/97-A0`
+  这些散格），`Test-GbkPayload` 只走这张表。
+  **影响**：UTF-8 字节声明 `gbk` 的判定从 `PY_SOURCE_CODING_CONFLICT` 变为
+  `PY_SOURCE_CODING_INVALID_BYTES`——那是真解不出（Python 报
+  `encoding problem: gbk`）；CP936 合法而 GBK 未分配的格不再被放行。
+- **「别的编码也能解」改判歧义，不再判冲突。** `# coding: gb2312` + 一个「茅」
+  字（`C3 A9`，UTF-8 里是 é）此前被判 `FAIL`，但 Python 按声明解出「茅」并
+  `rc=0`。现在分「唯一匹配 / 歧义 / 声明解不出」三档，歧义走
+  `PY_SOURCE_CODING_AMBIGUOUS`（`WARN`）。
+  **影响**：`gb2312` / `gbk` / `gb18030` 声明 + 恰好也是合法 UTF-8 的字节，
+  从 `FAIL` 变成 `WARN`。真解不出的仍然 `FAIL`，没有降级。
+- **Latin-1 的两处判定统一。** `Test-CodingDecodes` 直接 `return $true`，
+  repertoire 表却只列 `ascii`，于是任何非 ASCII 的 latin-1 文件都撞成
+  `CONFLICT`。现在两处都说「latin-1 描述全部 256 个单字节值」：
+  **影响**：非 ASCII 的 latin-1 声明从 `FAIL` 变成 `WARN`（`DECLARED`，检测
+  结论是 UTF-8 时给 `AMBIGUOUS`）；纯 ASCII 仍 `OK`；带 BOM 仍 `FAIL`。
+- **codec 名字分四档，新增 `SOURCE_CODING_SUPPORT=`。** 原先 `$null` 同时表示
+  「Python 不认识」和「检测器不支持」，于是 `cp1252`、`shift_jis`、`big5`
+  （Python 实测 `rc=0`）被判 `FAIL UNKNOWN`。现在返回 `supported` /
+  `python-only` / `unknown` 三档，外加独立的 BOM 冲突分支。名字表按族重写，
+  448 个 `encodings.aliases` 拼写逐个跑解释器核对，0 例不一致：
+  **影响**：`cp1252` / `shift_jis` / `big5` / `euc-jp` / `mac-roman` /
+  `csisolatin2` / `latin2` / `1252` / `ansi` 等从 `FAIL` 变成 `WARN`
+  （`PY_SOURCE_CODING_UNVERIFIED`，明确说「检测器没有该表」）；
+  `utf-8-sig` 从 `FAIL UNKNOWN` 变成 `OK`；`utf-8-unix`、`utf-8-bogus`
+  这类只有 tokenizer 归一化才认的写法也从 `FAIL` 变成 `WARN`；`utf-8`/
+  `utf-8-sig` 之外的编码名与 BOM 同现时理由码改为
+  `PY_SOURCE_CODING_BOM_CONFLICT`（原 `PY_SOURCE_CODING_CONFLICT`），并且
+  `utf8` 这种拼写 + BOM 也归入此类（Python 实报 `encoding problem: utf8 with
+  BOM`）。反方向没放松：`latin-2`（连字符形式全族如此）、`cp424`、`gb-2312`、
+  `base64` 这类实际跑不了的名字仍判 `FAIL`。检测器不引 Python 运行时。
+- **HZ 状态机按 CPython 的实际行为重写。** CPython 的 `hz` 比 RFC 1843 严：
+  `~~` 和 `~\n` 只在 ASCII 段合法（GB 段内报 `UnicodeDecodeError`），`~}` 在
+  ASCII 段非法，GB 段内 `0x7E` 可作为第二字节（`56 7E` = 「筑」），而文件结束
+  停在 GB 段但最后一对完整时**接受**。
+  **影响**：`py-coding-hz-open.py` 这类「未闭合但可运行」的文件从
+  `FAIL INVALID_BYTES` 变成 `WARN` + 理由里注明 «ends inside GB mode»；
+  段内非法转义与悬挂半字符的仍 `FAIL`。
 - **`gb2312` / `euc-cn` 不再归并为 GBK。** 它们是 GB2312 的别名，而 GB2312 是
   GBK 的真子集：Windows 没有 GB2312 代码页，原先用 CP936 代验，CP936 分配得
   比 GB2312 宽得多（`81 40`、`AA A1`、`F8 A1` 都是 CP936 合法格、GB2312 空位）。
@@ -47,12 +88,35 @@
 - 夹具 8 个：`py-coding-gb2312.py`、`py-coding-euc-cn.py`、`py-coding-hz.py`、
   `py-coding-hz-truncated.py`、`py-coding-gb18030.py`、
   `py-coding-gbk-as-gb2312.py`、`py-coding-windows936.py`、`py-coding-cp54936.py`。
+- 夹具 22 个，覆盖四个修复面：HZ 转义与截断
+  （`py-coding-hz-tilde-in-gb` / `-escape-in-gb` / `-close-in-ascii` /
+  `-continuation` / `-open`）、编码重叠
+  （`py-coding-{gb2312,gbk,gb18030}-overlap`、`py-coding-utf8-as-{gbk,gb2312}`）、
+  Latin-1（`py-coding-latin1` / `-ascii` / `-utf8` / `-bom`）、codec 名字
+  （`py-coding-{cp1252,shift-jis,big5,54936,hzgb2312,cn-gb,utf8-sig,utf8-spelling-bom}`）。
+  夹具总数 46 → 68，原有 46 个的字节 SHA256 全部未变。
+- Pester 新增 4 个 Context、26 例：`HZ state machine`、`overlapping encodings`、
+  `Latin-1 declarations`、`codec name classification`。Pester 总数 108 → 134。
 - 集成测试 `TestGb2312Grid`：用 CPython 自己的 codec 拼出全部 7445 个已分配格
   与若干 GBK 独有格，分别要求检测器给 `WARN` 与 `FAIL`。手工维护的码表会漂移，
   这是唯一能发现漏行的检查。
+- 集成测试 `TestGbkGrid`：把 21791 个可解格拼成一个源文件要求放行，再对每个
+  有洞的首字节取一格要求拒绝，并单独验证 `0x80` / `0xFF`。这条测试第一次跑就
+  抓出了 `A8` / `A9` 低区的 153 格误拒。
+- 集成测试 `TestHzStateMachine`：用 `hz` codec 生成七种字节形态，先跑 Python
+  再跑检测器，只比较两边结论是否一致，不硬编码某一版本的行为。
+- 集成测试 `TestEncodingOverlap`：重叠、可解、不可解三例，`TestPythonSourceCoding`
+  的用例表从 13 条扩到 28 条。
+- 集成测试 `TestCodingNameAgreement`：把 28 个 codec 名逐个写进真实源文件，
+  先问解释器「这个名字能用吗」，再问检测器，只比较两边答案是否一致。名字表
+  漏拼写或 stdlib 改别名时这条会红，而不需要用某个版本的结论当标准答案。
 
 ### Fixed
 
+- 文档：`references/encoding-matrix.md` 补 §2.1.1（唯一 / 歧义 / 解不出三档）、
+  §2.1.2（Latin-1 单字节语义）、§2.1.3（codec 名字四档）、§2.2.1（GBK 21791
+  格与 CP936 的 2149 格差异）、§2.2.2（HZ 状态机逐条实测表）、§2.3
+  （`WARN` / `FAIL` 的理由码表）。原文里「等价于 CP936」这句被具体差异取代。
 - 文档：`New-EncodedScript.ps1` 的 `-Encoding` 说明不再声称 UTF-8 BOM 是
   「5.1 与 7 唯一能同样解析的形式」（UTF-16 带 BOM 两者也能解析）。改为
   「推荐的跨版本存储格式」，并说明推荐理由是其他工具也认。

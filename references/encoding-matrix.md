@@ -61,16 +61,99 @@ Python 3 默认按 UTF-8 读源码，但前两行里的注释可以改这个默�
 
 | 文件实际字节 | 声明 | Python 3 的行为 | 检测器判定 |
 | --- | --- | --- | --- |
-| GBK | `gbk` / `cp936` / `ms936` / `936` | 正常执行 | `WARN`（`PY_SOURCE_CODING_DECLARED`） |
-| GB2312 | `gb2312` / `euc-cn` | 正常执行 | `WARN`（同上，`SOURCE_CODING_NAME=gb2312`） |
-| 7 位 HZ | `hz` / `hz-gb-2312` | 正常执行 | `WARN`（`PY_SOURCE_CODING_HZ`） |
-| GB18030（含四字节） | `gb18030` | 正常执行 | `WARN`（`PY_SOURCE_CODING_DECLARED`） |
-| GBK 扩展（如 `81 40`） | `gb2312` | `SyntaxError: encoding problem: gb2312` | `FAIL`（`PY_SOURCE_CODING_INVALID_BYTES`） |
+| GBK | `gbk` / `cp936` / `ms936` / `936` | 正常执行 | `WARN`（`DECLARED`） |
+| GB2312 | `gb2312` / `euc-cn` / `euccn` | 正常执行 | `WARN`（`DECLARED`，名字报 `gb2312`） |
+| 7 位 HZ | `hz` / `hzgb` / `hz-gb-2312` | 正常执行 | `WARN`（`HZ`） |
+| GB18030（含四字节） | `gb18030` / `gb18030-2000` | 正常执行 | `WARN`（`DECLARED`） |
+| GBK 扩展（如 `81 40`） | `gb2312` | `SyntaxError: encoding problem: gb2312` | `FAIL`（`INVALID_BYTES`） |
 | 非 UTF-8 | 无 | `SyntaxError: Non-UTF-8 code ...` | `FAIL`（`CP936_PYTHON`） |
-| UTF-8 + BOM | `gbk` | `SyntaxError: encoding problem: gbk with BOM` | `FAIL`（`PY_SOURCE_CODING_CONFLICT`） |
-| UTF-8 | `gbk` | 能跑，但读出来是乱码 | `FAIL`（`PY_SOURCE_CODING_CONFLICT`） |
-| 任意 | `utf-9` / `windows-936` / `cp54936` | `SyntaxError: encoding problem: <名字>` | `FAIL`（`PY_SOURCE_CODING_UNKNOWN`） |
+| UTF-8 + BOM | `gbk` / `latin-1` / `cp1252` | `SyntaxError: … with BOM` | `FAIL`（`BOM_CONFLICT`） |
+| UTF-8 + BOM | `utf8`（不是 `utf-8` 的规范写法） | `SyntaxError: encoding problem: utf8 with BOM` | `FAIL`（`BOM_CONFLICT`） |
+| UTF-8 + BOM | `utf-8` / `utf-8-sig` | 正常执行 | `OK` |
+| UTF-8 | `gbk`（字节解不出） | `SyntaxError: encoding problem: gbk` | `FAIL`（`INVALID_BYTES`） |
+| UTF-8 | `gbk`（字节解得出的那种） | 能跑，读出来是乱码 | `WARN`（`AMBIGUOUS`） |
+| 非 ASCII | `latin-1` | 正常执行 | `WARN`（`DECLARED`，`ENCODING=unknown`） |
+| 任意 | `cp1252` / `shift_jis` / `big5` … | 正常执行 | `WARN`（`UNVERIFIED`） |
+| 任意 | `utf-9` / `windows-936` / `cp54936` / `54936` / `hzgb2312` / `cn-gb` | `SyntaxError: encoding problem: <名字>` | `FAIL`（`UNKNOWN`） |
 | UTF-8 | `utf-8` | 正常执行 | `OK` / `WARN`（带 BOM 时） |
+
+### 2.1.1 「唯一」「歧义」「解不出」是三种结论，不是两种
+
+最早这里只有一条「声明和字节相符吗」，于是把 `# coding: gb2312` + 一个 `茅`
+字（字节 `C3 A9`）判成了冲突。那两字节在 GB2312 里是「茅」，在 UTF-8 里是
+「é」，两边都能解——Python 按声明解出「茅」并正常运行（实测 `rc=0`）。
+「别的编码也能解」不是错误，只是不唯一。
+
+现在的判定分三档：
+
+| 情况 | 判据 | 结论 |
+| --- | --- | --- |
+| 唯一匹配 | 声明能解，检测到的编码族覆盖它 | `WARN` + `DECLARED` |
+| 歧义 | 声明能解，另一族也能解，且那族是检测结论 | `WARN` + `AMBIGUOUS` |
+| 声明解不出 | 整段过不了声明的编码规则 | `FAIL` + `INVALID_BYTES` |
+
+关键区别：**只有声明本身解不出字节时才算错**。`utf8` 被报成 `AMBIGUOUS`
+而不是 `FAIL`，因为 Python 真的把它跑起来了；硬判 `FAIL` 等于用自己的谨慎
+去否决解释器的行为。反过来，`E4 B8 AD` 声明 `gbk` 必须 `FAIL`——它确实解不出
+（见 2.2 的 GBK 网格），这是真错，不能降级成 `WARN`。
+
+### 2.1.2 Latin-1 要一格一格算，不能一句「都能解」
+
+ISO-8859-1 把 0x00–0xFF 全部 256 个值映射到字符，所以「字节能不能被 latin-1
+解出」恒为真——这曾让检测器对 `latin-1` 直接 `return $true`，而同一张
+repertoire 表却写着 `latin-1 = @('ascii')`，两处互相矛盾：任何非 ASCII 的
+latin-1 文件都被判成「和 ASCII 冲突」。
+
+两处现已统一到同一件事上：latin-1 能描述任意字节，但它描述的是单字节
+字符集，**不能**用来说明「这些字节也是 GBK / UTF-8」。所以 latin-1 的
+repertoire 只算它自己：
+
+- 纯 ASCII 文件声明 `latin-1`：语法上成立且无歧义，检测器给 `OK`。
+- 含非 ASCII 的文件声明 `latin-1`：只要字节能被 latin-1 解（恒真）就是
+  `WARN` + `DECLARED`，**不再**判 `CONFLICT`。
+- 检测结论恰好是 UTF-8：`WARN` + `AMBIGUOUS`（两族都能解，不武断）。
+- 带 BOM：`FAIL` + `BOM_CONFLICT`（Python 实报
+  `encoding problem: iso-8859-1 with BOM`）。
+
+latin-1 与 UTF-8 的任何混用都不在本节保护范围内：`WARN` 说的是「Python 能跑」，
+不是「这样写没问题」。项目自己的 `.py` 仍然只存 UTF-8。
+
+### 2.1.3 codec 名字的四种状态
+
+`Resolve-PythonCodingName` 以前返回 `$null` 表示一切异常，把「Python 不认识
+这个名字」和「检测器没实现这个名字」压成同一件事：`cp1252` 与 `54936` 都报
+`PY_SOURCE_CODING_UNKNOWN`，而前者 Python 跑得好好的（实测 `rc=0`）。
+
+现在返回值带 `Support` 字段，四档：
+
+| `Support` | 含义 | 例子 | 结论 |
+| --- | --- | --- | --- |
+| `supported` | 名字合法，检测器自己会验 | `utf-8`、`gbk`、`gb2312`、`hz`、`gb18030`、`latin-1` | 按 2.1.1 |
+| `python-only` | 名字合法，检测器没有该编码的表 | `cp1252`、`shift_jis`、`big5`、`euc-jp`、`koi8-r`、`unicode_escape` | `WARN` + `UNVERIFIED` |
+| `unknown` | Python 的 `codecs.lookup` 不认 | `windows-936`、`cp54936`、`54936`、`hzgb2312`、`cn-gb`、`gb18030-2022` | `FAIL` + `UNKNOWN` |
+| `bom-conflict` | 名字合法但和 BOM 冲突 | `gbk` + BOM、`utf8` + BOM | `FAIL` + `BOM_CONFLICT` |
+
+`UNVERIFIED` 是诚实的欠缺，不是缺陷：检测器没有 `shift_jis` 的双字节表，就不能
+声称验过它。给 `WARN` 加一句「CPython 认识这个名字，本工具无法验证字节」比
+猜一个 `OK` 可靠。**`python-only` 的代价是检测器不引 Python 运行时**——那会让
+一个纯 PowerShell 工具变成需要装解释器才能跑，而且解释器版本会改变判定结果。
+
+名字表是数据，数据会漂。这张表按「族」写而不是按 300 个拼写写，但仍然有
+三类容易写错的边界，全部是实测出来的：
+
+- **`utf-8-*` 前缀一律当 UTF-8。** `codecs.lookup('utf-8-unix')` 抛
+  `LookupError`，可文件照样能跑——tokenizer 先归一化再查表。所以
+  `utf-8-unix`、`utf-8-bogus` 都得给 `WARN`，判 `FAIL` 是错的。
+- **`latin-2` 到 `latin-16` 的连字符形式全都不认。** `latin2` 能跑、
+  `latin-2` 与 `latin_2` 都报 `encoding problem`；`latin-1` 是唯一例外
+  （它被归一化成 `iso-8859-1`）。这种反直觉的分界只能靠实测，不能靠推理。
+- **裸代码页数字是合法别名。** `# coding: 1252` 能跑，`# coding: 936` 是 GBK；
+  唯一不成立的是 `54936`。
+
+集成测试 `TestCodingNameAgreement` 因此不写死任何名字的预期结论：它把每个名字
+写进真实源文件，先问解释器，再问检测器，只比较两边答案是否一致。名字表漏一个
+拼写、或者 stdlib 改了别名，这条测试会红，而不是让某个能跑的文件被判失败。
+
 
 ### 2.2 GBK、GB2312、HZ 和 GB18030 不是同一个编码
 
@@ -84,8 +167,7 @@ Python 3 默认按 UTF-8 读源码，但前两行里的注释可以改这个默�
   字节**，只看「有没有非 ASCII 字节」的检测器会把它当纯 ASCII 放过去。
 - **GB18030** 在 GBK 之上补了四字节序列（如 `90 30 81 30` = U+10000），
   用于 GBK 装不下的码位。合法 GBK 字节也是合法 GB18030 字节，反之不成立。
-- **GBK** 才是 Windows 的 936 代码页。CP936 在这一片网格里分配得比 GB2312
-  宽得多（`81 40`、`AA A1`、`F8 A1` 都是 CP936 的合法格、GB2312 的空位）。
+- **GBK** 是 CP936 的近亲，但**不等于** CP936，差 2149 格，见 2.2.1。
 
 所以「用 CP936 验证 GB2312」会放过 Python 直接拒绝的文件：声明 `gb2312`
 而字节里出现 `81 40`，CP936 说没问题，Python 报
@@ -94,11 +176,6 @@ Python 3 默认按 UTF-8 读源码，但前两行里的注释可以改这个默�
 反过来，把 GB2312 归进 GBK 也会误伤：GB2312 字节本来就是合法 GBK，声明
 `gbk` 完全成立，不该判冲突。检测器因此按「子集方向合法、超集方向非法」处理。
 
-Windows 没有 GB2312 和 HZ 的代码页，所以这两个族的校验是检测器自己实现的：
-GB2312 用一张按 CPython 3.13 逐格枚举出来的分配表（`Test-Gb2312Cell`），
-HZ 在同一张表上跑一个七位状态机（`Test-HzPayload`）。集成测试会用 Python
-把全表 7445 格拼成一个源文件跑一遍，要求检测器和解释器给出同一个答案。
-
 判据是**声明必须和字节相符**，而不是「能不能解出来」：UTF-8 的文件声明
 `coding: gbk` 也可能被 GBK 解出一串字，但那是乱码。所以检测器先确认字节
 满足声明的编码规则（`Test-CodingDecodes`），再确认检测到的编码族落在声明
@@ -106,6 +183,88 @@ HZ 在同一张表上跑一个七位状态机（`Test-HzPayload`）。集成测�
 
 项目仍然只存 UTF-8 的 `.py`。声明成 GBK 只是让检测器不再把它判成「跑不了」，
 不是推荐写法。
+
+### 2.2.1 GBK 网格：21791 格，和 CP936 差 2149 格
+
+CPython 的 `gbk` 是 126 个首字节 × 190 个尾字节（`40–7E`、`80–FE`，跳过
+`7F`）＝ 23940 个候选格，其中 **21791 格**解得开且往返一致。剩下的 2149 格
+是空洞，分布有规律：
+
+| 首字节 | 尾字节 `40–A0`（低区） | 尾字节 `A1–FE`（高区） |
+| --- | --- | --- |
+| `81–A0` | 全有 | 全有 |
+| `A1–A7` | 全无 | 有，但符号区各自的尾巴缺失 |
+| `A8` | `40–95` 有，`96–A0` 无 | 缺 `BC`、`BF`、`C1–C4`、`EA–FF` |
+| `A9` | 缺 `58`、`5B`、`5D–5F`、`89–95`、`97–A0` | 只有 `A4–EF` |
+| `AA–AF` | 全有 | 全无 |
+| `B0–D6`、`D8–F7` | 全有 | 全有 |
+| `D7` | 全有 | 有至 `F9` |
+| `F8–FD` | 无 | 无 |
+| `FE` | 有至 `4F` | 全无 |
+
+还有两个单字节洞：**`0x80` 与 `0xFF` Python 都报错**。
+
+这张表必须自己带着。CP936 把上面 2149 个空洞**全部**映射到私用区并往返成功
+（本机实测 21791+2149 格中 0 个被拒），还把 `0x80` 解成 €、`0xFF` 解成
+U+F8F5。于是 UTF-8 的 `E4 B8 AD`（中）在 CP936 眼里是「`E4B8` 一个字 +
+`AD` 一个合法首字节」——这正是当年把 UTF-8 文件判成「合法 GBK」的根因。
+现在的检测器用 `Test-GbkCell` 逐格判定，集成测试把 21791 个可解格拼成一个
+文件要求检测器放行、再对每个有洞的首字节各取一格要求拒绝，两边答案必须一致。
+
+同理 GB18030 覆盖全 2 字节区（0 洞，`A1 40` 解成 U+E4C6 并可往返），所以
+一份 GBK 字节流声明 `gb18030` 永远成立，只能靠 2.1.1 的歧义判定表达。
+
+### 2.2.2 HZ 的状态机比 RFC 1843 严
+
+CPython 3.13 的 `hz` 编解码器对转义的处理和 RFC 的宽容读法不一致，实测逐条：
+
+| 字节 | 位置 | CPython | 说明 |
+| --- | --- | --- | --- |
+| `~{` | ASCII 模式 | 进入 GB 模式 | |
+| `~}` | GB 模式 | 退出，回 ASCII | 必须成对 |
+| `~}` | ASCII 模式 | **`SyntaxError`** | RFC 允许的「冗余 `~}`」Python 不认 |
+| `~~` | ASCII 模式 | 一个字面 `~` | |
+| `~~` | GB 模式 | **`SyntaxError`** | 转义只在 ASCII 模式成立 |
+| `~\n` | ASCII 模式 | 续行，两行拼一起 | 只认 LF；`~\r\n` 报错 |
+| `~\n` | GB 模式 | **`SyntaxError`** | 同上 |
+| `0x21–0x7E` | GB 模式 | 双字节的第一/第二字节 | 空格、TAB、LF、`0x7F` 都非法 |
+| `0x7E` | GB 模式第二字节 | 合法 | `56 7E` = `D6 FE` = 「筑」 |
+| 文件结束 | 停在 GB 模式，最后一对完整 | **接受** | 实测 `rc=0`，内容是 `中文` |
+| 文件结束 | 停在 GB 模式，单个字节悬挂 | `SyntaxError` | `can't decode byte` |
+
+最后两行是两件不同的事，检测器分开表达：返回 `$true` + `Detail='unterminated'`，
+`WARN` 理由里追加「ends inside GB mode」。判成 `FAIL` 会让一个 Python 能跑的
+文件被拒——这是实测出来的，不是推测：夹具 `py-coding-hz-open.py` 去掉尾随换行
+后 `rc=0`，加上换行后 `rc=1`（`can't decode byte 0x0a`）。
+
+HZ 的 GB 模式双字节用的是 GB2312 表（`Test-Gb2312Cell`），不是 GBK 表：
+HZ 定义在 GB2312 上，`81 40` 这种 GBK 扩展格在 HZ 里同样非法。
+
+
+### 2.3 什么时候 `WARN`、什么时候 `FAIL`
+
+一句话：**`FAIL` 只留给「解释器会拒」或「字节破坏了声明」；解释器能跑的一律
+不进 `FAIL`。**
+
+| 理由码 | 档 | 触发条件 | 退出码 |
+| --- | --- | --- | --- |
+| `PY_SOURCE_CODING_DECLARED` | `WARN` | 声明成立、唯一匹配 | 1 |
+| `PY_SOURCE_CODING_AMBIGUOUS` | `WARN` | 声明成立，另一族也能解 | 1 |
+| `PY_SOURCE_CODING_HZ` | `WARN` | HZ 声明成立（七位字节，无高位字节） | 1 |
+| `PY_SOURCE_CODING_UNVERIFIED` | `WARN` | 名字 Python 认识，检测器没有该表 | 1 |
+| `PY_SOURCE_CODING_UNKNOWN` | `FAIL` | `codecs.lookup` 不认这个名字 | 2 |
+| `PY_SOURCE_CODING_INVALID_BYTES` | `FAIL` | 声明的编码解不出整段字节 | 2 |
+| `PY_SOURCE_CODING_BOM_CONFLICT` | `FAIL` | 名字合法但与 BOM 互斥 | 2 |
+| `PY_SOURCE_CODING_UNUSABLE` | `FAIL` | `utf-16` / `utf-32` / `base64_codec` 之类不能做源码编码 | 2 |
+
+三条不走 `FAIL` 的情形值得单独记住，它们都是**修复前误判**的地方：
+
+1. Python 能跑（`rc=0`）却被判 `FAIL` —— 等价于宣称一个能运行的文件不能用。
+2. 「别的编码也能解」被判 `FAIL` —— 见 2.1.1，那是歧义不是错误。
+3. 「检测器不认识这个 codec」被判 `FAIL` —— 见 2.1.3，那是工具欠缺不是文件错误。
+
+反过来，`utf8` + BOM 这种「Python 实报 SyntaxError」的必须 `FAIL`：它看起来
+只是拼写差异，实际连解释器都不放行（实测 `encoding problem: utf8 with BOM`）。
 
 ## 3. BOM 的字节签名
 
@@ -193,7 +352,9 @@ BOM 只说明生产者声明了什么，不说明文件内容是不是合法文�
    `$OutputEncoding` 三个值。
 2. 对目标文件跑 `Test-ScriptEncoding.ps1 -Path <文件>`，看 `ENCODING=`、
    `BOM=`、`STRICT_UTF8=`、`PAYLOAD_VALID=`、`GBK_ROUNDTRIP=` 五个字段，
-   而不是只看结论。
+   而不是只看结论。`.py` 另外看 `SOURCE_CODING=`、`SOURCE_CODING_NAME=`、
+   `SOURCE_CODING_SUPPORT=`、`SOURCE_CODING_KIND=` 四项——`KIND` 是
+   2.1.1 与 2.1.3 里那张表的分支名，`SUPPORT` 说明检测器对这个名字的把握程度。
 3. 按第 2 节的表决定目标编码。
 4. 用 `New-EncodedScript.ps1` 落盘，不要用编辑器"另存为"。不传 `-Encoding`
    时它按扩展名选：`.ps1/.psm1/.psd1` → `utf8-bom`，`.bat/.cmd` → `gbk`，

@@ -107,6 +107,18 @@ class TestStepShape(unittest.TestCase):
 
 
 class TestMatrixCoversBothEditions(unittest.TestCase):
+    def test_any_branch_that_carries_a_fix_runs_the_matrix(self):
+        # fix/** was missing until 1.0.3: a fix branch could only be tested by
+        # opening the pull request first, which makes "push, then read the job
+        # log" impossible while a fix is still being written. Pull requests and
+        # manual dispatch stay on, and the matrix itself is untouched.
+        document = load("test.yml")
+        triggers = triggers_of(document)
+        self.assertIn("fix/**", triggers["push"]["branches"])
+        self.assertIn("feature/**", triggers["push"]["branches"])
+        self.assertIn("pull_request", triggers)
+        self.assertIn("workflow_dispatch", triggers)
+
     def test_test_workflow_has_one_job_per_edition(self):
         document = load("test.yml")
         jobs = document["jobs"]
