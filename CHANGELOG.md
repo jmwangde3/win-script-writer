@@ -3,6 +3,61 @@
 格式参照 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号按 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.3] - 未发布
+
+编码别名的准确性修复。检测器把 GBK、GB2312、HZ-GB-2312 和 GB18030 当成
+同一个 CP936，于是三种情况都答错了：Python 拒绝的文件被判通过，Python 能跑的
+文件被判失败，还有一个根本没被检查。这一版按各自的字节规则分别验证。
+
+### Changed（会改变既有行为，需注意）
+
+- **`gb2312` / `euc-cn` 不再归并为 GBK。** 它们是 GB2312 的别名，而 GB2312 是
+  GBK 的真子集：Windows 没有 GB2312 代码页，原先用 CP936 代验，CP936 分配得
+  比 GB2312 宽得多（`81 40`、`AA A1`、`F8 A1` 都是 CP936 合法格、GB2312 空位）。
+  现在用一张按 CPython 3.13 逐格枚举的分配表（7445 格）校验。
+  **影响**：声明 `gb2312` 而字节里含 GBK 扩展字符的文件，判定从 `WARN` 变成
+  `FAIL`（`PY_SOURCE_CODING_INVALID_BYTES`）——Python 对这类文件报
+  `SyntaxError: encoding problem: gb2312`，旧判定是假阳性。
+  `SourceCodingName` 也从 `gbk` 改为 `gb2312`。
+- **`hz` 单独成族，不再当 GBK。** HZ-GB-2312 是 GB2312 的七位转义写法，整个
+  文件不含任何高位字节，原先只被判成 `ascii` 然后 `OK`——等于没检查。
+  现在跑一个七位状态机：`~{` / `~}` / `~~` / `~\n` 的配对、GB 段内每个字节对
+  是否落在 GB2312 分配表内、文件结束时是否还在 GB 段内。
+  **影响**：合法的 HZ 源文件从 `OK` 变成 `WARN`（`PY_SOURCE_CODING_HZ`，
+  Python 跑得动，但编辑器和 git 看到的是转义文本）；未闭合或含非法格的 HZ
+  从 `OK` 变成 `FAIL`。
+- **`gb18030` 的判定不再是无条件冲突。** 四字节序列（如 `90 30 81 30`）解不成
+  CP936，字节检测给出 `unknown`，旧代码把「检测结果不在已知集合里」当成声明
+  与字节冲突，于是合法的 GB18030 源文件被判 `FAIL`。
+  **影响**：含四字节序列的 GB18030 源文件从 `FAIL` 变成 `WARN`。
+- **`windows-936` 与 `cp54936` 不再被接受。** 这两个是代码页编号，不是
+  CPython 的编解码器名——`codecs.lookup()` 对它们抛 `LookupError`，Python 连
+  文件都不读就报 `SyntaxError: encoding problem: <名字>`。
+  **影响**：这两个声明从 `WARN` 变成 `FAIL`（`PY_SOURCE_CODING_UNKNOWN`）。
+  真正的别名是 `cp936` / `ms936` / `936` 和 `gb18030` / `gb18030-2000`。
+- **`Test-ScriptEncoding.ps1` 的文本模式新增 `SOURCE_CODING_KIND=`。** 取值
+  `unknown-name` / `unusable-codec` / `bytes-mismatch`，只在有
+  `SOURCE_CODING_PROBLEM` 时输出，用来分清「名字解析不了」和「字节不合规」。
+  JSON 直接给出 `SourceCodingKind`。
+- **`gb18030` 的别名收紧。** 只保留实测成立的 `gb18030` 与 `gb18030-2000`；
+  `cp54936` / `54936` 见下一条。
+
+### Added
+
+- 夹具 8 个：`py-coding-gb2312.py`、`py-coding-euc-cn.py`、`py-coding-hz.py`、
+  `py-coding-hz-truncated.py`、`py-coding-gb18030.py`、
+  `py-coding-gbk-as-gb2312.py`、`py-coding-windows936.py`、`py-coding-cp54936.py`。
+- 集成测试 `TestGb2312Grid`：用 CPython 自己的 codec 拼出全部 7445 个已分配格
+  与若干 GBK 独有格，分别要求检测器给 `WARN` 与 `FAIL`。手工维护的码表会漂移，
+  这是唯一能发现漏行的检查。
+
+### Fixed
+
+- 文档：`New-EncodedScript.ps1` 的 `-Encoding` 说明不再声称 UTF-8 BOM 是
+  「5.1 与 7 唯一能同样解析的形式」（UTF-16 带 BOM 两者也能解析）。改为
+  「推荐的跨版本存储格式」，并说明推荐理由是其他工具也认。
+  `run_ps.py` 里同一句话同步改写。
+
 ## [1.0.2] - 2026-11-13
 
 判定精度与测试可信度的修复。检测器有两处"自信地给出错误答案"的盲区，写入器
