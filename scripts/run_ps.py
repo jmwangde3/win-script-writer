@@ -64,7 +64,7 @@ import subprocess
 import sys
 import tempfile
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 EXIT_LOCAL_ERROR = 3
 EXIT_TIMEOUT = 124
@@ -269,6 +269,31 @@ def spawn(exe, argv, timeout):
     return completed.returncode, completed.stdout, completed.stderr
 
 
+def remove_staging_dir(temp_dir, keep_temp):
+    """Delete the staging directory and return a warning for stderr, if any.
+
+    Never raises. A leftover temporary directory is not a reason to report a
+    failed run: the caller asked about the script, not about the disk. But it is
+    not silent either -- a directory that cannot be removed is a slow leak, and
+    the warning names only the directory, never the payload, because the payload
+    can be anything including credentials.
+
+    A clean run returns b"" and adds nothing to stderr.
+    """
+    if not temp_dir or keep_temp:
+        return b""
+    if not os.path.isdir(temp_dir):
+        return b""
+    try:
+        shutil.rmtree(temp_dir)
+    except OSError as exc:
+        return (
+            "run_ps.py: warning: could not remove the staging directory %s (%s); "
+            "the script text is still on disk\n" % (temp_dir, exc)
+        ).encode()
+    return b""
+
+
 def run(script, *, shell="powershell", timeout=300.0, execution_policy=None,
         console_encoding=None, keep_temp=False):
     """Execute script text and return (exit_code, stdout_bytes, stderr_bytes)."""
@@ -286,6 +311,13 @@ def run(script, *, shell="powershell", timeout=300.0, execution_policy=None,
 
     temp_dir = None
     note = b""
+    cleanup_note = b""
+    staging_error = None
+    code, out, err = EXIT_LOCAL_ERROR, b"", b""
+
+    # No return statements inside the try: the cleanup result is appended to
+    # stderr after the finally block has run, and a return would capture the
+    # bytes before that happens.
     try:
         if needs_file_fallback(len(exe) + len(encoded) + 64):
             # Long payloads cannot travel on the command line. A UTF-8 file with a
@@ -297,24 +329,23 @@ def run(script, *, shell="powershell", timeout=300.0, execution_policy=None,
                     handle.write(b"\xef\xbb\xbf")
                     handle.write(payload.encode("utf-8"))
             except OSError as exc:
-                return EXIT_LOCAL_ERROR, b"", (
+                staging_error = (
                     "cannot stage the script for execution: %s\n" % exc
                 ).encode()
-            note = FALLBACK_NOTE
-            argv = build_argv(exe, script_path=script_path, execution_policy=execution_policy)
+            if staging_error is None:
+                note = FALLBACK_NOTE
+                argv = build_argv(exe, script_path=script_path, execution_policy=execution_policy)
         else:
             argv = build_argv(exe, encoded=encoded, execution_policy=execution_policy)
 
-        code, out, err = spawn(exe, argv, timeout)
-        return code, out, note + err
+        if staging_error is None:
+            code, out, err = spawn(exe, argv, timeout)
     finally:
-        if temp_dir and not keep_temp:
-            # A cleanup failure must not replace the child's exit code: the
-            # caller cares about the run, not about a leftover temp directory.
-            try:
-                shutil.rmtree(temp_dir, ignore_errors=True)
-            except OSError:
-                pass
+        cleanup_note = remove_staging_dir(temp_dir, keep_temp)
+
+    if staging_error is not None:
+        return EXIT_LOCAL_ERROR, b"", staging_error + cleanup_note
+    return code, out, note + err + cleanup_note
 
 
 def run_file(path, *, shell="powershell", timeout=300.0, execution_policy=None,
