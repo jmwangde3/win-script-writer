@@ -11,6 +11,7 @@ correctly through run_ps.py.
 
 from __future__ import annotations
 
+import json
 import os
 import pathlib
 import subprocess
@@ -304,9 +305,17 @@ class TestPythonSourceCoding(unittest.TestCase):
         # fixture, interpreter exit, detector exit, reason that must appear
         ("py-coding-gbk.py", 0, 1, b"PY_SOURCE_CODING_DECLARED"),
         ("py-coding-equals.py", 0, 1, b"PY_SOURCE_CODING_DECLARED"),
+        ("py-coding-gb2312.py", 0, 1, b"PY_SOURCE_CODING_DECLARED"),
+        ("py-coding-euc-cn.py", 0, 1, b"PY_SOURCE_CODING_DECLARED"),
+        ("py-coding-hz.py", 0, 1, b"PY_SOURCE_CODING_HZ"),
+        ("py-coding-gb18030.py", 0, 1, b"PY_SOURCE_CODING_DECLARED"),
         ("py-nocoding-gbk.py", 1, 2, b"CP936_PYTHON"),
         ("py-coding-conflict-bom.py", 1, 2, b"PY_SOURCE_CODING_CONFLICT"),
         ("py-coding-unknown.py", 1, 2, b"PY_SOURCE_CODING_UNKNOWN"),
+        ("py-coding-windows936.py", 1, 2, b"PY_SOURCE_CODING_UNKNOWN"),
+        ("py-coding-cp54936.py", 1, 2, b"PY_SOURCE_CODING_UNKNOWN"),
+        ("py-coding-gbk-as-gb2312.py", 1, 2, b"PY_SOURCE_CODING_INVALID_BYTES"),
+        ("py-coding-hz-truncated.py", 1, 2, b"PY_SOURCE_CODING_INVALID_BYTES"),
     )
 
     def test_the_interpreter_and_the_detector_agree(self):
@@ -338,6 +347,168 @@ class TestPythonSourceCoding(unittest.TestCase):
         t = ps_tool("Test-ScriptEncoding.ps1", ["-Path", str(FIXTURES / "py-coding-gbk.py")])
         self.assertIn(b"SOURCE_CODING_LINE=1", t.stdout)
         self.assertIn(b"SOURCE_CODING=gbk", t.stdout)
+
+
+class TestGb2312Grid(unittest.TestCase):
+    """The GB2312 table the detector carries against the one CPython has.
+
+    Windows has no GB2312 code page, so the detector maps the assigned cells by
+    hand. A hand written map drifts; this is the check that notices. Both files
+    are built from the interpreter's own codec, so a cell only appears when
+    Python itself decodes and re-encodes it byte for byte.
+    """
+
+    @staticmethod
+    def _assigned_pairs():
+        pairs = []
+        for lead in range(0xA1, 0xF8):
+            for trail in range(0xA1, 0xFF):
+                pair = bytes((lead, trail))
+                try:
+                    text = pair.decode("gb2312")
+                except UnicodeDecodeError:
+                    continue
+                if text.encode("gb2312") != pair:
+                    continue
+                pairs.append(pair)
+        return pairs
+
+    def _write(self, directory, pairs, name):
+        lines = [b"# -*- coding: gb2312 -*-"]
+        for index in range(0, len(pairs), 60):
+            chunk = b"".join(pairs[index:index + 60])
+            lines.append(b'MARKER_%d = "' % (index // 60) + chunk + b'"')
+        body = b"\n".join(lines) + b"\n"
+        path = pathlib.Path(directory) / name
+        path.write_bytes(body)
+        return path
+
+    def test_every_assigned_cell_is_accepted(self):
+        pairs = self._assigned_pairs()
+        # 7445 on CPython 3.13. A lower bound keeps the test meaningful if the
+        # codec gains cells later, without pretending the number is fixed.
+        self.assertGreater(len(pairs), 7000)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._write(tmp, pairs, "grid-all.py")
+            run = run_python_fixture(path)
+            self.assertEqual(run.returncode, 0, run.stderr[:400])
+            t = ps_tool("Test-ScriptEncoding.ps1", ["-Path", str(path), "-Profile", "python"])
+            self.assertEqual(t.returncode, 1, t.stdout[-800:])
+            self.assertIn(b"VERDICT=WARN", t.stdout)
+            self.assertNotIn(b"PY_SOURCE_CODING_INVALID_BYTES", t.stdout)
+
+    def test_a_gbk_only_cell_is_refused(self):
+        # Leads GB2312 leaves empty (AA-AF), leads past its ceiling (F8-FF) and
+        # the two byte extensions below A1. Any one of them makes the file
+        # illegal, because Python decodes the whole source with gb2312.
+        found = []
+        for lead in (0x81, 0x82, 0xAA, 0xAB, 0xF8, 0xFE):
+            for trail in (0x40, 0x41, 0xA0, 0xA1, 0xFE):
+                pair = bytes((lead, trail))
+                try:
+                    text = pair.decode("gbk")
+                except UnicodeDecodeError:
+                    continue
+                if text.encode("gbk") != pair:
+                    continue
+                try:
+                    pair.decode("gb2312")
+                except UnicodeDecodeError:
+                    found.append(pair)
+        self.assertGreater(len(found), 3)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._write(tmp, found, "grid-gbk-only.py")
+            run = run_python_fixture(path)
+            self.assertNotEqual(run.returncode, 0)
+            t = ps_tool("Test-ScriptEncoding.ps1", ["-Path", str(path), "-Profile", "python"])
+            self.assertEqual(t.returncode, 2, t.stdout[-800:])
+            self.assertIn(b"PY_SOURCE_CODING_INVALID_BYTES", t.stdout)
+
+
+class TestCodecAliases(unittest.TestCase):
+    """The alias table against codecs.lookup(), name by name.
+
+    The names are the only part of this feature that is data rather than logic,
+    which makes them the part most likely to drift. Every alias is written into
+    a real source file with a body it can legally describe, and the detector's
+    canonical name is compared with the one CPython resolves. Names Python does
+    not know have to come back as failures rather than as a guess.
+    """
+
+    FAMILIES = (
+        # canonical, aliases, body the declaration can legally describe
+        ("gbk", ("gbk", "cp936", "ms936", "936"), b'MARKER = "' + ZH.encode("gb2312") + b'"\n'),
+        ("gb2312", ("gb2312", "euc-cn", "euccn", "gb2312-80", "iso-ir-58", "chinese"),
+         b'MARKER = "' + ZH.encode("gb2312") + b'"\n'),
+        ("hz", ("hz", "hzgb", "hz-gb-2312", "hz_gb_2312"), b'MARKER = "~{VPND~}"\n'),
+        ("gb18030", ("gb18030", "gb18030-2000"),
+         b'MARKER = "' + ZH.encode("gb18030") + "\U00010000".encode("gb18030") + b'"\n'),
+    )
+
+    # Plausible names that are not aliases. Both look like the code page they
+    # belong to; Python raises LookupError before reading the file.
+    REJECTED = ("windows-936", "cp54936", "54936", "hzgb2312", "cn-gb")
+
+    PROBE = (
+        "import codecs, json, sys\n"
+        "out = {}\n"
+        "for name in json.loads(sys.argv[1]):\n"
+        "    try:\n"
+        "        out[name] = codecs.lookup(name).name\n"
+        "    except LookupError:\n"
+        "        out[name] = None\n"
+        "print(json.dumps(out))\n"
+    )
+
+    def test_the_detector_agrees_with_codecs_lookup(self):
+        cases = []
+        for canonical, aliases, body in self.FAMILIES:
+            for alias in aliases:
+                cases.append((alias, canonical, body))
+        for alias in self.REJECTED:
+            cases.append((alias, None, b'MARKER = "x"\n'))
+
+        names = [alias for alias, _, _ in cases]
+        probe = subprocess.run(
+            [sys.executable, "-c", self.PROBE, json.dumps(names)],
+            capture_output=True,
+            timeout=120,
+        )
+        self.assertEqual(probe.returncode, 0, probe.stderr)
+        resolved = json.loads(probe.stdout.decode("utf-8"))
+
+        # Every name Python refuses must be in REJECTED, and every name it
+        # resolves must map to the family this test claims it maps to.
+        for alias, canonical, _ in cases:
+            with self.subTest(alias=alias, stage="codecs.lookup"):
+                if canonical is None:
+                    self.assertIsNone(resolved[alias], alias)
+                else:
+                    self.assertEqual(resolved[alias], canonical, alias)
+
+        # One file per run: -Path takes an array, but -File does not split a
+        # comma separated string into one, so a single call would inspect a path
+        # with commas in it and report NOT_FOUND for all of them.
+        with tempfile.TemporaryDirectory() as tmp:
+            for index, (alias, canonical, body) in enumerate(cases):
+                path = pathlib.Path(tmp) / ("alias-%02d.py" % index)
+                path.write_bytes(b"# -*- coding: " + alias.encode("ascii") + b" -*-\n" + body)
+
+                t = ps_tool(
+                    "Test-ScriptEncoding.ps1",
+                    ["-Path", str(path), "-Profile", "python", "-Output", "json"],
+                )
+                with self.subTest(alias=alias, stage="detector"):
+                    document = json.loads(t.stdout.decode("utf-8"))
+                    self.assertEqual(len(document["Files"]), 1, t.stderr)
+                    item = document["Files"][0]
+                    if canonical is None:
+                        self.assertEqual(item["Verdict"], "FAIL", alias)
+                        self.assertIn("PY_SOURCE_CODING_UNKNOWN", " ".join(item["Reasons"]))
+                        self.assertEqual(item["SourceCodingKind"], "unknown-name")
+                    else:
+                        self.assertEqual(item["Verdict"], "WARN", alias)
+                        self.assertEqual(item["SourceCodingName"], canonical, alias)
 
 
 class TestUtf32(unittest.TestCase):

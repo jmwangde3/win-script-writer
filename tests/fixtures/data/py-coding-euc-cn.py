@@ -1,0 +1,3 @@
+# -*- coding: euc-cn -*-
+MARKER = "жпнд"
+print("PYCODING_GB2312_OK " + MARKER)
