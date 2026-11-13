@@ -1,0 +1,13 @@
+# Test-only dependencies for win-script-writer.
+#
+# Nothing under scripts/ imports any of these. The four tools run on the Python
+# standard library and the .NET base class library alone, so a user never needs
+# this file to use them -- only to run the test suite.
+#
+#   python -m pip install -r tests/requirements-test.txt
+#
+# tests/run-all.ps1 refuses to install anything unless it is called with
+# -InstallTestDeps, and CI installs from this file explicitly.
+
+# tests/evals/test_workflows.py parses the GitHub Actions workflows.
+PyYAML>=5.4
