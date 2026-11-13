@@ -32,8 +32,11 @@
 .PARAMETER Encoding
     utf8-bom, utf8-nobom, or gbk. When omitted, the target extension decides:
 
-      .ps1 .psm1 .psd1   utf8-bom   the only form both Windows PowerShell 5.1
-                                    and PowerShell 7 parse identically
+      .ps1 .psm1 .psd1   utf8-bom   the recommended cross-version storage
+                                    format, especially for scripts containing
+                                    non-ASCII text. Both 5.1 and 7 also parse
+                                    UTF-16 with a BOM, but nothing else on the
+                                    machine does
       .bat .cmd          gbk        what a CP936 cmd.exe expects; pass
                                     -Encoding explicitly on another code page
       anything else      utf8-nobom the safe default for data files

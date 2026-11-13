@@ -321,7 +321,9 @@ def run(script, *, shell="powershell", timeout=300.0, execution_policy=None,
     try:
         if needs_file_fallback(len(exe) + len(encoded) + 64):
             # Long payloads cannot travel on the command line. A UTF-8 file with a
-            # BOM is the one form that both PS 5.1 and PS 7 parse identically.
+            # BOM is the recommended cross-version storage format: it is what
+            # both PS 5.1 and PS 7 read as UTF-8 without guessing, and it is the
+            # only form every other tool on the machine also accepts.
             try:
                 temp_dir = tempfile.mkdtemp(prefix="ws-run-ps-")
                 script_path = os.path.join(temp_dir, "script.ps1")

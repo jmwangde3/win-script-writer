@@ -61,15 +61,48 @@ Python 3 默认按 UTF-8 读源码，但前两行里的注释可以改这个默�
 
 | 文件实际字节 | 声明 | Python 3 的行为 | 检测器判定 |
 | --- | --- | --- | --- |
-| GBK | `coding: gbk` / `cp936` | 正常执行 | `WARN`（能跑，但不是 UTF-8） |
-| GBK | 无 | `SyntaxError: Non-UTF-8 code ...` | `FAIL`（`CP936_PYTHON`） |
-| UTF-8 + BOM | `coding: gbk` | `SyntaxError: encoding problem: gbk with BOM` | `FAIL`（`PY_SOURCE_CODING_CONFLICT`） |
-| 任意 | `coding: utf-9`（不存在的编码） | `SyntaxError: encoding problem: utf-9` | `FAIL`（`PY_SOURCE_CODING_UNKNOWN`） |
-| UTF-8 | `coding: utf-8` | 正常执行 | `OK` / `WARN`（BOM 时） |
+| GBK | `gbk` / `cp936` / `ms936` / `936` | 正常执行 | `WARN`（`PY_SOURCE_CODING_DECLARED`） |
+| GB2312 | `gb2312` / `euc-cn` | 正常执行 | `WARN`（同上，`SOURCE_CODING_NAME=gb2312`） |
+| 7 位 HZ | `hz` / `hz-gb-2312` | 正常执行 | `WARN`（`PY_SOURCE_CODING_HZ`） |
+| GB18030（含四字节） | `gb18030` | 正常执行 | `WARN`（`PY_SOURCE_CODING_DECLARED`） |
+| GBK 扩展（如 `81 40`） | `gb2312` | `SyntaxError: encoding problem: gb2312` | `FAIL`（`PY_SOURCE_CODING_INVALID_BYTES`） |
+| 非 UTF-8 | 无 | `SyntaxError: Non-UTF-8 code ...` | `FAIL`（`CP936_PYTHON`） |
+| UTF-8 + BOM | `gbk` | `SyntaxError: encoding problem: gbk with BOM` | `FAIL`（`PY_SOURCE_CODING_CONFLICT`） |
+| UTF-8 | `gbk` | 能跑，但读出来是乱码 | `FAIL`（`PY_SOURCE_CODING_CONFLICT`） |
+| 任意 | `utf-9` / `windows-936` / `cp54936` | `SyntaxError: encoding problem: <名字>` | `FAIL`（`PY_SOURCE_CODING_UNKNOWN`） |
+| UTF-8 | `utf-8` | 正常执行 | `OK` / `WARN`（带 BOM 时） |
+
+### 2.2 GBK、GB2312、HZ 和 GB18030 不是同一个编码
+
+这四个族经常被当成「936 的四种写法」，实测不是：
+
+- **GB2312**（EUC-CN）是 GBK 的真子集。字形区是 `A1–F7` 首字节 × `A1–FE`
+  尾字节的网格，而且网格里有空洞：`AA–AF` 整段未分配，`A2`、`A4–A9`
+  若干符号行提前结束。全表 7445 个双字节格。
+- **HZ-GB-2312** 是 GB2312 的七位转义写法：双字节各减 `0x80`，用 `~{` 和
+  `~}` 包起来，`~~` 是字面波浪号，`~\n` 是续行。**整个文件不含任何高位
+  字节**，只看「有没有非 ASCII 字节」的检测器会把它当纯 ASCII 放过去。
+- **GB18030** 在 GBK 之上补了四字节序列（如 `90 30 81 30` = U+10000），
+  用于 GBK 装不下的码位。合法 GBK 字节也是合法 GB18030 字节，反之不成立。
+- **GBK** 才是 Windows 的 936 代码页。CP936 在这一片网格里分配得比 GB2312
+  宽得多（`81 40`、`AA A1`、`F8 A1` 都是 CP936 的合法格、GB2312 的空位）。
+
+所以「用 CP936 验证 GB2312」会放过 Python 直接拒绝的文件：声明 `gb2312`
+而字节里出现 `81 40`，CP936 说没问题，Python 报
+`SyntaxError: encoding problem: gb2312`。HZ 更极端——CP936 根本看不见它。
+
+反过来，把 GB2312 归进 GBK 也会误伤：GB2312 字节本来就是合法 GBK，声明
+`gbk` 完全成立，不该判冲突。检测器因此按「子集方向合法、超集方向非法」处理。
+
+Windows 没有 GB2312 和 HZ 的代码页，所以这两个族的校验是检测器自己实现的：
+GB2312 用一张按 CPython 3.13 逐格枚举出来的分配表（`Test-Gb2312Cell`），
+HZ 在同一张表上跑一个七位状态机（`Test-HzPayload`）。集成测试会用 Python
+把全表 7445 格拼成一个源文件跑一遍，要求检测器和解释器给出同一个答案。
 
 判据是**声明必须和字节相符**，而不是「能不能解出来」：UTF-8 的文件声明
-`coding: gbk` 也能被 GBK 解出一串字，但那是乱码。所以检测器先看声明的
-编码族与实际检测结果是否一致，再单独验字节。
+`coding: gbk` 也可能被 GBK 解出一串字，但那是乱码。所以检测器先确认字节
+满足声明的编码规则（`Test-CodingDecodes`），再确认检测到的编码族落在声明
+能覆盖的范围内（`Test-PythonCodingAgrees`）。两步都过才是 `WARN`。
 
 项目仍然只存 UTF-8 的 `.py`。声明成 GBK 只是让检测器不再把它判成「跑不了」，
 不是推荐写法。
