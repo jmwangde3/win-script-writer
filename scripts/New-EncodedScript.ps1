@@ -96,7 +96,7 @@ $ErrorActionPreference = 'Stop'
 
 $result = [ordered]@{
     Tool           = 'New-EncodedScript.ps1'
-    Version        = '1.0.2'
+    Version        = '1.0.3'
     Runtime        = $PSVersionTable.PSEdition
     Target         = $null
     Status         = $null
