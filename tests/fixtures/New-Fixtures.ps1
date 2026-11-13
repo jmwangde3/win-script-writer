@@ -158,6 +158,31 @@ Write-Fixture 'utf16le-bom-lone-surrogate.ps1' ([byte[]](0xFF, 0xFE) + $utf16Bod
 $eacute = ConvertFrom-CodePoints @(0x00E9)
 Write-Fixture 'utf8nobom-latin1.txt' (Get-EncodedBytes $utf8NoBom ('caf' + $eacute + "`n")) 'UTF-8 no BOM, Latin-1 range character'
 
+# --- UTF-32 with a BOM (v1.0.2) ------------------------------------------
+# FF FE 00 00 begins with the UTF-16LE mark, so a detector that matches the two
+# byte marks first labels a UTF-32LE file as UTF-16LE and then reports a verdict
+# about a file that does not exist. The four byte mark has to win.
+$utf32Le = New-Object System.Text.UTF32Encoding($false, $true)
+$utf32Be = New-Object System.Text.UTF32Encoding($true, $true)
+$plainBody = 'Write-Output "hello"' + "`r`n"
+Write-Fixture 'utf32le-bom.ps1' (Get-EncodedBytes $utf32Le $plainBody -WithBom) 'UTF-32LE with BOM'
+Write-Fixture 'utf32be-bom.ps1' (Get-EncodedBytes $utf32Be $plainBody -WithBom) 'UTF-32BE with BOM'
+
+# --- Python source encoding declarations (v1.0.2) ------------------------
+# PEP 263 lets a comment on line 1 or 2 name the source encoding. A GBK file
+# that says so is legal Python and runs; a GBK file that stays silent raises
+# SyntaxError. The detector used to fail both.
+$pyCodingDash = '# -*- coding: gbk -*-' + "`n"
+$pyCodingEquals = '# coding=cp936' + "`n"
+$pyCodingBody = 'MARKER = "' + $zh + '"' + "`n" + 'print("PYCODING_GBK_OK " + MARKER)' + "`n"
+Write-Fixture 'py-coding-gbk.py' (Get-EncodedBytes $gbk ($pyCodingDash + $pyCodingBody)) 'CP936 python with a PEP 263 declaration'
+Write-Fixture 'py-coding-equals.py' (Get-EncodedBytes $gbk ($pyCodingEquals + $pyCodingBody)) 'CP936 python, coding=cp936 form'
+Write-Fixture 'py-nocoding-gbk.py' (Get-EncodedBytes $gbk ($pyCodingBody)) 'CP936 python without a declaration'
+# A UTF-8 BOM and a non-UTF-8 declaration cannot both be true; Python refuses.
+Write-Fixture 'py-coding-conflict-bom.py' (Get-EncodedBytes $utf8Strict ($pyCodingDash + 'print("conflict")' + "`n") -WithBom) 'UTF-8 BOM plus coding: gbk'
+# "utf-9" is not a codec. Python raises SyntaxError even for an ASCII body.
+Write-Fixture 'py-coding-unknown.py' (Get-EncodedBytes $utf8NoBom ('# coding: utf-9' + "`n" + 'print("unknown")' + "`n")) 'unknown source encoding'
+
 # --- writer inputs -------------------------------------------------------
 $contentBody = $zh + $ceshi + ': content source for the writer.' + "`r`n"
 Write-Fixture 'content-utf8.txt' (Get-EncodedBytes $utf8NoBom $contentBody) 'strict UTF-8 writer input'

@@ -1,0 +1,3 @@
+# coding=cp936
+MARKER = "жпнд"
+print("PYCODING_GBK_OK " + MARKER)

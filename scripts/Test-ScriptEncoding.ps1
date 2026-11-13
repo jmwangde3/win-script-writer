@@ -62,7 +62,7 @@ param(
     [ValidateSet('auto', 'ps51', 'ps7', 'cmd', 'python', 'bash', 'data')]
     [string]$Profile = 'auto',
 
-    [ValidateSet('any', 'ascii', 'utf8-bom', 'utf8-nobom', 'gbk', 'utf16le-bom', 'utf16be-bom')]
+    [ValidateSet('any', 'ascii', 'utf8-bom', 'utf8-nobom', 'gbk', 'utf16le-bom', 'utf16be-bom', 'utf32le-bom', 'utf32be-bom')]
     [string]$ExpectedEncoding = 'any',
 
     [ValidateSet('text', 'json')]
@@ -281,8 +281,217 @@ begin {
         }
     }
 
-    function Get-EncodingSnapshot {
+    function Get-Utf32InvalidOffset {
+        <#
+            Returns the offset of the first code unit that is not a Unicode scalar
+            value, or -1. Four byte units have two ways to be wrong that a lenient
+            decoder hides: a value above U+10FFFF and a surrogate value, which is a
+            legal 32 bit number but not a character.
+
+            The shifts are done on [long]: [int] 0xFF -shl 24 overflows into the
+            sign bit and every comparison after it is about a negative number.
+        #>
+        param([byte[]]$Slice, [bool]$BigEndian)
+
+        $i = 0
+        $n = $Slice.Length
+        while (($i + 3) -lt $n) {
+            if ($BigEndian) {
+                $unit = ([long]$Slice[$i] -shl 24) -bor ([long]$Slice[$i + 1] -shl 16) -bor `
+                    ([long]$Slice[$i + 2] -shl 8) -bor [long]$Slice[$i + 3]
+            }
+            else {
+                $unit = ([long]$Slice[$i + 3] -shl 24) -bor ([long]$Slice[$i + 2] -shl 16) -bor `
+                    ([long]$Slice[$i + 1] -shl 8) -bor [long]$Slice[$i]
+            }
+            if ($unit -gt 0x10FFFF) { return $i }
+            if ($unit -ge 0xD800 -and $unit -le 0xDFFF) { return $i }
+            $i += 4
+        }
+        if ($i -lt $n) { return $i }
+        return -1
+    }
+
+    function Test-StrictUtf32Payload {
+        param([byte[]]$Bytes, [int]$Offset, [bool]$BigEndian)
+
+        $remaining = $Bytes.Length - $Offset
+        if ($remaining -le 0) { return $null }
+        if (($remaining % 4) -ne 0) {
+            return [pscustomobject]@{
+                Offset = ($Bytes.Length - 1)
+                Detail = 'odd byte count: the final UTF-32 code unit is truncated'
+            }
+        }
+        $slice = Copy-Range -Bytes $Bytes -Offset $Offset
+        $bad = Get-Utf32InvalidOffset -Slice $slice -BigEndian $BigEndian
+        if ($bad -ge 0) {
+            return [pscustomobject]@{
+                Offset = ($Offset + $bad)
+                Detail = 'code point outside the Unicode range or a surrogate value'
+            }
+        }
+        return $null
+    }
+
+    function Resolve-PythonCodingName {
+        <#
+            Maps the name written in a PEP 263 line to the family this tool can
+            actually verify. Anything not listed returns $null and is treated as
+            unknown rather than guessed: Python refuses such a file with
+            "unknown encoding", so answering OK for it would be a false pass.
+        #>
+        param([string]$Raw)
+
+        $name = $Raw.ToLowerInvariant()
+        switch -Regex ($name) {
+            '^(utf[-_]?8|u8)$' { return 'utf-8' }
+            '^(ascii|us[-_]?ascii|646)$' { return 'ascii' }
+            '^(latin[-_]?1|iso[-_]?8859[-_]?1|8859)$' { return 'latin-1' }
+            '^(gbk|cp[-_]?936|ms936|windows[-_]?936|936|gb2312|euc[-_]?cn|hz)$' { return 'gbk' }
+            '^(gb18030|cp[-_]?54936|54936)$' { return 'gb18030' }
+            '^(utf[-_]?16|utf[-_]?16[-_]?le|utf[-_]?16[-_]?be|utf16)$' { return 'utf-16' }
+            '^(utf[-_]?32|utf[-_]?32[-_]?le|utf[-_]?32[-_]?be|utf32)$' { return 'utf-32' }
+        }
+        return $null
+    }
+
+    function Test-CodingDecodes {
+        <#
+            Does the whole payload survive the declared codec? "Decodes" alone is
+            not enough for a multi byte code page: a lossy decode followed by a
+            re-encode produces different bytes, so both halves are checked.
+        #>
+        param([byte[]]$Slice, [string]$Canonical)
+
+        switch ($Canonical) {
+            'utf-8' {
+                $utf8 = New-Object System.Text.UTF8Encoding($false, $true)
+                try { [void]$utf8.GetString($Slice); return $true }
+                catch { return $false }
+            }
+            'ascii' {
+                foreach ($b in $Slice) { if ($b -gt 0x7F) { return $false } }
+                return $true
+            }
+            'latin-1' { return $true }
+            'gbk' { $codePage = 936 }
+            'gb18030' { $codePage = 54936 }
+            default { return $false }
+        }
+
+        $codec = Get-CodePageEncoding -CodePage $codePage
+        if (-not $codec) { return $false }
+        try {
+            $text = $codec.GetString($Slice)
+            if ($text.IndexOf([char]0xFFFD) -ge 0) { return $false }
+            $back = $codec.GetBytes($text)
+            if ($back.Length -ne $Slice.Length) { return $false }
+            for ($i = 0; $i -lt $Slice.Length; $i++) {
+                if ($back[$i] -ne $Slice[$i]) { return $false }
+            }
+            return $true
+        }
+        catch {
+            return $false
+        }
+    }
+
+    function Get-PythonSourceCoding {
+        <#
+            PEP 263: a comment on line 1, or on line 2 when line 1 is blank or a
+            comment too, may declare the source encoding as
+            `coding: <name>` or `coding=<name>`.
+
+            This is source encoding detection, not a Python parser. Only the first
+            two physical lines are read, only a comment can carry the declaration,
+            and the bytes are still checked against the named codec afterwards.
+        #>
         param([byte[]]$Bytes)
+
+        $coding = [ordered]@{
+            Parsed    = $false
+            Raw       = ''
+            Canonical = ''
+            Line      = 0
+            Problem   = ''
+        }
+
+        # A UTF-8 BOM sits before the first line. It is not part of the comment,
+        # and a Latin-1 reading of it would hide the '#' from the pattern.
+        $start = 0
+        if ($Bytes.Length -ge 3 -and $Bytes[0] -eq 0xEF -and $Bytes[1] -eq 0xBB -and $Bytes[2] -eq 0xBF) {
+            $start = 3
+        }
+
+        $lines = New-Object System.Collections.ArrayList
+        $current = New-Object System.Collections.ArrayList
+        for ($i = $start; $i -lt $Bytes.Length -and $lines.Count -lt 2; $i++) {
+            if ($Bytes[$i] -eq 0x0A) {
+                [void]$lines.Add([byte[]]$current.ToArray())
+                $current.Clear()
+                continue
+            }
+            [void]$current.Add($Bytes[$i])
+        }
+        if ($lines.Count -lt 2) { [void]$lines.Add([byte[]]$current.ToArray()) }
+
+        $pattern = '^[ \t\f]*#.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)'
+        for ($index = 0; $index -lt $lines.Count; $index++) {
+            $text = -join ($lines[$index] | ForEach-Object { [char]$_ })
+            if ($text -match $pattern) {
+                $coding.Parsed = $true
+                $coding.Raw = $matches[1]
+                $coding.Line = $index + 1
+                break
+            }
+            # Line 2 only counts when line 1 could not have been code.
+            $trimmed = $text.Trim()
+            if ($trimmed -ne '' -and -not $trimmed.StartsWith('#')) { break }
+        }
+
+        if (-not $coding.Parsed) { return $coding }
+
+        $canonical = Resolve-PythonCodingName -Raw $coding.Raw
+        if (-not $canonical) {
+            $coding.Problem = ("unknown source encoding '{0}'" -f $coding.Raw)
+            return $coding
+        }
+        if ($canonical -eq 'utf-16' -or $canonical -eq 'utf-32') {
+            # Python refuses these as source encodings outright.
+            $coding.Canonical = $canonical
+            $coding.Problem = ("{0} is not usable as a Python source encoding" -f $coding.Raw)
+            return $coding
+        }
+        $coding.Canonical = $canonical
+
+        $slice = Copy-Range -Bytes $Bytes -Offset $start
+        if (-not (Test-CodingDecodes -Slice $slice -Canonical $canonical)) {
+            $coding.Problem = ("the bytes are not valid {0}, although line {1} declares it" -f $canonical, $coding.Line)
+        }
+        return $coding
+    }
+
+    function Test-PythonCodingAgrees {
+        <#
+            The declaration has to match what the bytes actually are, not merely
+            decode. A UTF-8 file that says `coding: gbk` decodes as GBK into
+            mojibake, so "it decodes" would be the wrong question.
+        #>
+        param([string]$Detected, [string]$Canonical)
+
+        if (-not $Canonical) { return $false }
+        switch ($Detected) {
+            'ascii' { return $true }
+            'utf8-nobom' { return ($Canonical -eq 'utf-8') }
+            'utf8-bom' { return ($Canonical -eq 'utf-8') }
+            'gbk' { return ($Canonical -eq 'gbk') }
+            default { return $false }
+        }
+    }
+
+    function Get-EncodingSnapshot {
+        param([byte[]]$Bytes, [string]$EffectiveProfile = 'data')
 
         $result = [ordered]@{
             Encoding       = 'unknown'
@@ -297,6 +506,23 @@ begin {
             NulRatio       = 0.0
             PayloadValid   = $true
             PayloadProblem = ''
+            SourceCoding        = ''
+            SourceCodingName    = ''
+            SourceCodingLine    = 0
+            SourceCodingProblem = ''
+        }
+
+        # Only Python has a source encoding declaration, so only the python
+        # profile pays for reading it. Every other profile keeps the same bytes
+        # and the same fields as before.
+        if ($EffectiveProfile -eq 'python' -and $Bytes.Length -gt 0) {
+            $coding = Get-PythonSourceCoding -Bytes $Bytes
+            if ($coding.Parsed) {
+                $result.SourceCoding = $coding.Raw
+                $result.SourceCodingName = $coding.Canonical
+                $result.SourceCodingLine = $coding.Line
+                $result.SourceCodingProblem = $coding.Problem
+            }
         }
 
         if ($Bytes.Length -eq 0) {
@@ -332,6 +558,46 @@ begin {
             }
             return $result
         }
+        # --- UTF-32 first, because FF FE 00 00 starts with FF FE ----------------
+        # Matching the two byte marks before the four byte ones reported UTF-32LE
+        # as UTF-16LE, and every verdict that followed was then about a file that
+        # does not exist. The longer mark wins; that is the order the Unicode
+        # standard describes and the one every consumer implements.
+        if ($Bytes.Length -ge 4 -and $Bytes[0] -eq 0xFF -and $Bytes[1] -eq 0xFE -and
+            $Bytes[2] -eq 0x00 -and $Bytes[3] -eq 0x00) {
+            $result.Bom = 'FFFE0000'
+            $result.Confidence = 'high'
+            $problem = Test-StrictUtf32Payload -Bytes $Bytes -Offset 4 -BigEndian $false
+            if ($null -eq $problem) {
+                $result.Encoding = 'utf32le-bom'
+                $result.Detection = 'bom-utf32le'
+            }
+            else {
+                $result.Encoding = 'utf32le-bom-invalid'
+                $result.Detection = 'bom-invalid-payload'
+                $result.PayloadValid = $false
+                $result.PayloadProblem = ('UTF-32LE BOM followed by invalid UTF-32 at byte {0}: {1}' -f $problem.Offset, $problem.Detail)
+            }
+            return $result
+        }
+        if ($Bytes.Length -ge 4 -and $Bytes[0] -eq 0x00 -and $Bytes[1] -eq 0x00 -and
+            $Bytes[2] -eq 0xFE -and $Bytes[3] -eq 0xFF) {
+            $result.Bom = '0000FEFF'
+            $result.Confidence = 'high'
+            $problem = Test-StrictUtf32Payload -Bytes $Bytes -Offset 4 -BigEndian $true
+            if ($null -eq $problem) {
+                $result.Encoding = 'utf32be-bom'
+                $result.Detection = 'bom-utf32be'
+            }
+            else {
+                $result.Encoding = 'utf32be-bom-invalid'
+                $result.Detection = 'bom-invalid-payload'
+                $result.PayloadValid = $false
+                $result.PayloadProblem = ('UTF-32BE BOM followed by invalid UTF-32 at byte {0}: {1}' -f $problem.Offset, $problem.Detail)
+            }
+            return $result
+        }
+
         if ($Bytes.Length -ge 2 -and $Bytes[0] -eq 0xFF -and $Bytes[1] -eq 0xFE) {
             $result.Bom = 'FFFE'
             $result.Confidence = 'high'
@@ -463,7 +729,11 @@ begin {
             [string]$Encoding,
             [string]$EffectiveProfile,
             [int]$NonAscii,
-            [string]$PayloadProblem
+            [string]$PayloadProblem,
+            [string]$SourceCoding = '',
+            [string]$SourceCodingName = '',
+            [int]$SourceCodingLine = 0,
+            [string]$SourceCodingProblem = ''
         )
 
         # A payload that does not decode is a failure in every profile: no
@@ -473,6 +743,18 @@ begin {
             return [pscustomobject]@{
                 Verdict = 'FAIL'
                 Reasons = @(('INVALID_ENCODING_PAYLOAD: ' + $PayloadProblem))
+            }
+        }
+
+        # UTF-32 is detected so that it is not mistaken for UTF-16, not because
+        # anything here supports it. No shell, no cmd.exe and no Python reads a
+        # UTF-32 source file, so the answer is the same in every profile.
+        if ($Encoding -like 'utf32*') {
+            $endianness = 'LE'
+            if ($Encoding -like 'utf32be*') { $endianness = 'BE' }
+            return [pscustomobject]@{
+                Verdict = 'FAIL'
+                Reasons = @(('UTF32_UNSUPPORTED: UTF-32{0} with a BOM is decoded as four byte code units; Windows PowerShell, PowerShell 7, cmd.exe and Python all either refuse the file or parse it as binary. Re-save as UTF-8 with BOM' -f $endianness))
             }
         }
 
@@ -579,28 +861,45 @@ begin {
                 }
             }
             'python' {
-                switch ($Encoding) {
-                    'ascii' { }
-                    'utf8-nobom' { }
-                    'utf8-bom' {
-                        $verdict = 'WARN'
-                        [void]$reasons.Add('UTF8_BOM_PYTHON: Python 3 tolerates a UTF-8 BOM but tools that read the first line as text do not')
-                    }
-                    'gbk' {
-                        $verdict = 'FAIL'
-                        [void]$reasons.Add('CP936_PYTHON: Python 3 decodes source as UTF-8 by default')
-                    }
-                    'utf16le-bom' {
-                        $verdict = 'FAIL'
-                        [void]$reasons.Add('UTF16_UNSUPPORTED: verified that Python 3.13 refuses a UTF-16 source file with "Non-UTF-8 code starting with \xff ... no encoding declared"')
-                    }
-                    'utf16be-bom' {
-                        $verdict = 'FAIL'
-                        [void]$reasons.Add('UTF16_UNSUPPORTED: Python source must be UTF-8')
-                    }
-                    default {
-                        $verdict = 'WARN'
-                        [void]$reasons.Add('UNKNOWN_ENCODING: could not be determined')
+                if ($SourceCodingProblem) {
+                    $verdict = 'FAIL'
+                    [void]$reasons.Add(('PY_SOURCE_CODING_UNKNOWN: {0}; Python 3 raises SyntaxError for a declaration it cannot resolve' -f $SourceCodingProblem))
+                }
+                elseif ($SourceCoding -and -not (Test-PythonCodingAgrees -Detected $Encoding -Canonical $SourceCodingName)) {
+                    $verdict = 'FAIL'
+                    [void]$reasons.Add(('PY_SOURCE_CODING_CONFLICT: line {0} declares {1} but the bytes are {2}; Python would decode the file with the declared codec and read mojibake' -f $SourceCodingLine, $SourceCoding, $Encoding))
+                }
+                else {
+                    switch ($Encoding) {
+                        'ascii' { }
+                        'utf8-nobom' { }
+                        'utf8-bom' {
+                            $verdict = 'WARN'
+                            [void]$reasons.Add('UTF8_BOM_PYTHON: Python 3 tolerates a UTF-8 BOM but tools that read the first line as text do not')
+                        }
+                        'gbk' {
+                            if ($SourceCoding) {
+                                # Legal Python, and still not what this project stores.
+                                $verdict = 'WARN'
+                                [void]$reasons.Add(('PY_SOURCE_CODING_DECLARED: line {0} declares {1}, and Python 3 decodes the file with it. The file runs; it is still not UTF-8, so editors, git and every other tool read it as mojibake' -f $SourceCodingLine, $SourceCoding))
+                            }
+                            else {
+                                $verdict = 'FAIL'
+                                [void]$reasons.Add('CP936_PYTHON: Python 3 decodes source as UTF-8 by default, so this file raises SyntaxError. Add a PEP 263 coding declaration on line 1 or 2, or re-save as UTF-8')
+                            }
+                        }
+                        'utf16le-bom' {
+                            $verdict = 'FAIL'
+                            [void]$reasons.Add('UTF16_UNSUPPORTED: verified that Python 3.13 refuses a UTF-16 source file with "Non-UTF-8 code starting with \xff ... no encoding declared"')
+                        }
+                        'utf16be-bom' {
+                            $verdict = 'FAIL'
+                            [void]$reasons.Add('UTF16_UNSUPPORTED: Python source must be UTF-8')
+                        }
+                        default {
+                            $verdict = 'WARN'
+                            [void]$reasons.Add('UNKNOWN_ENCODING: could not be determined')
+                        }
                     }
                 }
             }
@@ -720,9 +1019,11 @@ begin {
             return
         }
 
-        $measured = Get-EncodingSnapshot -Bytes $bytes
+        $measured = Get-EncodingSnapshot -Bytes $bytes -EffectiveProfile $resolvedProfile
         $judgement = Get-EncodingVerdict -Encoding $measured.Encoding -EffectiveProfile $resolvedProfile `
-            -NonAscii $measured.NonAscii -PayloadProblem $measured.PayloadProblem
+            -NonAscii $measured.NonAscii -PayloadProblem $measured.PayloadProblem `
+            -SourceCoding $measured.SourceCoding -SourceCodingName $measured.SourceCodingName `
+            -SourceCodingLine $measured.SourceCodingLine -SourceCodingProblem $measured.SourceCodingProblem
 
         $expectedMatch = $null
         if ($ExpectedEncoding -ne 'any') {
@@ -754,6 +1055,10 @@ begin {
             Utf16Suspect   = $measured.Utf16Suspect
             PayloadValid   = $measured.PayloadValid
             PayloadProblem = $measured.PayloadProblem
+            SourceCoding        = $measured.SourceCoding
+            SourceCodingName    = $measured.SourceCodingName
+            SourceCodingLine    = $measured.SourceCodingLine
+            SourceCodingProblem = $measured.SourceCodingProblem
             Expected       = $ExpectedEncoding
             ExpectedMatch  = $expectedMatch
             Verdict        = $judgement.Verdict
@@ -812,7 +1117,7 @@ end {
     if ($Output -eq 'json') {
         $document = [ordered]@{
             Tool       = 'Test-ScriptEncoding.ps1'
-            Version    = '1.0.1'
+            Version    = '1.0.2'
             Runtime    = $PSVersionTable.PSEdition
             PSVersion  = $PSVersionTable.PSVersion.ToString()
             Profile    = $Profile
@@ -847,6 +1152,14 @@ end {
             Write-Output ('PAYLOAD_VALID=' + $f.PayloadValid)
             if ($f.PayloadProblem) {
                 Write-Output ('PAYLOAD_PROBLEM=' + $f.PayloadProblem)
+            }
+            if ($f.SourceCoding) {
+                Write-Output ('SOURCE_CODING=' + $f.SourceCoding)
+                Write-Output ('SOURCE_CODING_LINE=' + $f.SourceCodingLine)
+                if ($f.SourceCodingName) { Write-Output ('SOURCE_CODING_NAME=' + $f.SourceCodingName) }
+            }
+            if ($f.SourceCodingProblem) {
+                Write-Output ('SOURCE_CODING_PROBLEM=' + $f.SourceCodingProblem)
             }
             Write-Output ('EXPECTED=' + $f.Expected)
             Write-Output ('EXPECTED_MATCH=' + $f.ExpectedMatch)
