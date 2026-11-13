@@ -28,6 +28,25 @@ BeforeAll {
         return $m.Groups[1].Value.Trim()
     }
 
+    function Invoke-ToolWithAnswer {
+        <#
+            Answers a -Confirm prompt by feeding a line into the child's stdin.
+
+            -NonInteractive is deliberately absent: the prompt is the thing under
+            test, and a non-interactive host throws instead of answering. The
+            child gets its own console, so the inherited pipe is read by the
+            prompt just like typed input.
+        #>
+        param(
+            [string[]]$Arguments,
+            [string]$Answer = 'n'
+        )
+        $argv = @('-NoProfile', '-File', (Join-Path $ScriptsDir $Tool)) + $Arguments
+        $text = $Answer | & (Get-CurrentPowerShellExe) @argv 2>&1 | Out-String
+        $code = $LASTEXITCODE
+        return [pscustomobject]@{ ExitCode = $code; StdOut = $text }
+    }
+
     function Get-SourceText {
         param([string]$Name)
         $bytes = [System.IO.File]::ReadAllBytes((Join-Path $FixturesDir $Name))
@@ -126,6 +145,73 @@ Describe 'New-EncodedScript.ps1' {
             $r = Invoke-Tool @('-Path', $target, '-ContentFile', (Join-Path $FixturesDir 'content-utf8.txt'), '-WhatIf')
             $r.ExitCode | Should -Be 0
             Test-Path -LiteralPath $target | Should -BeFalse
+        }
+    }
+
+    Context 'preview and cancellation' {
+
+        It 'reports -WhatIf as a preview, not as a write' {
+            $target = Join-Path $TestDrive 'preview.ps1'
+            $r = Invoke-Tool @('-Path', $target, '-ContentFile', (Join-Path $FixturesDir 'content-utf8.txt'), '-WhatIf')
+            $r.ExitCode | Should -Be 0
+            Get-Field $r.StdOut 'STATE' | Should -Be 'Previewed'
+            $r.StdOut | Should -Match 'WOULD_WRITE='
+            $r.StdOut | Should -Not -Match '(?m)^WROTE='
+            Test-Path -LiteralPath $target | Should -BeFalse
+        }
+
+        It 'reports a completed write as written' {
+            $target = Join-Path $TestDrive 'written.ps1'
+            $r = Invoke-Tool @('-Path', $target, '-ContentFile', (Join-Path $FixturesDir 'content-utf8.txt'))
+            $r.ExitCode | Should -Be 0
+            Get-Field $r.StdOut 'STATE' | Should -Be 'Written'
+            Test-Path -LiteralPath $target | Should -BeTrue
+        }
+
+        It 'reports a refused confirmation as cancelled, and exits 4' {
+            # Same $false from ShouldProcess as -WhatIf, different meaning. A
+            # caller that only reads the exit code used to record a write here.
+            $target = Join-Path $TestDrive 'cancelled.ps1'
+            $r = Invoke-ToolWithAnswer -Arguments @('-Path', $target, '-ContentFile', (Join-Path $FixturesDir 'content-utf8.txt'), '-Confirm')
+            $r.ExitCode | Should -Be 4
+            Get-Field $r.StdOut 'STATE' | Should -Be 'Cancelled'
+            $r.StdOut | Should -Not -Match '(?m)^WROTE='
+            $r.StdOut | Should -Not -Match 'WOULD_WRITE='
+            Test-Path -LiteralPath $target | Should -BeFalse
+        }
+
+        It 'leaves the target and its backup untouched when the write is cancelled' {
+            $target = Join-Path $TestDrive 'kept.ps1'
+            [System.IO.File]::WriteAllText($target, 'original', $Utf8NoBom)
+            $before = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash
+
+            $r = Invoke-ToolWithAnswer -Arguments @('-Path', $target, '-ContentFile', (Join-Path $FixturesDir 'content-utf8.txt'), '-Force', '-Backup', '-Confirm')
+            $r.ExitCode | Should -Be 4
+
+            (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash | Should -Be $before
+            [System.IO.File]::ReadAllText($target) | Should -Be 'original'
+            @(Get-ChildItem -LiteralPath $TestDrive -Filter 'kept.ps1.bak-*' -Force -ErrorAction SilentlyContinue).Count | Should -Be 0
+            (Get-TempLeftovers -Directory $TestDrive).Count | Should -Be 0
+        }
+
+        It 'writes when the confirmation is accepted' {
+            $target = Join-Path $TestDrive 'accepted.ps1'
+            $r = Invoke-ToolWithAnswer -Arguments @('-Path', $target, '-ContentFile', (Join-Path $FixturesDir 'content-utf8.txt'), '-Confirm') -Answer 'y'
+            $r.ExitCode | Should -Be 0
+            Get-Field $r.StdOut 'STATE' | Should -Be 'Written'
+            Test-Path -LiteralPath $target | Should -BeTrue
+        }
+
+        It 'carries the same state in the json document' {
+            $preview = Invoke-Tool @('-Path', (Join-Path $TestDrive 'preview.json.ps1'), '-ContentFile', (Join-Path $FixturesDir 'content-utf8.txt'), '-WhatIf', '-Output', 'json')
+            $preview.ExitCode | Should -Be 0
+            ($preview.StdOut | ConvertFrom-Json).Status | Should -Be 'Previewed'
+
+            $cancel = Invoke-ToolWithAnswer -Arguments @('-Path', (Join-Path $TestDrive 'cancel.json.ps1'), '-ContentFile', (Join-Path $FixturesDir 'content-utf8.txt'), '-Confirm', '-Output', 'json')
+            $cancel.ExitCode | Should -Be 4
+            # The host echoes the answer before the document, so start at the brace.
+            $json = $cancel.StdOut.Substring($cancel.StdOut.IndexOf('{'))
+            ($json | ConvertFrom-Json).Status | Should -Be 'Cancelled'
         }
     }
 

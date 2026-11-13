@@ -52,7 +52,13 @@
     text (default) or json.
 
 .OUTPUTS
-    Exit codes: 0 success, 2 content or write failure, 3 parameter or I/O error.
+    Exit codes: 0 written, 2 content or write failure, 3 parameter or I/O error,
+    4 cancelled at the confirmation prompt (nothing was written).
+
+    -WhatIf previews and exits 0, as it always has. A declined -Confirm is not a
+    preview: it exits 4 so a caller that only inspects the exit code cannot
+    record a write that never happened. Both report STATE= in text output and
+    Status in json, in addition to the exit code.
 
 .EXAMPLE
     .\New-EncodedScript.ps1 -Path .\build.ps1 -ContentFile .\build.txt -Encoding utf8-bom
@@ -87,9 +93,10 @@ $ErrorActionPreference = 'Stop'
 
 $result = [ordered]@{
     Tool           = 'New-EncodedScript.ps1'
-    Version        = '1.0.1'
+    Version        = '1.0.2'
     Runtime        = $PSVersionTable.PSEdition
     Target         = $null
+    Status         = $null
     Written        = $null
     Encoding       = $null
     EncodingSource = $null
@@ -160,20 +167,23 @@ function Complete-Write {
 
     if ($ErrorCode) { $result.Error = $ErrorCode }
     if ($Detail) { $result.Detail = $Detail }
+    # This helper is the failure door only: every successful path reports itself
+    # with Status = 'Written' further down.
+    $result.Status = 'Failed'
     $result.ExitCode = $Code
 
     if ($Output -eq 'json') {
         $result | ConvertTo-Json -Depth 4
     }
     else {
-        foreach ($key in @('Target', 'Written', 'Encoding', 'EncodingSource', 'Bytes', 'Bom', 'Verified', 'Backup', 'Replaced', 'Error', 'Detail')) {
+        foreach ($key in @('Target', 'Status', 'Written', 'Encoding', 'EncodingSource', 'Bytes', 'Bom', 'Verified', 'Backup', 'Replaced', 'Error', 'Detail')) {
             # A failed run never wrote anything, and "WROTE=<path>" next to
             # "ERROR=REPLACE_FAILED" is the kind of line an operator believes.
             if ($key -eq 'Written' -and $Code -ne 0) { continue }
             $value = $result[$key]
             if ($null -eq $value) { continue }
             $label = $key.ToUpperInvariant()
-            if ($label -eq 'TARGET') { $label = 'TARGET' }
+            if ($label -eq 'STATUS') { $label = 'STATE' }
             if ($label -eq 'WRITTEN') { $label = 'WROTE' }
             Write-Output ($label + '=' + $value)
         }
@@ -324,12 +334,18 @@ if ($preamble.Length -gt 0) {
 }
 
 # --- 4. honour -WhatIf / -Confirm ---------------------------------------
-if (-not $PSCmdlet.ShouldProcess($target, ('write ' + $Encoding))) {
+# -WhatIf is answered before ShouldProcess is called, on purpose. ShouldProcess
+# prints its own "What if:" banner to the host, that banner lands in stdout, and
+# a -Output json document stops being JSON. The preview is reported here with the
+# same fields and nothing is written.
+if ($WhatIfPreference) {
+    $result.Status = 'Previewed'
     $result.ExitCode = 0
     if ($Output -eq 'json') {
         $result | ConvertTo-Json -Depth 4
     }
     else {
+        Write-Output 'STATE=Previewed'
         Write-Output ('WOULD_WRITE=' + $target)
         Write-Output ('WOULD_ENCODING=' + $Encoding)
         Write-Output ('WOULD_ENCODING_SOURCE=' + $encodingChoice.Source)
@@ -337,6 +353,28 @@ if (-not $PSCmdlet.ShouldProcess($target, ('write ' + $Encoding))) {
         Write-Output 'EXITCODE=0'
     }
     exit 0
+}
+
+if (-not $PSCmdlet.ShouldProcess($target, ('write ' + $Encoding))) {
+    # ShouldProcess returned $false and this is not -WhatIf, so the confirmation
+    # prompt was declined. The previous version reported this as a preview with
+    # exit 0, and a caller that only inspects the exit code recorded a write that
+    # never happened.
+    $result.Status = 'Cancelled'
+    $result.Detail = 'the confirmation prompt was declined; nothing was written'
+    $result.ExitCode = 4
+    if ($Output -eq 'json') {
+        $result | ConvertTo-Json -Depth 4
+    }
+    else {
+        Write-Output 'STATE=Cancelled'
+        Write-Output 'CANCELLED=True'
+        Write-Output ('TARGET=' + $target)
+        Write-Output ('ENCODING=' + $Encoding)
+        Write-Output ('DETAIL=' + $result.Detail)
+        Write-Output 'EXITCODE=4'
+    }
+    exit 4
 }
 
 # --- 5. write, verify, publish ------------------------------------------
@@ -442,12 +480,14 @@ if ($failureCode) {
 }
 
 $result.Backup = $backupPath
+$result.Status = 'Written'
 
 if ($Output -eq 'json') {
     $result.ExitCode = 0
     $result | ConvertTo-Json -Depth 4
 }
 else {
+    Write-Output 'STATE=Written'
     Write-Output ('WROTE=' + $target)
     Write-Output ('ENCODING=' + $Encoding)
     Write-Output ('ENCODING_SOURCE=' + $encodingChoice.Source)
