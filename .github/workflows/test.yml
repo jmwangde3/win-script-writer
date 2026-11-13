@@ -51,6 +51,12 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
+      - name: Install test dependencies
+        # Explicit, and separate from running the tests. tests/run-all.ps1 no
+        # longer installs anything on its own, so a missing dependency fails
+        # loudly with the command to run instead of quietly reaching the network.
+        run: python -m pip install --disable-pip-version-check -r tests/requirements-test.txt
+
       - name: Install analysis modules
         shell: powershell
         run: |
@@ -86,6 +92,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
+
+      - name: Install test dependencies
+        run: python -m pip install --disable-pip-version-check -r tests/requirements-test.txt
 
       - name: Install analysis modules
         shell: pwsh
@@ -143,10 +152,10 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install the workflow contract dependency
+      - name: Install test dependencies
         # tests/evals/test_workflows.py parses the workflow files. PyYAML is not
         # in the runner image, and a skipped parse is the same as no gate.
-        run: python -m pip install --disable-pip-version-check pyyaml
+        run: python -m pip install --disable-pip-version-check -r tests/requirements-test.txt
 
       - name: Check SKILL.md size, routing and hygiene
         run: python -m unittest discover -s tests/evals -v
