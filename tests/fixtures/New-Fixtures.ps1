@@ -268,8 +268,107 @@ Write-Fixture 'py-coding-windows936.py' (Get-EncodedBytes $gbk ('# -*- coding: w
 # name, and GB18030's aliases are gb18030 and gb18030-2000.
 Write-Fixture 'py-coding-cp54936.py' (Get-EncodedBytes $gbk ('# -*- coding: cp54936 -*-' + "`n" + $pyGb2312Body)) 'a Windows code page used as a codec name'
 
-# A ~{ that never closes leaves the decoder inside GB mode at end of file.
-Write-Fixture 'py-coding-hz-truncated.py' (Get-EncodedBytes $utf8NoBom ('# -*- coding: hz -*-' + "`n" + 'MARKER = "~{VPND' + "`n")) 'HZ that never leaves GB mode'
+# A ~{ that never closes leaves the decoder inside GB mode at end of file, and
+# the newline that follows is a single byte with no partner. CPython tolerates
+# an unterminated run but not a dangling byte, which is the distinction this
+# fixture pins: it must fail.
+Write-Fixture 'py-coding-hz-truncated.py' (Get-EncodedBytes $utf8NoBom ('# -*- coding: hz -*-' + "`n" + 'MARKER = "~{VPND' + "`n")) 'HZ with a dangling byte at end of file'
+
+# --- HZ state machine (v1.0.3) -------------------------------------------
+# CPython's hz codec disagrees with a naive reading of RFC 1843 in both
+# directions, and every case below was measured on the interpreter:
+#
+#   ~\n  in ASCII mode   continuation, both agree
+#   ~\n  in GB mode      error: 0x0A is not a pair byte
+#   ~~   in ASCII mode   literal tilde, both agree
+#   ~~   in GB mode      error: 0x7E shifts to a lead byte outside A1-F7
+#   ~}   at a pair edge  closes GB mode
+#   ~}   in ASCII mode   error
+#   0x7E as a pair trail data, not an escape: 56 7E is D6 FE, a real cell
+#   EOF  inside GB mode  tolerated when no byte is left dangling
+#
+# A state machine that tests for the tilde before it looks at the mode gets
+# three of these wrong: it accepts ~~ and ~\n inside GB mode, and it refuses a
+# legitimate 0x7E trail byte.
+Write-Fixture 'py-coding-hz-tilde-in-gb.py' (Get-EncodedBytes $utf8NoBom (
+        '# -*- coding: hz -*-' + "`n" +
+        'MARKER = "~{V~~}"' + "`n" +
+        'print("PYCODING_HZ_TILDE_OK " + MARKER)' + "`n")) 'HZ pair whose trail byte is 0x7E'
+
+Write-Fixture 'py-coding-hz-escape-in-gb.py' (Get-EncodedBytes $utf8NoBom (
+        '# -*- coding: hz -*-' + "`n" +
+        'MARKER = "~{~~}"' + "`n" +
+        'print("PYCODING_HZ_ESCAPE_SHOULD_NOT_RUN")' + "`n")) 'HZ ~~ inside GB mode'
+
+Write-Fixture 'py-coding-hz-close-in-ascii.py' (Get-EncodedBytes $utf8NoBom (
+        '# -*- coding: hz -*-' + "`n" +
+        'MARKER = "~}"' + "`n" +
+        'print("PYCODING_HZ_CLOSE_SHOULD_NOT_RUN")' + "`n")) 'HZ ~} outside GB mode'
+
+Write-Fixture 'py-coding-hz-continuation.py' (Get-EncodedBytes $utf8NoBom (
+        '# -*- coding: hz -*-' + "`n" +
+        'MARKER = "ab~' + "`n" + 'cd"' + "`n" +
+        'print("PYCODING_HZ_CONTINUATION_OK " + MARKER)' + "`n")) 'HZ line continuation in ASCII mode'
+
+Write-Fixture 'py-coding-hz-open.py' (Get-EncodedBytes $utf8NoBom (
+        '# -*- coding: hz -*-' + "`n" +
+        'print("PYCODING_HZ_OPEN_OK")' + "`n" +
+        '# ~{VPND')) 'HZ that ends inside GB mode with complete pairs'
+
+# --- encoding overlap (v1.0.3) -------------------------------------------
+# C3 A9 is U+8305 in GB2312, GBK and GB18030, and it is also a valid two byte UTF-8
+# sequence (U+00E9). The detector labels such a file utf8-nobom and used to
+# call any declaration that is not UTF-8 a conflict -- but Python decodes the
+# file with the declared codec and runs it. Overlap is not a conflict.
+$mao = ConvertFrom-CodePoints @(0x8305)
+$maoBody = 'MARKER = "' + $mao + '"' + "`n"
+
+Write-Fixture 'py-coding-gb2312-overlap.py' (Get-EncodedBytes $gbk ('# -*- coding: gb2312 -*-' + "`n" + $maoBody + 'print("PYCODING_GB2312_OVERLAP_OK " + MARKER)' + "`n")) 'GB2312 bytes that also decode as UTF-8'
+Write-Fixture 'py-coding-gbk-overlap.py' (Get-EncodedBytes $gbk ('# -*- coding: gbk -*-' + "`n" + $maoBody + 'print("PYCODING_GBK_OVERLAP_OK " + MARKER)' + "`n")) 'GBK bytes that also decode as UTF-8'
+Write-Fixture 'py-coding-gb18030-overlap.py' (Get-EncodedBytes $gb18030 ('# -*- coding: gb18030 -*-' + "`n" + $maoBody + 'print("PYCODING_GB18030_OVERLAP_OK " + MARKER)' + "`n")) 'GB18030 bytes that also decode as UTF-8'
+
+# The other direction: the declaration cannot decode these bytes at all. CP936
+# stops at byte 1 of the UTF-8 sequence, so CPython raises SyntaxError and so
+# must the detector. This is the case the overlap rule must not swallow.
+Write-Fixture 'py-coding-utf8-as-gbk.py' (Get-EncodedBytes $utf8NoBom ('# -*- coding: gbk -*-' + "`n" + 'MARKER = "' + $zh + '"' + "`n" + 'print("PYCODING_UTF8_AS_GBK_SHOULD_NOT_RUN")' + "`n")) 'UTF-8 bytes declared as gbk: undecodable'
+Write-Fixture 'py-coding-utf8-as-gb2312.py' (Get-EncodedBytes $utf8NoBom ('# -*- coding: gb2312 -*-' + "`n" + 'MARKER = "' + $zh + '"' + "`n" + 'print("PYCODING_UTF8_AS_GB2312_SHOULD_NOT_RUN")' + "`n")) 'UTF-8 bytes declared as gb2312: undecodable'
+
+# --- Latin-1 (v1.0.3) ----------------------------------------------------
+# ISO-8859-1 has no invalid byte sequence at all: every one of the 256 values
+# decodes. A detector that decides "is this Latin-1" by looking for a code page
+# round trip refuses the file, and a repertoire that only lists ascii calls a
+# legal non-ASCII file a conflict.
+$latin1 = [System.Text.Encoding]::GetEncoding(28591)
+$eacuteBody = 'MARKER = "' + $eacute + '"' + "`n"
+Write-Fixture 'py-coding-latin1.py' (Get-EncodedBytes $latin1 ('# -*- coding: latin-1 -*-' + "`n" + $eacuteBody + 'print("PYCODING_LATIN1_OK " + MARKER)' + "`n")) 'Latin-1 with a non-ASCII character'
+Write-Fixture 'py-coding-latin1-ascii.py' (Get-EncodedBytes $utf8NoBom ('# -*- coding: latin-1 -*-' + "`n" + 'print("PYCODING_LATIN1_ASCII_OK")' + "`n")) 'ASCII body declared as Latin-1'
+Write-Fixture 'py-coding-latin1-utf8.py' (Get-EncodedBytes $utf8NoBom ('# -*- coding: latin-1 -*-' + "`n" + $eacuteBody + 'print("PYCODING_LATIN1_UTF8_OK " + MARKER)' + "`n")) 'UTF-8 bytes declared as Latin-1: runs, as mojibake'
+# A BOM and any declaration other than utf-8 is a SyntaxError in CPython, and
+# Latin-1 is no exception.
+Write-Fixture 'py-coding-latin1-bom.py' (Get-EncodedBytes $utf8Strict ('# -*- coding: latin-1 -*-' + "`n" + 'print("PYCODING_LATIN1_BOM_SHOULD_NOT_RUN")' + "`n") -WithBom) 'UTF-8 BOM plus coding: latin-1'
+
+# --- Python codec names the detector cannot verify (v1.0.3) --------------
+# These resolve in CPython and Python runs the file, but this tool has no byte
+# level verifier for them. "Cannot verify" and "Python does not know the name"
+# are different answers and used to share one.
+Write-Fixture 'py-coding-cp1252.py' (Get-EncodedBytes $utf8NoBom ('# -*- coding: cp1252 -*-' + "`n" + 'print("PYCODING_CP1252_OK")' + "`n")) 'a codec Python knows and this tool does not verify'
+Write-Fixture 'py-coding-shift-jis.py' (Get-EncodedBytes $utf8NoBom ('# -*- coding: shift_jis -*-' + "`n" + 'print("PYCODING_SHIFTJIS_OK")' + "`n")) 'a codec Python knows and this tool does not verify'
+Write-Fixture 'py-coding-big5.py' (Get-EncodedBytes $utf8NoBom ('# -*- coding: big5 -*-' + "`n" + 'print("PYCODING_BIG5_OK")' + "`n")) 'a codec Python knows and this tool does not verify'
+
+# Names that look like codecs and are not. Each one was checked with
+# codecs.lookup() on the interpreter the tests run on.
+Write-Fixture 'py-coding-54936.py' (Get-EncodedBytes $utf8NoBom ('# -*- coding: 54936 -*-' + "`n" + 'print("PYCODING_54936_SHOULD_NOT_RUN")' + "`n")) 'bare code page number as a codec name'
+Write-Fixture 'py-coding-hzgb2312.py' (Get-EncodedBytes $utf8NoBom ('# -*- coding: hzgb2312 -*-' + "`n" + 'print("PYCODING_HZGB2312_SHOULD_NOT_RUN")' + "`n")) 'HZ with the separator dropped'
+Write-Fixture 'py-coding-cn-gb.py' (Get-EncodedBytes $utf8NoBom ('# -*- coding: cn-gb -*-' + "`n" + 'print("PYCODING_CNGB_SHOULD_NOT_RUN")' + "`n")) 'a national body spelling CPython does not list'
+
+# utf-8-sig is UTF-8 with an optional BOM; the bytes still have to be UTF-8.
+Write-Fixture 'py-coding-utf8-sig.py' (Get-EncodedBytes $utf8NoBom ('# -*- coding: utf-8-sig -*-' + "`n" + 'MARKER = "' + $zh + '"' + "`n" + 'print("PYCODING_UTF8SIG_OK " + MARKER)' + "`n")) 'utf-8-sig declaration, no BOM'
+
+# CPython normalises the name before comparing it with "utf-8" for the BOM
+# rule, and "utf8" is not "utf-8": the spelling alone decides whether the file
+# compiles.
+Write-Fixture 'py-coding-utf8-spelling-bom.py' (Get-EncodedBytes $utf8Strict ('# -*- coding: utf8 -*-' + "`n" + 'print("PYCODING_UTF8_SPELLING_SHOULD_NOT_RUN")' + "`n") -WithBom) 'BOM plus the utf8 spelling of utf-8'
+
 
 # --- writer inputs -------------------------------------------------------
 $contentBody = $zh + $ceshi + ': content source for the writer.' + "`r`n"
