@@ -39,7 +39,7 @@
 
 上表每一行都有实测支撑，载荷与字节见 `references/encoding-matrix.md`。
 
-## 3. 唯一安全的写法
+## 3. 两边都认的写法
 
 ### 3.1 只用交集语法
 
@@ -80,7 +80,10 @@ else {
 ## 4. 落盘编码
 
 跨版本脚本自身必须 **UTF-8 with BOM**（见
-`references/powershell-51.md` 断链一）。这是唯一两边都对的存法。
+`references/powershell-51.md` 断链一）。这是推荐的存法，不是唯一能跑的存法：
+实测 UTF-16LE/BE 带 BOM 两个版本都能解析执行，但 git、编辑器、`cmd.exe` 都
+读不了，检测器因此判 `WARN` 而不是 `FAIL`。存 UTF-16 不算"错"，算"只能自己
+用"。
 
 不要为了"7 上更干净"而存无 BOM：那等于放弃 5.1。
 
