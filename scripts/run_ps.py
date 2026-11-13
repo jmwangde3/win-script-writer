@@ -64,7 +64,7 @@ import subprocess
 import sys
 import tempfile
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 
 EXIT_LOCAL_ERROR = 3
 EXIT_TIMEOUT = 124
