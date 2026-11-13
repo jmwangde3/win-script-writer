@@ -18,9 +18,17 @@
       CONSOLEOUTCP    code page the .NET console layer uses for stdout right
                       now. A window that ran chcp 65001 reports 65001 here while
                       ACP stays 936.
-      OUTPUTENCODING  encoding PowerShell uses when it hands strings to a native
-                      program. On Windows PowerShell 5.1 this is us-ascii, which
-                      is why Chinese arguments reach git.exe as question marks.
+      OUTPUTENCODING  encoding PowerShell uses when it pipes strings into a
+                      native program's stdin. On Windows PowerShell 5.1 this is
+                      us-ascii, which is why Chinese text piped into git.exe
+                      arrives as question marks. It does not affect arguments:
+                      those travel through CreateProcessW as UTF-16 and never
+                      touch this setting.
+
+    Run this once per machine or per host, not once per task. The four values
+    above are properties of the environment, not of the script you are about to
+    write, and they only change when the window, the host edition or the machine
+    changes.
 
     Sources are named rather than guessed: ACPSOURCE says whether ACP was read
     from HKLM\SYSTEM\CurrentControlSet\Control\Nls\CodePage or fell back to the
@@ -174,7 +182,7 @@ try {
         [void]$notes.Add('PS51_BOMLESS_UTF8: this host decodes a BOM-less script as CP936, so UTF-8 Chinese text arrives mangled. Save scripts as UTF-8 with BOM.')
     }
     if ($pipelineEncoding -and $pipelineEncoding.WebName -eq 'us-ascii') {
-        [void]$notes.Add('PS51_PIPELINE_ASCII: $OutputEncoding is us-ascii, so every non-ASCII character handed to a native program becomes a question mark.')
+        [void]$notes.Add('PS51_PIPELINE_ASCII: $OutputEncoding is us-ascii, so non-ASCII text piped into a native program''s stdin becomes a question mark. Arguments are not affected.')
     }
     if ($consoleOut -and $acp -and $consoleOut.CodePage -ne $acp) {
         [void]$notes.Add(('CONSOLE_CP_DIFFERS: console output code page {0} differs from the system ANSI code page {1}, so the same file can look correct in one window and wrong in another.' -f $consoleOut.CodePage, $acp))

@@ -43,7 +43,7 @@ powershell -NoProfile -File scripts/Get-WinScriptEnvironment.ps1
 ```
 ACP=936                 # 系统 ANSI 代码页，5.1 用它解析无 BOM 脚本
 CONSOLEOUTCP=936        # 当前控制台输出代码页
-OUTPUTENCODING=us-ascii # 5.1 交给原生程序时用的编码（问题所在）
+OUTPUTENCODING=us-ascii # 5.1 往原生程序 stdin 灌字符串时用的编码（不含 argv）
 PSEDITION=Desktop       # Desktop = 5.1，Core = 7
 ```
 
@@ -80,11 +80,12 @@ python scripts/run_ps.py --invoke-file .\script.ps1
 | 工具 | 作用 | 只读 |
 | --- | --- | --- |
 | `scripts/Get-WinScriptEnvironment.ps1` | 报告 ACP / OEMCP / 控制台代码页 / `$OutputEncoding` / 运行时版本 | 是 |
-| `scripts/Test-ScriptEncoding.ps1` | 字节级检测编码：连 BOM 之后的负载一起验，按目标消费方给 OK/WARN/FAIL | 是 |
+| `scripts/Test-ScriptEncoding.ps1` | 字节级检测编码：连 BOM 之后的负载一起验，识别 UTF-32 四字节签名与 Python 的 PEP 263 声明，按目标消费方给 OK/WARN/FAIL | 是 |
 | `scripts/New-EncodedScript.ps1` | 按编码落盘，临时文件 + 读回校验 + 原子替换；默认编码按扩展名推导 | 否，需显式 `-Force` 才覆盖 |
 | `scripts/run_ps.py` | 编码无关地执行脚本。文本模式走 UTF-16LE base64，`--invoke-file` 走原生 `-File` | 否，执行指定内容 |
 
-退出码是契约：检测器 `0/1/2/3`，写入器 `0/2/3`，
+退出码是契约：检测器 `0/1/2/3`，写入器 `0/2/3` + `4`（用户在确认提示上选了
+「否」，**没有写入**；`-WhatIf` 仍是 0，只是预览），
 `run_ps.py` 子进程码透传 + `3/124/127`。
 
 ## 装成 skill

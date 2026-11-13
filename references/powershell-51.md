@@ -38,9 +38,20 @@ UTF-16 值得单独说一句，因为流传的说法是错的：**5.1 能跑带 
 实测：`[char]0x4E2D | python -c "..."` 读到 stdin 是 `3F`，即 `?`。
 非 ASCII 在离开 PowerShell 的那一刻被替换成问号，**没有任何警告**。
 
-注意 `$OutputEncoding` 与 `[Console]::OutputEncoding` 是两回事：
-- `$OutputEncoding` 管"PowerShell → 原生程序"
-- `[Console]::OutputEncoding` 管"PowerShell → 自己的 stdout"
+**作用面只有管道 stdin，不含命令行参数。** 这一条经常被说错，值得拆开：
+
+| 通道 | 由谁决定编码 | `$OutputEncoding` 有影响吗 |
+| --- | --- | --- |
+| 管道 stdin（`... \| native.exe`） | `$OutputEncoding`，默认 `us-ascii` | 有，就是它在截 |
+| 命令行参数（`native.exe 中文`） | 由 `CreateProcess` 传宽字符，进程自己转 | 没有 |
+| PowerShell 自己的 stdout | `[Console]::OutputEncoding` | 没有 |
+| 写文件（`Out-File` / `>`） | `-Encoding` 参数，默认 UTF-16LE | 没有 |
+
+所以出现乱码时先判断是哪一层：参数里的中文即使 `$OutputEncoding` 是
+`us-ascii` 也能完整到达原生程序；反过来说，把 `$OutputEncoding` 设成 UTF-8
+也修不好参数层的问题（那一层的问题通常出在目标程序用 ACP 解 argv，或调用方
+用 8.3 短路径之外的方式传参）。stdin、stdout、文件、argv 四种编码互不代偿，
+逐层核对才有效。
 
 ### 断链四：自己的 stdout —— 按控制台输出代码页编码
 

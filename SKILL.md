@@ -40,7 +40,8 @@ PowerShell 5.1、PowerShell 7.4+、未开启系统级 UTF-8；Git Bash / MSYS2
 
 1. **`.ps1` 里出现非 ASCII 字符 → 存 UTF-8 with BOM。** 5.1 对无 BOM
    文件按系统 ANSI 代码页（936）解析，UTF-8 中文会变成乱码字符串；7 对
-   无 BOM 文件按 UTF-8 解析。带 BOM 是唯一两边都对的选择。纯 ASCII 的
+   无 BOM 文件按 UTF-8 解析。带 BOM 是两边都对、别的工具也读得懂的推荐
+   存法（UTF-16 带 BOM 也能跑，但只有它一家认，别用）。纯 ASCII 的
    脚本存无 BOM 即可。
 2. **不要用 `>`、`>>`、`Out-File`、`Set-Content` 写文件。** 5.1 下它们
    产出 UTF-16LE + BOM 或 ANSI，Python、Node、git 读进来就是乱码。改

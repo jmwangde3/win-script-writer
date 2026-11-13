@@ -161,5 +161,36 @@ class TestHygiene(unittest.TestCase):
             self.assertNotIn(needle, text)
 
 
+class TestCorrectedClaims(unittest.TestCase):
+    """Pin the claims that were wrong once and tend to come back paraphrased.
+
+    Both statements below were defensible-sounding, widely repeated, and
+    measurably false on this machine. A prose correction without a guard is a
+    correction that gets re-edited away by the next person who "cleans up".
+    """
+
+    def test_utf8_bom_is_not_described_as_the_only_runnable_form(self):
+        # Measured: UTF-16LE and UTF-16BE with a BOM both parse and run in 5.1
+        # and 7. They are discouraged, not impossible.
+        skill = read_skill()
+        self.assertNotIn("唯一两边都对", skill)
+        dual = (REFERENCES / "dual-version-compatibility.md").read_text(encoding="utf-8")
+        self.assertNotIn("唯一两边都对", dual)
+
+    def test_outputencoding_is_not_described_as_governing_arguments(self):
+        # $OutputEncoding feeds stdin of a native program. Arguments travel as
+        # UTF-16 through CreateProcessW and never touch it.
+        text = (REFERENCES / "encoding-matrix.md").read_text(encoding="utf-8")
+        rows = [line for line in text.splitlines() if line.startswith("| `$OutputEncoding`")]
+        self.assertEqual(len(rows), 1, "expected exactly one $OutputEncoding row")
+        self.assertIn("stdin", rows[0])
+        self.assertNotIn("参数传给", rows[0])
+
+    def test_the_matrix_separates_the_four_encoding_layers(self):
+        text = (REFERENCES / "encoding-matrix.md").read_text(encoding="utf-8")
+        for layer in ("文件编码", "控制台编码", "管道编码", "命令行参数编码"):
+            self.assertIn(layer, text)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

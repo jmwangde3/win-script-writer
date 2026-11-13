@@ -10,11 +10,26 @@
 | ACP | 系统 ANSI 代码页 | Windows PowerShell 5.1 解析无 BOM 脚本；`Encoding.Default`（.NET Framework） | `Get-WinScriptEnvironment.ps1` 的 `ACP` |
 | OEMCP | 系统 OEM 代码页 | cmd.exe 解析批处理、控制台默认字符集 | 同上 `OEMCP` |
 | 控制台代码页 | 当前窗口的输入/输出代码页 | `chcp` 改的就是它；`[Console]::OutputEncoding` 跟着它 | 同上 `CONSOLEOUTCP` |
-| `$OutputEncoding` | PowerShell 把字符串交给**原生程序**时用的编码 | 管道 / 参数传给 `git.exe`、`python.exe` 等 | 同上 `OUTPUTENCODING` |
+| `$OutputEncoding` | PowerShell 把字符串写进**原生程序的 stdin** 时用的编码 | 只影响管道输入：`'中文' | git hash-object --stdin` | 同上 `OUTPUTENCODING` |
 
 四个值在 zh-CN 机器上的典型组合（本机实测）：ACP=936、OEMCP=936、
 控制台输出代码页可能是 65001（某个宿主改过）、`$OutputEncoding` 在 5.1
 上是 `us-ascii`、在 7 上是 `utf-8`。
+
+### 1.1 四种「编码」，别混着说
+
+| 层 | 谁决定 | 什么时候真的会坏 |
+| --- | --- | --- |
+| 文件编码 | 生产文件的那支笔 | 读的一方按别的编码解，见第 2 节 |
+| 控制台编码 | `chcp` / `[Console]::OutputEncoding` | 程序写 stdout 时，宿主按它去解 |
+| 管道编码 | `$OutputEncoding` | **只**在把字符串喂给原生程序的 stdin 时生效 |
+| 命令行参数编码 | Windows 的 `CreateProcessW` 收 UTF-16 | 只有把命令**写成字节**再交给 shell 才会坏（GBK 的 `.bat`、手工拼的字符串） |
+
+**`$OutputEncoding` 不参与 argv。** 参数以 Unicode 传给子进程，`'中文'` 作为
+参数不经过它；它管的是 `|` 右边那个原生程序的 stdin。网上「改
+`$OutputEncoding` 修中文参数」的说法把这两件事混成了一件，本机实测
+`-Command 'Write-Output "中文"'` 在 5.1 与 7 上都正确，且与
+`$OutputEncoding` 的值无关。
 
 **结论：看到"乱码"先问是这四条里的哪一条坏了，不要笼统说"编码问题"。**
 
@@ -35,6 +50,30 @@
 一句话判据：**只有当消费方是 Windows PowerShell 5.1 的脚本时才需要 BOM，
 其他一律不要 BOM。**
 
+### 2.1 Python 的源码编码声明（PEP 263）
+
+Python 3 默认按 UTF-8 读源码，但前两行里的注释可以改这个默认：
+
+```python
+# -*- coding: gbk -*-      ← 第 1 行
+# coding=cp936             ← 或这种写法
+```
+
+| 文件实际字节 | 声明 | Python 3 的行为 | 检测器判定 |
+| --- | --- | --- | --- |
+| GBK | `coding: gbk` / `cp936` | 正常执行 | `WARN`（能跑，但不是 UTF-8） |
+| GBK | 无 | `SyntaxError: Non-UTF-8 code ...` | `FAIL`（`CP936_PYTHON`） |
+| UTF-8 + BOM | `coding: gbk` | `SyntaxError: encoding problem: gbk with BOM` | `FAIL`（`PY_SOURCE_CODING_CONFLICT`） |
+| 任意 | `coding: utf-9`（不存在的编码） | `SyntaxError: encoding problem: utf-9` | `FAIL`（`PY_SOURCE_CODING_UNKNOWN`） |
+| UTF-8 | `coding: utf-8` | 正常执行 | `OK` / `WARN`（BOM 时） |
+
+判据是**声明必须和字节相符**，而不是「能不能解出来」：UTF-8 的文件声明
+`coding: gbk` 也能被 GBK 解出一串字，但那是乱码。所以检测器先看声明的
+编码族与实际检测结果是否一致，再单独验字节。
+
+项目仍然只存 UTF-8 的 `.py`。声明成 GBK 只是让检测器不再把它判成「跑不了」，
+不是推荐写法。
+
 ## 3. BOM 的字节签名
 
 | 编码 | 前几个字节 | 说明 |
@@ -43,7 +82,14 @@
 | UTF-8 无 BOM | 无签名 | 只能靠"严格 UTF-8 能否解码"判定 |
 | UTF-16 LE | `FF FE` | 5.1 的 `Out-File` / `>` 默认产出 |
 | UTF-16 BE | `FE FF` | 罕见但存在 |
+| UTF-32 LE | `FF FE 00 00` | **必须比 `FF FE` 先匹配**，否则会被当成 UTF-16LE |
+| UTF-32 BE | `00 00 FE FF` | 同上，四字节签名优先 |
 | GBK / CP936 | 无签名 | 中文双字节，首字节 `81–FE`，尾字节 `40–FE` |
+
+四字节签名要先于两字节判断，因为 `FF FE 00 00` 的前两字节就是 `FF FE`。
+按两字节优先匹配的实现在 UTF-32LE 文件上会报出一个「UTF-16LE 文件损坏」的
+结论 —— 那个文件根本不存在。本项目检测器先判四字节，UTF-32 一律 `FAIL`
+且理由写 `UTF32_UNSUPPORTED`：没有任何运行时能读 UTF-32 源码脚本。
 
 注意 CP936 在 .NET 里**没有"未定义字节"**：`0xFF` 会被映射到 `U+F8F5`，
 所以"解不出 UTF-8"根本不能证明"就是 GBK"。检测工具要求 CP936 往返
