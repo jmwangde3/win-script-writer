@@ -440,6 +440,15 @@ class TestInvokeFile(unittest.TestCase):
 class TestStagingFailures(unittest.TestCase):
     """The staging path must fail with 3, never with a traceback."""
 
+    #: Long enough that the Base64 payload cannot fit on the command line, so
+    #: the temporary file branch is the one under test. The previous cleanup
+    #: test used a three word script, never entered that branch, and therefore
+    #: asserted nothing about cleanup while appearing to.
+    LONG_SCRIPT = 'Write-Output "long-ran"\n' + ("# padding line for the staging branch\n" * 2000)
+
+    #: Present in the payload and nowhere else. The warning must not echo it.
+    SECRET = "ZQ-SECRET-PAYLOAD-MARKER"
+
     def test_temp_directory_failure_returns_3(self):
         import unittest.mock
 
@@ -451,17 +460,66 @@ class TestStagingFailures(unittest.TestCase):
         self.assertEqual(out, b"")
         self.assertIn(b"cannot stage the script", err)
 
-    def test_cleanup_failure_does_not_replace_the_exit_code(self):
+    def test_a_long_script_really_uses_the_staging_branch(self):
+        created = []
+        real_mkdtemp = run_ps.tempfile.mkdtemp
+
+        def tracking(*args, **kwargs):
+            path = real_mkdtemp(*args, **kwargs)
+            created.append(path)
+            return path
+
         import unittest.mock
 
+        with unittest.mock.patch.object(run_ps.tempfile, "mkdtemp", side_effect=tracking):
+            code, out, err = run_ps.run(self.LONG_SCRIPT)
+        self.assertEqual(code, 0, err)
+        self.assertIn(b"long-ran", out)
+        self.assertEqual(len(created), 1, "the long payload did not take the staging branch")
+        self.assertFalse(os.path.exists(created[0]), "the staging directory survived a clean run")
+
+    def test_cleanup_failure_keeps_the_exit_code_and_names_only_the_directory(self):
+        import unittest.mock
+
+        created = []
         real_mkdtemp = run_ps.tempfile.mkdtemp
-        with unittest.mock.patch.object(run_ps.tempfile, "mkdtemp", real_mkdtemp):
+
+        def tracking(*args, **kwargs):
+            path = real_mkdtemp(*args, **kwargs)
+            created.append(path)
+            return path
+
+        payload = self.LONG_SCRIPT + ("# %s\n" % self.SECRET)
+        with unittest.mock.patch.object(run_ps.tempfile, "mkdtemp", side_effect=tracking):
             with unittest.mock.patch.object(
                 run_ps.shutil, "rmtree", side_effect=OSError("locked")
-            ):
-                code, out, err = run_ps.run('Write-Output "cleanup"')
+            ) as rmtree:
+                code, out, err = run_ps.run(payload)
+
+        self.assertEqual(rmtree.call_count, 1, "cleanup never ran, so this test proves nothing")
+        self.assertEqual(code, 0, err)
+        self.assertIn(b"long-ran", out)
+        self.assertIn(b"could not remove the staging directory", err)
+        self.assertIn(created[0].encode(), err)
+        self.assertNotIn(self.SECRET.encode(), err, "the warning leaked the script text")
+
+    def test_cleanup_failure_does_not_replace_a_non_zero_child_code(self):
+        import unittest.mock
+
+        payload = self.LONG_SCRIPT + 'exit 9\n'
+        with unittest.mock.patch.object(
+            run_ps.shutil, "rmtree", side_effect=OSError("locked")
+        ):
+            code, out, err = run_ps.run(payload)
+        self.assertEqual(code, 9, "the child's exit code was overridden by a cleanup failure")
+        self.assertIn(b"could not remove the staging directory", err)
+
+    def test_a_short_script_prints_no_cleanup_noise(self):
+        code, out, err = run_ps.run('Write-Output "cleanup"')
         self.assertEqual(code, 0, err)
         self.assertIn(b"cleanup", out)
+        self.assertNotIn(b"staging directory", err)
+        self.assertNotIn(b"temporary file", err)
 
     def test_missing_shell_returns_127(self):
         import unittest.mock
