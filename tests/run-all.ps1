@@ -16,13 +16,21 @@
 
 .PARAMETER PesterVersion
     Pester version to load. Defaults to 5.7.1, the version pinned in CI.
+
+.PARAMETER InstallTestDeps
+    Install the Python test dependencies that are missing. Off by default: a test
+    run must not silently reach the network, because "the suite passed" and "the
+    suite installed something on my machine" are different claims. CI installs
+    them explicitly with tests/requirements-test.txt instead.
 #>
 [CmdletBinding()]
 param(
     [ValidateSet('all', 'pester', 'python', 'evals', 'integration', 'analyze')]
     [string]$Suite = 'all',
 
-    [string]$PesterVersion = '5.7.1'
+    [string]$PesterVersion = '5.7.1',
+
+    [switch]$InstallTestDeps
 )
 
 $ErrorActionPreference = 'Stop'
@@ -35,6 +43,18 @@ $failures = New-Object System.Collections.ArrayList
 # edition. That is how "must pass under 5.1 and 7" gets verified rather than
 # assumed.
 $currentExe = (Get-Process -Id $PID).Path
+
+# The integration suite spawns child processes of its own, and it cannot infer
+# the intended edition from its own process name: python.exe is not a shell. The
+# answer is handed over explicitly, and printed, so a run under 5.1 and a run
+# under 7 are separately traceable in the log.
+$env:WSW_PS_HOST = $currentExe
+$env:WSW_PS_EDITION = $PSVersionTable.PSEdition
+$psHostBanner = ("INTEGRATION_PS_HOST={0} EDITION={1} VERSION={2}" -f `
+        $currentExe, $PSVersionTable.PSEdition, $PSVersionTable.PSVersion)
+# Printed on every run, not only the integration one: two identical-looking logs
+# from a 5.1 job and a 7 job are otherwise impossible to tell apart afterwards.
+Write-Output $psHostBanner
 
 function Get-PythonCommand {
     <#
@@ -121,11 +141,10 @@ function Invoke-PythonSuite {
     $prefix = @()
     if ($python.Count -gt 1) { $prefix = $python[1..($python.Count - 1)] }
 
-    # A missing test dependency used to be discovered in CI and nowhere else.
-    # The two matrix jobs and the release job each had to remember to install
-    # PyYAML, and the release job did not -- so a tag push failed one minute
-    # after a green branch build. Resolving it here, from the one script every
-    # entry point already calls, removes the place where it can be forgotten.
+    # A missing test dependency used to be discovered in CI and nowhere else,
+    # and the fix was to install it from inside the test runner. That made every
+    # local run capable of reaching the network without saying so. The dependency
+    # is now reported, not fetched, unless -InstallTestDeps asks for it.
     foreach ($module in $RequiresModule) {
         $probeArgs = $prefix + @('-c', ('import ' + $module))
         if (Invoke-PythonQuiet -Exe $exe -ArgList $probeArgs) { continue }
@@ -134,11 +153,17 @@ function Invoke-PythonSuite {
         if ($script:PipDistribution.ContainsKey($module)) {
             $distribution = $script:PipDistribution[$module]
         }
+        $installCommand = (($python + @('-m', 'pip', 'install', $distribution)) -join ' ')
+
+        if (-not $InstallTestDeps) {
+            Write-Output ('PYTHON_DEP_MISSING={0} INSTALL_WITH={1}' -f $module, $installCommand)
+            throw ("missing test dependency '{0}'. Install it with: {1}  -- or re-run this script with -InstallTestDeps" -f $module, $installCommand)
+        }
 
         Write-Output ('PYTHON_DEP_INSTALL={0} FROM={1}' -f $module, $distribution)
         $pipArgs = $prefix + @('-m', 'pip', 'install', '--disable-pip-version-check', '--quiet', $distribution)
         if (-not (Invoke-PythonQuiet -Exe $exe -ArgList $pipArgs)) {
-            throw ("cannot install the test dependency '{0}'. Install it by hand: {1} -m pip install {2}" -f $module, $exe, $distribution)
+            throw ("cannot install the test dependency '{0}'. Install it by hand: {1}" -f $module, $installCommand)
         }
 
         # Installing without verifying is how the wrong distribution name
