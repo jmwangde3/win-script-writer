@@ -228,6 +228,97 @@ Describe 'Test-ScriptEncoding.ps1' {
         }
     }
 
+    Context 'Python source encoding declarations' {
+
+        It 'warns on declared CP936 source instead of failing it' {
+            # PEP 263 makes this legal Python. It is still not the storage this
+            # project wants, so it warns rather than passing silently.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-gbk.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'WARN'
+            Get-Field $r.StdOut 'SOURCE_CODING' | Should -Be 'gbk'
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_DECLARED'
+        }
+
+        It 'reads the coding=name spelling too' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-equals.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            Get-Field $r.StdOut 'SOURCE_CODING' | Should -Be 'cp936'
+        }
+
+        It 'reports which line carries the declaration' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-gbk.py'), '-Profile', 'python')
+            Get-Field $r.StdOut 'SOURCE_CODING_LINE' | Should -Be '1'
+        }
+
+        It 'still fails CP936 source that declares nothing' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-nocoding-gbk.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'SOURCE_CODING' | Should -BeNullOrEmpty
+            $r.StdOut | Should -Match 'CP936_PYTHON'
+        }
+
+        It 'fails when the declaration contradicts the BOM' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-conflict-bom.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 2
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_CONFLICT'
+        }
+
+        It 'fails a declaration naming a codec that does not exist' {
+            # ASCII body, so a detector that only looked at the bytes would call
+            # it OK. Python raises SyntaxError for the declaration alone.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-unknown.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 2
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_UNKNOWN'
+        }
+
+        It 'does not read a declaration out of another profile' {
+            # A .txt that happens to start with "# coding: gbk" is not Python.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-gbk.py'), '-Profile', 'data')
+            Get-Field $r.StdOut 'SOURCE_CODING' | Should -BeNullOrEmpty
+        }
+    }
+
+    Context 'UTF-32 with a BOM' {
+
+        It 'names <Encoding> and refuses it' -ForEach @(
+            @{ File = 'utf32le-bom.ps1'; Encoding = 'utf32le-bom'; Bom = 'FFFE0000' }
+            @{ File = 'utf32be-bom.ps1'; Encoding = 'utf32be-bom'; Bom = '0000FEFF' }
+        ) {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir $File), '-Profile', 'ps51')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'ENCODING' | Should -Be $Encoding
+            Get-Field $r.StdOut 'BOM' | Should -Be $Bom
+            $r.StdOut | Should -Match 'UTF32_UNSUPPORTED'
+        }
+
+        It 'never calls a four byte mark UTF-16' {
+            # The defect: FF FE 00 00 matched the UTF-16LE branch first, so a
+            # UTF-32LE file was reported as a broken UTF-16LE file.
+            foreach ($file in 'utf32le-bom.ps1', 'utf32be-bom.ps1') {
+                $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir $file), '-Profile', 'ps51')
+                $r.StdOut | Should -Not -Match 'ENCODING=utf16'
+            }
+        }
+
+        It 'still classifies a two byte mark as UTF-16' {
+            # The control case: without it, "handles UTF-32" could have been
+            # implemented by refusing every FF FE file.
+            $le = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'ps51-utf16le-bom.ps1'), '-Profile', 'ps51')
+            Get-Field $le.StdOut 'ENCODING' | Should -Be 'utf16le-bom'
+            $be = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'ps51-utf16be-bom.ps1'), '-Profile', 'ps51')
+            Get-Field $be.StdOut 'ENCODING' | Should -Be 'utf16be-bom'
+            $le.StdOut + $be.StdOut | Should -Not -Match 'utf32'
+        }
+
+        It 'does not modify the UTF-32 file while inspecting it' {
+            $path = Join-Path $FixturesDir 'utf32le-bom.ps1'
+            $before = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+            [void](Invoke-Tool @('-Path', $path, '-Profile', 'ps51'))
+            (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash | Should -Be $before
+        }
+    }
+
     Context 'ExpectedEncoding' {
 
         It 'fails when the declared encoding does not match' {
