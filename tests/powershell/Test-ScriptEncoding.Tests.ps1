@@ -261,7 +261,7 @@ Describe 'Test-ScriptEncoding.ps1' {
         It 'fails when the declaration contradicts the BOM' {
             $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-conflict-bom.py'), '-Profile', 'python')
             $r.ExitCode | Should -Be 2
-            $r.StdOut | Should -Match 'PY_SOURCE_CODING_CONFLICT'
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_BOM_CONFLICT'
         }
 
         It 'fails a declaration naming a codec that does not exist' {
@@ -310,10 +310,11 @@ Describe 'Test-ScriptEncoding.ps1' {
 
         It 'accepts GB2312 bytes under the wider gbk declaration' {
             # The subset direction must keep working: every GB2312 body is a
-            # legal GBK body, so this is not a conflict.
+            # legal GBK body, so this is not a conflict and not an ambiguity.
             $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-gb2312.py'), '-Profile', 'python')
             Get-Field $r.StdOut 'ENCODING' | Should -Be 'gbk'
-            $r.StdOut | Should -Not -Match 'PY_SOURCE_CODING_CONFLICT'
+            $r.StdOut | Should -Not -Match 'PY_SOURCE_CODING_AMBIGUOUS'
+            $r.StdOut | Should -Not -Match 'PY_SOURCE_CODING_INVALID_BYTES'
             $r.ExitCode | Should -Be 1
         }
 
@@ -354,6 +355,188 @@ Describe 'Test-ScriptEncoding.ps1' {
             $r.ExitCode | Should -Be 0
             Get-Field $r.StdOut 'ENCODING' | Should -Be 'utf8-nobom'
             Get-Field $r.StdOut 'VERDICT' | Should -Be 'OK'
+        }
+    }
+
+    Context 'HZ state machine' {
+
+        It 'accepts a GB pair whose second byte is 0x7E' {
+            # 56 7E shifts up to D6 FE, a real GB2312 cell. A machine that tests
+            # for the tilde before it looks at the mode refuses this file, and
+            # the interpreter runs it (exit 0).
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-hz-tilde-in-gb.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'WARN'
+            $r.StdOut | Should -Not -Match 'PY_SOURCE_CODING_INVALID_BYTES'
+        }
+
+        It 'accepts a line continuation in ASCII mode' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-hz-continuation.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'WARN'
+            $r.StdOut | Should -Not -Match 'PY_SOURCE_CODING_INVALID_BYTES'
+        }
+
+        It 'refuses <Case>, which the interpreter refuses too' -ForEach @(
+            # CPython 3.13 raises UnicodeDecodeError for all three. The escapes
+            # are legal in ASCII mode only, and a single byte with no partner is
+            # not a cell.
+            @{ File = 'py-coding-hz-escape-in-gb.py'; Case = '~~ inside GB mode' }
+            @{ File = 'py-coding-hz-close-in-ascii.py'; Case = '~} outside GB mode' }
+            @{ File = 'py-coding-hz-truncated.py'; Case = 'a dangling byte after a GB run' }
+        ) {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir $File), '-Profile', 'python')
+            $r.ExitCode | Should -Be 2
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_INVALID_BYTES'
+        }
+
+        It 'notes a run left open instead of failing it' {
+            # The interpreter decodes a file that ends inside GB mode as long as
+            # the last pair is complete, so failing it would be a false alarm.
+            # The open state is still worth saying out loud.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-hz-open.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'WARN'
+            $r.StdOut | Should -Match 'ends inside GB mode'
+            $r.StdOut | Should -Not -Match 'PY_SOURCE_CODING_INVALID_BYTES'
+        }
+
+        It 'still reports the escape text of a well formed HZ file' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-hz.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_HZ'
+        }
+
+        It 'leaves plain ASCII alone' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'ps51-ascii.ps1'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 0
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'OK'
+        }
+    }
+
+    Context 'overlapping encodings' {
+
+        It 'marks <Declaration> bytes that are also UTF-8 as ambiguous, not as a conflict' -ForEach @(
+            # C3 A9 is U+8305 in all three Chinese codecs and U+00E9 in UTF-8. The
+            # interpreter decodes with the declaration and exits 0, so a FAIL
+            # here is a false alarm about a file that runs.
+            @{ File = 'py-coding-gb2312-overlap.py'; Declaration = 'gb2312' }
+            @{ File = 'py-coding-gbk-overlap.py'; Declaration = 'gbk' }
+            @{ File = 'py-coding-gb18030-overlap.py'; Declaration = 'gb18030' }
+        ) {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir $File), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'WARN'
+            Get-Field $r.StdOut 'SOURCE_CODING' | Should -Be $Declaration
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_AMBIGUOUS'
+            $r.StdOut | Should -Not -Match 'PY_SOURCE_CODING_CONFLICT'
+        }
+
+        It 'still fails bytes the declared codec cannot decode' {
+            # UTF-8 CJK is not GBK at all: CP936 stops at 0xAD, which is a legal
+            # CP936 lead and an unassigned GBK cell. The interpreter exits 1.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-utf8-as-gbk.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 2
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_INVALID_BYTES'
+            Get-Field $r.StdOut 'SOURCE_CODING_KIND' | Should -Be 'bytes-mismatch'
+        }
+
+        It 'still fails a gb2312 declaration over GBK only bytes' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-gbk-as-gb2312.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 2
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_INVALID_BYTES'
+        }
+
+        It 'keeps the subset direction quiet' {
+            # A GB2312 body is a legal GBK body, so the detector's own gbk label
+            # sits inside the declared repertoire and nothing is ambiguous.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-gb2312.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_DECLARED'
+            $r.StdOut | Should -Not -Match 'PY_SOURCE_CODING_AMBIGUOUS'
+        }
+    }
+
+    Context 'Latin-1 declarations' {
+
+        It 'accepts a non-ASCII Latin-1 file the interpreter runs' {
+            # ISO-8859-1 has no invalid byte sequence, and 0xE9 is not valid
+            # UTF-8, so nothing but the declaration can explain these bytes.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-latin1.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'WARN'
+            Get-Field $r.StdOut 'SOURCE_CODING_NAME' | Should -Be 'latin-1'
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_DECLARED'
+            $r.StdOut | Should -Not -Match 'PY_SOURCE_CODING_CONFLICT'
+        }
+
+        It 'leaves an ASCII file declared as Latin-1 alone' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-latin1-ascii.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 0
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'OK'
+        }
+
+        It 'marks UTF-8 bytes declared as Latin-1 as ambiguous' {
+            # The file runs (exit 0) and prints mojibake, so neither FAIL nor a
+            # silent OK is right.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-latin1-utf8.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_AMBIGUOUS'
+        }
+
+        It 'fails a BOM under a Latin-1 declaration' {
+            # CPython: SyntaxError: encoding problem: iso-8859-1 with BOM.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-latin1-bom.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 2
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_BOM_CONFLICT'
+            Get-Field $r.StdOut 'SOURCE_CODING_KIND' | Should -Be 'bom-conflict'
+        }
+    }
+
+    Context 'codec name classification' {
+
+        It 'warns instead of failing on <Name>, which CPython resolves and this tool cannot verify' -ForEach @(
+            @{ File = 'py-coding-cp1252.py'; Name = 'cp1252' }
+            @{ File = 'py-coding-shift-jis.py'; Name = 'shift_jis' }
+            @{ File = 'py-coding-big5.py'; Name = 'big5' }
+        ) {
+            # The interpreter runs every one of these files (exit 0). Calling the
+            # name unknown was a false alarm of the worst kind: it told the user
+            # Python would refuse a file Python executes.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir $File), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'WARN'
+            Get-Field $r.StdOut 'SOURCE_CODING' | Should -Be $Name
+            Get-Field $r.StdOut 'SOURCE_CODING_SUPPORT' | Should -Be 'python-only'
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_UNVERIFIED'
+        }
+
+        It 'fails <Name>, which no CPython 3 release resolves' -ForEach @(
+            @{ File = 'py-coding-54936.py'; Name = '54936' }
+            @{ File = 'py-coding-hzgb2312.py'; Name = 'hzgb2312' }
+            @{ File = 'py-coding-cn-gb.py'; Name = 'cn-gb' }
+        ) {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir $File), '-Profile', 'python')
+            $r.ExitCode | Should -Be 2
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_UNKNOWN'
+            Get-Field $r.StdOut 'SOURCE_CODING_KIND' | Should -Be 'unknown-name'
+            $r.StdOut | Should -Match ([regex]::Escape($Name))
+        }
+
+        It 'treats utf-8-sig as UTF-8, which is what it is' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-utf8-sig.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 0
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'OK'
+            Get-Field $r.StdOut 'SOURCE_CODING_NAME' | Should -Be 'utf-8'
+        }
+
+        It 'fails the utf8 spelling of utf-8 when a BOM is present' {
+            # CPython normalises the name before comparing it with "utf-8", and
+            # "utf8" does not survive that comparison: the file raises
+            # "encoding problem: utf8 with BOM". The spelling decides.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-utf8-spelling-bom.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 2
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_BOM_CONFLICT'
         }
     }
 
