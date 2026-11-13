@@ -3,6 +3,66 @@
 格式参照 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号按 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.2] - 未发布
+
+判定精度与测试可信度的修复。检测器有两处"自信地给出错误答案"的盲区，写入器
+把"预览"和"取消"混成同一个退出码，测试矩阵里 5.1 与 7 两个作业实际跑的是同一
+个 shell。这一版把四处都修掉，并且每条都先由测试复现。
+
+### Changed（会改变既有行为，需注意）
+
+- **`New-EncodedScript.ps1` 新增退出码 `4`：确认提示被拒绝。** `ShouldProcess`
+  返回 `$false` 有两种含义——`-WhatIf`（本来就不该写，退出码 `0`，用法不变）
+  和用户按了「否」（调用方要写、没写成）。后者现在退出 `4`，结果新增
+  `Status=Previewed|Written|Cancelled|Failed`；文本模式输出 `STATE=`，
+  `-Output json` 里是 `Status` 字段。
+  **影响**：把"确认被拒"当成功处理的自动化调用方会看到非零退出码，这正是这条
+  修改的目的。另外 `-WhatIf` 不再经过 `ShouldProcess`，因为它会往 stdout 打
+  "What if:" 横幅，混进 `-Output json`。
+- **`Test-ScriptEncoding.ps1` 对 UTF-32 的判定从"UTF-16LE"改为
+  `utf32le-bom` / `utf32be-bom` 加 `FAIL`。** `FF FE 00 00` 原先被两字节签名
+  抢先匹配，报成 UTF-16LE 且第二个字符是 NUL。四字节签名现在优先比对，负载按
+  四字节码点校验（大于 U+10FFFF、落在代理区、长度不是 4 的倍数都算无效）。
+  检测器仍然只读，不转码、不修复。
+  **影响**：这类文件的 `Encoding` / `Bom` 字段与退出码都会变，旧日志里的
+  `utf16le-bom` 结论不再复现。
+- **`Test-ScriptEncoding.ps1` 识别 Python 源码编码声明（PEP 263）。** 带
+  `coding: gbk` 的 GBK 文件本来跑得动，却和缺声明的 GBK 文件一起被判 `FAIL`。
+  现在声明有效且与字节相符 → `WARN`（本机跑得动、别的工具读不懂）；声明与字节
+  不符或声明了不认识的编码 → `FAIL`；没有声明的 GBK 仍是 `FAIL`。JSON 新增
+  `SourceCoding` / `SourceCodingName` / `SourceCodingLine` / `SourceCodingProblem`。
+  **影响**：`-Profile python` 下这类文件的退出码可能从 `2` 变成 `1`（配合
+  `-FailOnWarning` 仍是 `2`）。
+- **`tests/run-all.ps1` 不再自动安装缺失的测试依赖。** 缺 PyYAML 时输出
+  `PYTHON_DEP_MISSING=` 与 `INSTALL_WITH=`，或显式加 `-InstallTestDeps`。
+  CI 改为自己执行 `pip install -r tests/requirements-test.txt`。
+  **影响**：本机首次跑 `-Suite evals` 前要装一次依赖；任何一次测试运行都不会
+  再静默联网。
+- **集成测试由调用方的宿主决定子进程。** `tests/run-all.ps1` 导出
+  `WSW_PS_HOST` / `WSW_PS_EDITION` 并在每次运行开头打印，
+  `test_pipeline.py` 据此选择 `powershell.exe` 或 `pwsh.exe`。
+  **影响**：以前在 7 上跑集成测试，实际测的是 5.1；现在两个作业的结果不再
+  可以互相顶替，日志里也会写明是哪个二进制出的结果。
+
+### Added
+
+- 检测器文本输出新增 `SOURCE_CODING=` / `SOURCE_CODING_LINE=` /
+  `SOURCE_CODING_NAME=` / `SOURCE_CODING_PROBLEM=`。
+- `tests/requirements-test.txt`：测试依赖的唯一清单。四个工具本身仍然没有
+  第三方运行时依赖。
+- 7 个新夹具：UTF-32LE/BE 各一份，PEP 263 的四种声明形态各一份，外加缺声明
+  的 GBK。字节固定，因此 `tests/fixtures/data/**` 继续按 `-text` 处理。
+
+### Fixed
+
+- `run_ps.py` 的临时目录清理失败不再静默：给出只含目录名、不含脚本文本的警告，
+  子进程退出码保持不变。
+- 文档更正四处：`$OutputEncoding` 只管管道送入原生程序的 stdin，不含命令行
+  参数；文件、控制台、管道、argv 是四层各自独立的编码；"UTF-8 BOM 是唯一
+  两边都对的存法"改为"推荐存法"（带 BOM 的 UTF-16 两个版本都能跑，但别的
+  工具读不了）；`Get-WinScriptEnvironment.ps1` 标注为每台机器跑一次即可，
+  不必每个任务重复诊断。
+
 ## [1.0.1] - 2026-11-12
 
 稳定性修复。1.0.0 的三个编码判定错误、`run_ps.py` 的文件语义含糊、写入器
