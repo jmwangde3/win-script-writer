@@ -310,12 +310,34 @@ class TestPythonSourceCoding(unittest.TestCase):
         ("py-coding-hz.py", 0, 1, b"PY_SOURCE_CODING_HZ"),
         ("py-coding-gb18030.py", 0, 1, b"PY_SOURCE_CODING_DECLARED"),
         ("py-nocoding-gbk.py", 1, 2, b"CP936_PYTHON"),
-        ("py-coding-conflict-bom.py", 1, 2, b"PY_SOURCE_CODING_CONFLICT"),
+        ("py-coding-conflict-bom.py", 1, 2, b"PY_SOURCE_CODING_BOM_CONFLICT"),
         ("py-coding-unknown.py", 1, 2, b"PY_SOURCE_CODING_UNKNOWN"),
         ("py-coding-windows936.py", 1, 2, b"PY_SOURCE_CODING_UNKNOWN"),
         ("py-coding-cp54936.py", 1, 2, b"PY_SOURCE_CODING_UNKNOWN"),
         ("py-coding-gbk-as-gb2312.py", 1, 2, b"PY_SOURCE_CODING_INVALID_BYTES"),
         ("py-coding-hz-truncated.py", 1, 2, b"PY_SOURCE_CODING_INVALID_BYTES"),
+        # Names CPython resolves and this tool cannot verify: the file runs, so
+        # the only honest verdict is a warning.
+        ("py-coding-cp1252.py", 0, 1, b"PY_SOURCE_CODING_UNVERIFIED"),
+        ("py-coding-shift-jis.py", 0, 1, b"PY_SOURCE_CODING_UNVERIFIED"),
+        ("py-coding-big5.py", 0, 1, b"PY_SOURCE_CODING_UNVERIFIED"),
+        # Names that look like codecs and are not.
+        ("py-coding-54936.py", 1, 2, b"PY_SOURCE_CODING_UNKNOWN"),
+        ("py-coding-hzgb2312.py", 1, 2, b"PY_SOURCE_CODING_UNKNOWN"),
+        ("py-coding-cn-gb.py", 1, 2, b"PY_SOURCE_CODING_UNKNOWN"),
+        # Latin-1 has no invalid byte sequence; a non-ASCII body is legal and
+        # a BOM beside it is not.
+        ("py-coding-latin1.py", 0, 1, b"PY_SOURCE_CODING_DECLARED"),
+        ("py-coding-latin1-ascii.py", 0, 0, b"VERDICT=OK"),
+        ("py-coding-latin1-utf8.py", 0, 1, b"PY_SOURCE_CODING_AMBIGUOUS"),
+        ("py-coding-latin1-bom.py", 1, 2, b"PY_SOURCE_CODING_BOM_CONFLICT"),
+        # utf-8-sig is utf-8, and the utf8 spelling is not: CPython compares the
+        # normalised name with "utf-8" before it accepts a BOM.
+        ("py-coding-utf8-sig.py", 0, 0, b"VERDICT=OK"),
+        ("py-coding-utf8-spelling-bom.py", 1, 2, b"PY_SOURCE_CODING_BOM_CONFLICT"),
+        # The declaration cannot decode these bytes at all.
+        ("py-coding-utf8-as-gbk.py", 1, 2, b"PY_SOURCE_CODING_INVALID_BYTES"),
+        ("py-coding-utf8-as-gb2312.py", 1, 2, b"PY_SOURCE_CODING_INVALID_BYTES"),
     )
 
     def test_the_interpreter_and_the_detector_agree(self):
@@ -423,6 +445,279 @@ class TestGb2312Grid(unittest.TestCase):
             t = ps_tool("Test-ScriptEncoding.ps1", ["-Path", str(path), "-Profile", "python"])
             self.assertEqual(t.returncode, 2, t.stdout[-800:])
             self.assertIn(b"PY_SOURCE_CODING_INVALID_BYTES", t.stdout)
+
+
+class TestHzStateMachine(unittest.TestCase):
+    """HZ against the interpreter's own codec, byte for byte.
+
+    Every payload here is produced by a codec at run time instead of pasted in
+    as hex, so the escapes this test trusts are the ones CPython emits. The
+    expected interpreter result is measured on each case before the detector is
+    asked, and the two answers have to agree.
+
+    CPython's hz decoder is stricter than RFC 1843 in three places and looser in
+    one, and all four are covered: ~~ and ~<LF> are ASCII-mode only, ~} is not an
+    escape outside GB mode, a trailing 0x7E can be the second half of a cell, and
+    a file that ends inside GB mode still decodes.
+    """
+
+    @staticmethod
+    def _file(directory, name, body):
+        path = pathlib.Path(directory) / name
+        path.write_bytes(b"# -*- coding: hz -*-\n" + body)
+        return path
+
+    def test_the_detector_matches_the_codec_case_by_case(self):
+        run7e = b""
+        zhu = "\u7b51"                      # 筑, whose GB2312 cell is D6 FE
+        gb = zhu.encode("gb2312")
+        run7e = bytes(b - 0x80 for b in gb)
+        self.assertIn(b"\x7e", run7e, "the fixture needs a 0x7E in the payload")
+
+        hz_run = ZH.encode("hz")
+        self.assertTrue(hz_run.startswith(b"~{"), hz_run)
+
+        cases = (
+            # label, body, interpreter exit, detector exit, reason
+            ("well formed run", b'MARKER = "' + hz_run + b'"\n', 0, 1, b"PY_SOURCE_CODING_HZ"),
+            ("literal tilde in ASCII mode", b'MARKER = "~~"\n', 0, 1, b"PY_SOURCE_CODING_HZ"),
+            ("line continuation in ASCII mode", b'MARKER = "ab~\ncd"\n', 0, 1, b"PY_SOURCE_CODING_HZ"),
+            ("0x7E as the second half of a cell", b'MARKER = "~{' + run7e + b'~}"\n',
+             0, 1, b"PY_SOURCE_CODING_HZ"),
+            ("~~ inside GB mode", b'MARKER = "~{~~}"\n', 1, 2, b"PY_SOURCE_CODING_INVALID_BYTES"),
+            ("~} outside GB mode", b'MARKER = "~}"\n', 1, 2, b"PY_SOURCE_CODING_INVALID_BYTES"),
+            ("dangling byte after a run", b"# ~{VPND\n", 1, 2, b"PY_SOURCE_CODING_INVALID_BYTES"),
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            for index, (label, body, py_code, detector_code, reason) in enumerate(cases):
+                with self.subTest(case=label):
+                    path = self._file(tmp, "hz-%02d.py" % index, body)
+                    run = run_python_fixture(path)
+                    self.assertEqual(run.returncode, py_code, (label, run.stderr[:300]))
+                    t = ps_tool("Test-ScriptEncoding.ps1",
+                                ["-Path", str(path), "-Profile", "python"])
+                    self.assertEqual(t.returncode, detector_code, (label, t.stdout[-600:]))
+                    self.assertIn(reason, t.stdout, label)
+
+            # A run left open is the one case where the interpreter is the
+            # looser of the two: it decodes the file, so a failure here would be
+            # a false alarm. The open state still has to be reported.
+            with self.subTest(case="run left open at end of file"):
+                path = self._file(tmp, "hz-open.py", b"# ~{VPND")
+                run = run_python_fixture(path)
+                self.assertEqual(run.returncode, 0, run.stderr[:300])
+                t = ps_tool("Test-ScriptEncoding.ps1",
+                            ["-Path", str(path), "-Profile", "python"])
+                self.assertEqual(t.returncode, 1, t.stdout[-600:])
+                self.assertIn(b"ends inside GB mode", t.stdout)
+                self.assertNotIn(b"PY_SOURCE_CODING_INVALID_BYTES", t.stdout)
+
+
+class TestEncodingOverlap(unittest.TestCase):
+    """Bytes two codecs both accept, and what the interpreter does with them.
+
+    C3 A9 is 茅 in every Chinese codec and é in UTF-8. The interpreter decodes
+    with the declaration, so the file runs; calling it a conflict was a false
+    alarm about a file that works. The detector has to say "ambiguous" without
+    going soft on bytes the declaration genuinely cannot decode.
+    """
+
+    def test_bytes_two_codecs_accept_are_called_ambiguous(self):
+        char = "\u8305"                     # 茅, C3 A9 in GB2312, GBK and GB18030
+        for codec in ("gb2312", "gbk", "gb18030"):
+            with self.subTest(codec=codec):
+                body = char.encode(codec)
+                # The overlap is a fact about the interpreter, not an assumption
+                # of this test: if the bytes stopped being valid UTF-8 the case
+                # would be meaningless and must not be silently kept.
+                self.assertEqual(body.decode("utf-8"), "\u00e9", body.hex())
+                with tempfile.TemporaryDirectory() as tmp:
+                    path = pathlib.Path(tmp) / ("overlap-%s.py" % codec)
+                    path.write_bytes(b"# -*- coding: " + codec.encode() + b" -*-\n"
+                                     + b'MARKER = "' + body + b'"\n'
+                                     + b'print("OVERLAP_OK")\n')
+                    run = run_python_fixture(path)
+                    self.assertEqual(run.returncode, 0, run.stderr[:300])
+                    t = ps_tool("Test-ScriptEncoding.ps1",
+                                ["-Path", str(path), "-Profile", "python"])
+                    self.assertEqual(t.returncode, 1, t.stdout[-600:])
+                    self.assertIn(b"PY_SOURCE_CODING_AMBIGUOUS", t.stdout)
+                    self.assertNotIn(b"PY_SOURCE_CODING_CONFLICT", t.stdout)
+
+    def test_a_declaration_that_cannot_decode_the_bytes_still_fails(self):
+        # UTF-8 CJK is not GBK: 0xAD is a legal CP936 lead and an unassigned GBK
+        # cell, so the interpreter raises and the verdict has to be a failure.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "utf8-as-gbk.py"
+            path.write_bytes(b"# -*- coding: gbk -*-\nMARKER = \"" + ZH.encode("utf-8") + b"\"\n")
+            run = run_python_fixture(path)
+            self.assertNotEqual(run.returncode, 0)
+            t = ps_tool("Test-ScriptEncoding.ps1", ["-Path", str(path), "-Profile", "python"])
+            self.assertEqual(t.returncode, 2, t.stdout[-600:])
+            self.assertIn(b"PY_SOURCE_CODING_INVALID_BYTES", t.stdout)
+
+    def test_latin1_handles_a_non_ascii_body(self):
+        eacute = "\u00e9"
+        with tempfile.TemporaryDirectory() as tmp:
+            # Latin-1 bytes: legal, and not valid UTF-8, so nothing competes.
+            latin_path = pathlib.Path(tmp) / "latin1.py"
+            latin_path.write_bytes(b"# -*- coding: latin-1 -*-\nMARKER = \""
+                                   + eacute.encode("latin-1") + b"\"\n")
+            self.assertRaises(UnicodeDecodeError,
+                              latin_path.read_bytes()[-4:-2].decode, "utf-8")
+            run = run_python_fixture(latin_path)
+            self.assertEqual(run.returncode, 0, run.stderr[:300])
+            t = ps_tool("Test-ScriptEncoding.ps1", ["-Path", str(latin_path), "-Profile", "python"])
+            self.assertEqual(t.returncode, 1, t.stdout[-600:])
+            self.assertIn(b"PY_SOURCE_CODING_DECLARED", t.stdout)
+
+            # The same declaration over UTF-8 bytes: runs, prints mojibake, and
+            # the detector may not pick a side.
+            utf8_path = pathlib.Path(tmp) / "latin1-utf8.py"
+            utf8_path.write_bytes(b"# -*- coding: latin-1 -*-\nMARKER = \""
+                                  + eacute.encode("utf-8") + b"\"\n")
+            run = run_python_fixture(utf8_path)
+            self.assertEqual(run.returncode, 0, run.stderr[:300])
+            t = ps_tool("Test-ScriptEncoding.ps1", ["-Path", str(utf8_path), "-Profile", "python"])
+            self.assertEqual(t.returncode, 1, t.stdout[-600:])
+            self.assertIn(b"PY_SOURCE_CODING_AMBIGUOUS", t.stdout)
+
+
+class TestCodingNameAgreement(unittest.TestCase):
+    """Every codec name the detector classifies, checked against CPython.
+
+    The detector cannot import Python, so its list of names is data, and data
+    drifts. Each name below is written into a real source file with an ASCII
+    body; the interpreter then decides whether the name is usable at all, and
+    the detector has to give the same answer. Nothing here spells out which
+    answer a given name should get, so the test survives a stdlib that adds or
+    drops an alias -- only genuine disagreement fails.
+
+    The list is deliberately made of the name's shape, not of one release's
+    behaviour: names the detector verifies byte by byte, names it merely
+    recognises, spellings that read like aliases and are not, and transforms
+    that resolve in codecs.lookup() but are not text codecs.
+    """
+
+    NAMES = (
+        # verified byte by byte
+        "utf-8", "ascii", "latin-1", "gbk", "gb2312", "hz", "gb18030",
+        # recognised, not verified: CPython runs these, this tool cannot check
+        # the bytes and says so instead of calling the name invalid
+        "cp1252", "shift_jis", "big5", "euc-jp", "mac-roman", "csisolatin2",
+        "latin2", "utf-8-unix", "iso-latin-1", "1252", "ansi",
+        # spellings that read like aliases and are not
+        "windows-936", "cp54936", "54936", "hzgb2312", "cn-gb", "gb-2312",
+        "utf8-sig", "latin-2", "cp424",
+        # transforms: codecs.lookup() resolves them, the tokenizer refuses them
+        "base64", "rot13",
+    )
+
+    def test_the_detector_agrees_with_the_interpreter_name_by_name(self):
+        disagreements = []
+        with tempfile.TemporaryDirectory() as tmp:
+            for index, name in enumerate(self.NAMES):
+                with self.subTest(name=name):
+                    path = pathlib.Path(tmp) / ("codec-%02d.py" % index)
+                    path.write_bytes(("# coding: %s\ns = 'A'\n" % name).encode("ascii"))
+                    run = run_python_fixture(path)
+                    t = ps_tool("Test-ScriptEncoding.ps1",
+                                ["-Path", str(path), "-Profile", "python"])
+                    detector_fails = t.returncode == 2
+                    # exit 0/1 means the detector thinks the file runs. Exit 3 is
+                    # a tool error and would otherwise read as "runs".
+                    self.assertIn(t.returncode, (0, 1, 2), t.stdout[-400:])
+                    if detector_fails != (run.returncode != 0):
+                        support = [line for line in decode_console_output(t.stdout).splitlines()
+                                   if line.startswith(("SOURCE_CODING_SUPPORT", "REASON"))]
+                        disagreements.append(
+                            (name, run.returncode, t.returncode, support))
+        self.assertEqual(disagreements, [],
+                         "detector and interpreter disagree: %r" % (disagreements,))
+
+
+class TestGbkGrid(unittest.TestCase):
+    """The GBK table against CPython's own codec.
+
+    Windows code page 936 is not GBK: it maps 2149 cells that CPython rejects
+    onto private use characters, plus 0x80 and 0xFF. The detector carries the
+    grid itself now, and this is the check that notices when it drifts.
+    """
+
+    @staticmethod
+    def _cells():
+        accepted = []
+        holes = {}
+        trails = list(range(0x40, 0x7F)) + list(range(0x80, 0xFF))
+        for lead in range(0x81, 0xFF):
+            for trail in trails:
+                pair = bytes((lead, trail))
+                try:
+                    text = pair.decode("gbk")
+                    same = text.encode("gbk") == pair
+                except UnicodeDecodeError:
+                    same = False
+                if same:
+                    accepted.append(pair)
+                else:
+                    holes.setdefault(lead, []).append(pair)
+        return accepted, holes
+
+    def test_every_cell_python_accepts_is_accepted(self):
+        accepted, holes = self._cells()
+        # 21791 on CPython 3.13; the bound keeps the test meaningful without
+        # pretending the number is frozen.
+        self.assertGreater(len(accepted), 21000)
+        self.assertGreater(len(holes), 20)
+
+        lines = [b"# -*- coding: gbk -*-"]
+        for index in range(0, len(accepted), 60):
+            chunk = b"".join(accepted[index:index + 60])
+            lines.append(b'MARKER_%d = "' % (index // 60) + chunk + b'"')
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "gbk-grid-all.py"
+            path.write_bytes(b"\n".join(lines) + b"\n")
+            run = run_python_fixture(path)
+            self.assertEqual(run.returncode, 0, run.stderr[:400])
+            t = ps_tool("Test-ScriptEncoding.ps1", ["-Path", str(path), "-Profile", "python"])
+            self.assertEqual(t.returncode, 1, t.stdout[-800:])
+            self.assertNotIn(b"PY_SOURCE_CODING_INVALID_BYTES", t.stdout)
+
+    def test_the_holes_are_refused(self):
+        # One cell per lead with a gap: enough to pin the shape of every rule in
+        # the table without one process per hole.
+        _, holes = self._cells()
+        with tempfile.TemporaryDirectory() as tmp:
+            for lead in sorted(holes):
+                pair = holes[lead][0]
+                with self.subTest(lead="%02X" % lead, cell=pair.hex()):
+                    path = pathlib.Path(tmp) / ("hole-%02x.py" % lead)
+                    path.write_bytes(b"# -*- coding: gbk -*-\nMARKER = \"" + pair + b"\"\n")
+                    run = run_python_fixture(path)
+                    self.assertNotEqual(run.returncode, 0)
+                    t = ps_tool("Test-ScriptEncoding.ps1",
+                                ["-Path", str(path), "-Profile", "python"])
+                    self.assertEqual(t.returncode, 2, (pair.hex(), t.stdout[-500:]))
+
+    def test_the_two_single_byte_holes_are_refused(self):
+        # 0x80 and 0xFF are errors in CPython's gbk and map to a euro sign and
+        # U+F8F5 in code page 936.
+        with tempfile.TemporaryDirectory() as tmp:
+            for byte in (0x80, 0xFF):
+                with self.subTest(byte="%02X" % byte):
+                    for pair in (bytes((byte,)), bytes((0x41, byte, 0x42))):
+                        try:
+                            pair.decode("gbk")
+                            self.fail("CPython accepted %s" % pair.hex())
+                        except UnicodeDecodeError:
+                            pass
+                    path = pathlib.Path(tmp) / ("single-%02x.py" % byte)
+                    path.write_bytes(b"# -*- coding: gbk -*-\nMARKER = \""
+                                     + bytes((byte,)) + b"\"\n")
+                    t = ps_tool("Test-ScriptEncoding.ps1",
+                                ["-Path", str(path), "-Profile", "python"])
+                    self.assertEqual(t.returncode, 2, (byte, t.stdout[-500:]))
 
 
 class TestCodecAliases(unittest.TestCase):
