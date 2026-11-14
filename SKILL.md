@@ -1,6 +1,6 @@
 ---
 name: win-script-writer
-description: 在中文 Windows（zh-CN / 代码页 936 / GBK）上写或改脚本、或遇到 PowerShell 中文乱码时使用；也用于排查 encoding、BOM、Out-File、chcp 936、中文路径、引号被拆散等问题。覆盖 Windows PowerShell 5.1 与 PowerShell 7 双版本，提供编码检测、按编码落盘、编码无关执行与环境自检四个工具。触发词：写脚本、生成脚本、ps1、PowerShell 脚本、bat、cmd 批处理、脚本编码、中文乱码、UTF-8 BOM、run_ps.py。
+description: 用于中文 Windows（代码页 936/GBK）上的脚本编写、修改与编码问题排查，覆盖 PowerShell 5.1/7、BAT/CMD 和 Python。适用于中文乱码、编码/BOM、代码页、脚本执行及参数传递问题。提供环境自检、编码检测、可靠写入和跨版本执行工具。
 ---
 
 # 中文 Windows 写脚本规范
