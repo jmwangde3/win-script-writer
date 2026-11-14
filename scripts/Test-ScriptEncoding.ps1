@@ -937,26 +937,27 @@ begin {
         $resolved = Resolve-PythonCodingName -Raw $coding.Raw
         $coding.Support = $resolved.Support
 
+        if ($resolved.Name) { $coding.Canonical = $resolved.Name }
+        else { $coding.Canonical = (Get-PythonNormalName -Raw $coding.Raw) }
+
+        # CPython compares the normalised name with "utf-8" before it looks the
+        # codec up, so a BOM outranks an unknown name: "# coding: ghost-codec"
+        # plus a BOM reports "encoding problem: ghost-codec with BOM", not an
+        # unknown codec. The order of the next two branches is the order of the
+        # interpreter's messages, and that is the only thing either branch
+        # claims. The spelling decides the BOM case: "# coding: utf8" plus a BOM
+        # raises while "# coding: utf-8" plus the same BOM runs.
+        $normal = Get-PythonNormalName -Raw $coding.Raw
+        if ($start -eq 3 -and $normal -ne 'utf-8') {
+            $coding.ProblemKind = 'bom-conflict'
+            $coding.Problem = ("the file starts with a UTF-8 BOM while line {0} declares {1}; CPython raises SyntaxError: encoding problem: {2} with BOM" -f $coding.Line, $coding.Raw, $normal)
+            return $coding
+        }
+
         if ($resolved.Support -eq 'unknown') {
             $coding.ProblemKind = 'unknown-name'
             $coding.Problem = ("'{0}' is not a codec name that CPython 3 resolves, so the file never compiles; a Windows code page number is not a codec name, and neither is a spelling with the separators dropped" -f $coding.Raw)
             return $coding
-        }
-
-        if ($resolved.Name) { $coding.Canonical = $resolved.Name }
-        else { $coding.Canonical = (Get-PythonNormalName -Raw $coding.Raw) }
-
-        # CPython compares the normalised name with "utf-8" before it decodes
-        # anything, and refuses every other declaration outright when a BOM is
-        # present. The spelling decides it: "# coding: utf8" plus a BOM raises,
-        # "# coding: utf-8" plus the same BOM runs.
-        if ($start -eq 3) {
-            $normal = Get-PythonNormalName -Raw $coding.Raw
-            if ($normal -ne 'utf-8') {
-                $coding.ProblemKind = 'bom-conflict'
-                $coding.Problem = ("the file starts with a UTF-8 BOM while line {0} declares {1}; CPython raises SyntaxError: encoding problem: {2} with BOM" -f $coding.Line, $coding.Raw, $normal)
-                return $coding
-            }
         }
 
         if ($resolved.Support -eq 'python-only') {

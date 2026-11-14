@@ -74,7 +74,7 @@ Python 3 默认按 UTF-8 读源码，但前两行里的注释可以改这个默�
 | UTF-8 | `gbk`（字节解得出的那种） | 能跑，读出来是乱码 | `WARN`（`AMBIGUOUS`） |
 | 非 ASCII | `latin-1` | 正常执行 | `WARN`（`DECLARED`，`ENCODING=unknown`） |
 | 任意 | `cp1252` / `shift_jis` / `big5` … | 正常执行 | `WARN`（`UNVERIFIED`） |
-| 任意 | `utf-9` / `windows-936` / `cp54936` / `54936` / `hzgb2312` / `cn-gb` | `SyntaxError: encoding problem: <名字>` | `FAIL`（`UNKNOWN`） |
+| 任意 | `utf-9` / `windows-936` / `cp54936` / `54936` / `hzgb2312` / `cn-gb` | `SyntaxError: encoding problem: <名字>` | `FAIL`（`UNKNOWN`；带 BOM 时归 `BOM_CONFLICT`） |
 | UTF-8 | `utf-8` | 正常执行 | `OK` / `WARN`（带 BOM 时） |
 
 ### 2.1.1 细节在别处
@@ -96,7 +96,7 @@ Python 3 默认按 UTF-8 读源码，但前两行里的注释可以改这个默�
 | `PY_SOURCE_CODING_UNVERIFIED` | `WARN` | 名字 Python 认识，检测器没有该表 | 1 |
 | `PY_SOURCE_CODING_UNKNOWN` | `FAIL` | `codecs.lookup` 不认这个名字 | 2 |
 | `PY_SOURCE_CODING_INVALID_BYTES` | `FAIL` | 声明的编码解不出整段字节 | 2 |
-| `PY_SOURCE_CODING_BOM_CONFLICT` | `FAIL` | 名字合法但与 BOM 互斥 | 2 |
+| `PY_SOURCE_CODING_BOM_CONFLICT` | `FAIL` | 声明与 BOM 互斥（先于查名字判定，名字本身不合法也一样） | 2 |
 | `PY_SOURCE_CODING_UNUSABLE` | `FAIL` | `utf-16` / `utf-32` 之类不能做源码编码 | 2 |
 
 三条不走 `FAIL` 的情形值得单独记住，它们都是**修复前误判**的地方：
