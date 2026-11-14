@@ -397,7 +397,40 @@ begin {
             )
         }
 
+        # Codecs the interpreter knows and refuses as a source encoding. These
+        # are not unknown names -- codecs.lookup() resolves every one of them --
+        # and they are not text codecs either, so the tokenizer stops with
+        # "'base64' is not a text encoding; use codecs.decode() to handle
+        # arbitrary codecs". v1.0.3 lumped them in with names CPython has never
+        # heard of, which sent a reader looking for a typo that is not there.
+        #
+        # The list is exactly the non-text codecs in deep-freeze aliases, and it
+        # was confirmed one name at a time by compiling a source file that
+        # declares it. It is a closed table, not "whatever lookup() returns":
+        # idna and punycode do resolve as text codecs, and both stay in
+        # PythonCodecOther.
         $script:PythonCodecUnusable = [ordered]@{
+            'base64' = @(
+                'base64', 'base64_codec', 'base_64'
+            )
+            'bz2' = @(
+                'bz2', 'bz2_codec'
+            )
+            'hex' = @(
+                'hex', 'hex_codec'
+            )
+            'quopri' = @(
+                'quopri', 'quopri_codec', 'quoted_printable', 'quotedprintable'
+            )
+            'rot-13' = @(
+                'rot13', 'rot_13'
+            )
+            'uu' = @(
+                'uu', 'uu_codec'
+            )
+            'zlib' = @(
+                'zip', 'zlib', 'zlib_codec'
+            )
         }
 
         $script:PythonCodecOther = [ordered]@{
@@ -703,6 +736,20 @@ begin {
             $script:PythonCodecIndex[$spelling] = $codec
         }
     }
+    # Same probe, different answer: a hit here means "resolves, refuses", which
+    # is a third verdict and not a fourth table of aliases to keep in sync.
+    foreach ($codec in $script:PythonCodecUnusable.Keys) {
+        foreach ($spelling in $script:PythonCodecUnusable[$codec]) {
+            $script:PythonCodecIndex[$spelling] = $codec
+        }
+    }
+
+    # Canonical names of the transform codecs, so a hit in the index can be told
+    # apart from an ordinary python-only spelling without a second lookup table.
+    $script:PythonCodecUnusableNames = @{}
+    foreach ($codec in $script:PythonCodecUnusable.Keys) {
+        $script:PythonCodecUnusableNames[$codec] = $true
+    }
 
     function Get-PythonNormalName {
         <#
@@ -782,21 +829,26 @@ begin {
 
     function Resolve-PythonCodingName {
         <#
-            Classifies the name written in a PEP 263 line. Three answers, not
+            Classifies the name written in a PEP 263 line. Four answers, not
             two:
 
               supported    this tool has a byte level verifier for the codec
-              python-only  CPython resolves the name, but this tool has no
-                           verifier for those bytes, so it says so instead of
-                           pretending the name is invalid or the payload is fine
+              python-only  a CPython release in this project's matrix resolves
+                           the name, but this tool has no verifier for those
+                           bytes, so it says so instead of pretending the name
+                           is invalid or the payload is fine
+              unusable     codecs.lookup() resolves the name and the tokenizer
+                           refuses it outright: base64, rot13, hex, zlib and
+                           the rest of the transforms are not text codecs
               unknown      no CPython 3 release in this project's test matrix
                            resolves the name, so the file never compiles
 
-            Folding the last two together is what v1.0.2 did, and it failed
-            every cp1252, shift_jis and big5 file the interpreter runs happily.
-            Folding them the other way would report a file Python refuses as
-            merely unverified, so the two lists stay apart and both are
-            evidence based.
+            Folding python-only and unknown together is what v1.0.2 did, and it
+            failed every cp1252, shift_jis and big5 file the interpreter runs
+            happily. Folding them the other way would report a file Python
+            refuses as merely unverified. unusable is the third case, and it
+            exists because "base64" is neither a typo nor a working declaration:
+            telling a reader to check the spelling sends them nowhere.
 
             The answer now comes from three tables keyed by the normalised
             lookup name, not from prefix patterns. A pattern like '^mac[a-z]*$'
@@ -827,6 +879,14 @@ begin {
             return [pscustomobject]@{ Name = ''; Support = 'unknown'; Codec = '' }
         }
 
+        # Resolved, and refused: the interpreter finds the codec and then
+        # rejects the declaration because the codec is not a text codec. The
+        # verdict is the same FAIL as an unknown name, the diagnosis is not --
+        # there is no spelling to fix here.
+        if ($script:PythonCodecUnusableNames.ContainsKey($codec)) {
+            return [pscustomobject]@{ Name = $codec; Support = 'unusable'; Codec = $codec }
+        }
+
         switch ($codec) {
             'utf-8' { return [pscustomobject]@{ Name = 'utf-8'; Support = 'supported'; Codec = 'utf-8' } }
             'ascii' { return [pscustomobject]@{ Name = 'ascii'; Support = 'supported'; Codec = 'ascii' } }
@@ -835,8 +895,11 @@ begin {
             'gb2312' { return [pscustomobject]@{ Name = 'gb2312'; Support = 'supported'; Codec = 'gb2312' } }
             'hz' { return [pscustomobject]@{ Name = 'hz'; Support = 'supported'; Codec = 'hz' } }
             'gb18030' { return [pscustomobject]@{ Name = 'gb18030'; Support = 'supported'; Codec = 'gb18030' } }
-            # Not source encodings: CPython raises "encoding problem: <name>"
-            # for a codec that is not ASCII compatible, BOM or no BOM.
+            # Not source encodings, and not a name problem either: the lookup
+            # succeeds and the decode fails, because a UTF-16/32 file is full
+            # of NUL bytes and a UTF-8 one is not. Measured on 3.11.17, 3.13.9,
+            # 3.14.8 and 3.15.0rc3 -- all four say "'utf-16-le' codec can't
+            # decode byte 0x0a ...", never "encoding problem".
             'utf-16' { return [pscustomobject]@{ Name = 'utf-16'; Support = 'supported'; Codec = 'utf-16' } }
             'utf-32' { return [pscustomobject]@{ Name = 'utf-32'; Support = 'supported'; Codec = 'utf-32' } }
         }
@@ -1255,6 +1318,15 @@ begin {
             return $coding
         }
 
+        if ($resolved.Support -eq 'unusable') {
+            # codecs.lookup() finds it, the tokenizer will not use it. The
+            # interpreter's own sentence is quoted because it names the fix:
+            # this codec is meant for codecs.decode(), not for a source file.
+            $coding.ProblemKind = 'unusable-codec'
+            $coding.Problem = ("'{0}' resolves to the {1} codec, which CPython refuses as a source encoding: SyntaxError ""'{0}' is not a text encoding; use codecs.decode() to handle arbitrary codecs"" -- the name is correct, the declaration is not" -f $coding.Raw, $resolved.Codec)
+            return $coding
+        }
+
         if ($resolved.Support -eq 'python-only') {
             # CPython resolves the name and will decode the file with it, but
             # that is a statement about the name, not about these bytes. This
@@ -1272,10 +1344,15 @@ begin {
         }
 
         if ($coding.Canonical -eq 'utf-16' -or $coding.Canonical -eq 'utf-32') {
-            # CPython raises "encoding problem" for a codec that is not ASCII
-            # compatible, BOM or no BOM.
+            # Not "unknown name" and not "bad spelling": the codec exists, the
+            # tokenizer accepts it, and then the whole file has to decode as
+            # UTF-16/32. A UTF-8 or ASCII source never does -- every other byte
+            # is a NUL -- so the interpreter stops on a decode error such as
+            # "'utf-16-le' codec can't decode byte 0x0a in position 22:
+            # truncated data". Quoting a message the interpreter no longer
+            # emits would send a reader looking for a phrase that is not there.
             $coding.ProblemKind = 'unusable-codec'
-            $coding.Problem = ("{0} is a codec but not a usable Python source encoding; CPython raises SyntaxError: encoding problem: {1}" -f $coding.Raw, (Get-PythonNormalName -Raw $coding.Raw))
+            $coding.Problem = ("{0} resolves to the {1} codec, which is not an ASCII compatible source encoding: CPython decodes the whole file with it and stops at the first byte it cannot map, so the file would have to be written in {1} -- BOM included -- to compile" -f $coding.Raw, $coding.Canonical)
             return $coding
         }
 
@@ -1723,14 +1800,21 @@ begin {
                     [void]$reasons.Add(('PY_SOURCE_CODING_UNKNOWN: ' + $SourceCodingProblem))
                 }
                 elseif ($SourceCodingSupport -eq 'python-only' -and -not $SourceCodingKind) {
-                    # The name resolves, so calling it invalid -- which is what
-                    # v1.0.2 did -- fails a file the interpreter may well run.
-                    # But resolving a name says nothing about these bytes, and a
-                    # truncated multi-byte character only shows up at decode
-                    # time. So: warning, payload explicitly unverified, and no
-                    # promise that the file runs.
+                    # The name resolves on some release in the matrix, so
+                    # calling it invalid -- which is what v1.0.2 did -- fails a
+                    # file the interpreter may well run. But resolving a name
+                    # says nothing about these bytes, and a truncated multi-byte
+                    # character only shows up at decode time.
+                    #
+                    # The table is a union over patch releases, which cuts the
+                    # other way: 3.14 taught cp858 the spelling cp00858 and 3.13
+                    # never heard of it, so on a 3.13 host this file may not
+                    # compile at all. Neither direction is settled here, which
+                    # is why the sentence names the set rather than the
+                    # interpreter, keeps the payload unverified, and never
+                    # upgrades to OK.
                     $verdict = 'WARN'
-                    [void]$reasons.Add(('PY_SOURCE_CODING_UNVERIFIED: line {0} declares {1}. CPython recognizes this codec, but the detector does not validate the file payload{2}. The source may still fail during decoding. It is also not UTF-8, so editors, git and every other tool read it as mojibake' -f $SourceCodingLine, $SourceCoding, $(if ($SourceCodingPayload) { ' (' + $SourceCodingPayload + ')' } else { '' })))
+                    [void]$reasons.Add(('PY_SOURCE_CODING_UNVERIFIED: line {0} declares {1}. The name is in the codec compatibility set this project verified against CPython, but the interpreter running the file may not resolve it, and the detector does not validate the file payload{2}. The source may still fail during decoding. It is also not UTF-8, so editors, git and every other tool read it as mojibake' -f $SourceCodingLine, $SourceCoding, $(if ($SourceCodingPayload) { ' (' + $SourceCodingPayload + ')' } else { '' })))
                 }
                 else {
                     switch ($SourceCodingKind) {
@@ -1759,7 +1843,7 @@ begin {
                             # Kept for completeness: the branch above answers
                             # this case before the switch is reached.
                             $verdict = 'WARN'
-                            [void]$reasons.Add(('PY_SOURCE_CODING_UNVERIFIED: line {0} declares {1}. CPython recognizes this codec, but the detector does not validate the file payload{2}. The source may still fail during decoding. It is also not UTF-8, so editors, git and every other tool read it as mojibake' -f $SourceCodingLine, $SourceCoding, $(if ($SourceCodingPayload) { ' (' + $SourceCodingPayload + ')' } else { '' })))
+                            [void]$reasons.Add(('PY_SOURCE_CODING_UNVERIFIED: line {0} declares {1}. The name is in the codec compatibility set this project verified against CPython, but the interpreter running the file may not resolve it, and the detector does not validate the file payload{2}. The source may still fail during decoding. It is also not UTF-8, so editors, git and every other tool read it as mojibake' -f $SourceCodingLine, $SourceCoding, $(if ($SourceCodingPayload) { ' (' + $SourceCodingPayload + ')' } else { '' })))
                         }
                         default {
                             if ($SourceCoding -and -not (Test-PythonCodingAgrees -Detected $Encoding -Repertoire $SourceCodingRepertoire)) {

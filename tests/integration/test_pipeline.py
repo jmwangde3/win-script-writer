@@ -650,6 +650,146 @@ class TestCodingNameAgreement(unittest.TestCase):
                          "detector and interpreter disagree: %r" % (disagreements,))
 
 
+class TestUnusableCodecReason(unittest.TestCase):
+    """A transform codec is a third diagnosis, not a misspelt name.
+
+    codecs.lookup() resolves base64, rot13, hex, zlib, uu, bz2 and quopri; the
+    tokenizer then refuses the declaration because none of them is a text
+    codec, and says so in its own words. v1.0.3 filed all of them under
+    "unknown encoding", which points at a typo that is not there. The verdict
+    stays FAIL -- only the reason changes -- and this test holds both halves:
+    the interpreter really does refuse on the name, and the detector really
+    does use the other code.
+    """
+
+    TRANSFORMS = (
+        "base64", "base64_codec", "base_64",
+        "rot13", "rot_13",
+        "hex", "hex_codec",
+        "zlib", "zlib_codec", "zip",
+        "uu", "uu_codec",
+        "bz2", "bz2_codec",
+        "quopri", "quopri_codec", "quoted_printable", "quotedprintable",
+    )
+
+    def test_the_interpreter_refuses_the_declaration_on_the_name(self):
+        for name in self.TRANSFORMS:
+            with self.subTest(name=name):
+                data = ("# coding: %s\ns = 'A'\n" % name).encode("ascii")
+                with self.assertRaises(SyntaxError) as caught:
+                    compile(data, "<%s>" % name, "exec")
+                # The wording matters: it is the sentence the detector quotes
+                # and the reason the name is not the thing to fix.
+                self.assertIn("is not a text encoding", caught.exception.msg)
+
+    def test_the_detector_reports_unusable_and_not_unknown(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = []
+            for index, name in enumerate(self.TRANSFORMS):
+                path = pathlib.Path(tmp) / ("transform-%02d.py" % index)
+                path.write_bytes(("# coding: %s\ns = 'A'\n" % name).encode("ascii"))
+                paths.append((name, path))
+
+            result = run_detector_over_many([p for _, p in paths])
+            document = json.loads(decode_console_output(result.stdout))
+            by_path = {item["Path"]: item for item in document["Files"]}
+
+            for name, path in paths:
+                item = by_path[str(path)]
+                with self.subTest(name=name):
+                    self.assertEqual(item["Verdict"], "FAIL", item.get("Reasons"))
+                    self.assertEqual(item["SourceCodingKind"], "unusable-codec")
+                    self.assertEqual(item["SourceCodingSupport"], "unusable")
+                    reasons = " ".join(item.get("Reasons") or [])
+                    self.assertIn("PY_SOURCE_CODING_UNUSABLE", reasons)
+                    self.assertNotIn("PY_SOURCE_CODING_UNKNOWN", reasons)
+
+    def test_an_unknown_name_keeps_the_other_reason(self):
+        """The two diagnoses must stay apart.
+
+        Same FAIL, different advice: one is "fix the spelling", the other is
+        "that codec is for codecs.decode(), not for a source file".
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            unknown = pathlib.Path(tmp) / "unknown.py"
+            unknown.write_bytes(b"# coding: ghost-codec\ns = 'A'\n")
+            transform = pathlib.Path(tmp) / "transform.py"
+            transform.write_bytes(b"# coding: base64\ns = 'A'\n")
+
+            result = run_detector_over_many([unknown, transform])
+            document = json.loads(decode_console_output(result.stdout))
+            by_name = {pathlib.Path(i["Path"]).stem: i for i in document["Files"]}
+
+            ghost = by_name["unknown"]
+            self.assertEqual(ghost["Verdict"], "FAIL")
+            self.assertEqual(ghost["SourceCodingKind"], "unknown-name")
+            self.assertIn("PY_SOURCE_CODING_UNKNOWN", " ".join(ghost["Reasons"]))
+            self.assertNotIn("PY_SOURCE_CODING_UNUSABLE", " ".join(ghost["Reasons"]))
+
+            base = by_name["transform"]
+            self.assertEqual(base["Verdict"], "FAIL")
+            self.assertEqual(base["SourceCodingKind"], "unusable-codec")
+
+
+class TestCodecCompatibilitySet(unittest.TestCase):
+    """The name table is a union over patch releases, and says so.
+
+    cp858 gained the spelling cp00858 in 3.14: 3.11.17, 3.13.9 and 3.14.8 were
+    each asked, and the first two answer "unknown encoding: cp00858" while the
+    last compiles it. A detector that copied one host's stdlib would either
+    reject a file the newer patch runs or promise a file the older patch cannot
+    compile. Neither is acceptable, so the answer is a WARN that names the set
+    instead of the interpreter, with the payload left unverified -- on every
+    host, whichever side of that line it sits on.
+    """
+
+    NAME = "cp00858"
+
+    def setUp(self):
+        import codecs
+
+        try:
+            self.resolved = codecs.lookup(self.NAME).name
+        except LookupError:
+            self.resolved = None
+
+    def test_the_host_really_sits_on_one_side_of_the_split(self):
+        data = ("# coding: %s\ns = 'A'\n" % self.NAME).encode("ascii")
+        if self.resolved is None:
+            with self.assertRaises(SyntaxError) as caught:
+                compile(data, "<compat>", "exec")
+            self.assertIn("unknown encoding", caught.exception.msg)
+        else:
+            compile(data, "<compat>", "exec")
+
+    def test_the_detector_warns_and_never_passes_or_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "compat.py"
+            path.write_bytes(("# coding: %s\ns = 'A'\n" % self.NAME).encode("ascii"))
+
+            text = ps_tool("Test-ScriptEncoding.ps1", ["-Path", str(path), "-Profile", "python"])
+            body = decode_console_output(text.stdout)
+
+            print("\n[compat-set] python=%s %s resolves=%s"
+                  % (sys.version.split()[0], self.NAME, self.resolved))
+            # 1 is WARN. 0 would be a pass on a file one of the two hosts in
+            # the matrix cannot compile, and 2 would fail a file the other runs.
+            self.assertEqual(text.returncode, 1, body[-800:])
+            self.assertIn("VERDICT=WARN", body)
+            self.assertIn("SOURCE_CODING_SUPPORT=python-only", body)
+            self.assertIn("SOURCE_CODING_PAYLOAD=unverified", body)
+            self.assertIn("compatibility set", body)
+            self.assertNotIn("CPython recognizes this codec", body)
+
+            document = json.loads(decode_console_output(
+                ps_tool("Test-ScriptEncoding.ps1",
+                        ["-Path", str(path), "-Profile", "python", "-Output", "json"]).stdout))
+            item = document["Files"][0]
+            self.assertEqual(item["Verdict"], "WARN")
+            self.assertEqual(item["SourceCodingPayload"], "unverified")
+            self.assertNotEqual(item["Verdict"], "OK")
+
+
 def run_detector_over_many(paths, timeout=600, exe=None):
     """Detect a whole directory in one process.
 

@@ -25,9 +25,8 @@
 
 **`$OutputEncoding` 不参与 argv。** 参数以 Unicode 传给子进程，`'中文'` 作为
 参数不经过它；它管的是 `|` 右边那个原生程序的 stdin。网上「改
-`$OutputEncoding` 修中文参数」的说法把这两件事混成了一件，本机实测
-`-Command 'Write-Output "中文"'` 在 5.1 与 7 上都正确，且与
-`$OutputEncoding` 的值无关。
+`$OutputEncoding` 修中文参数」把这两件事混成了一件：本机实测
+`-Command 'Write-Output "中文"'` 在 5.1 与 7 上都正确，与它的值无关。
 
 **结论：看到"乱码"先问是这四条里的哪一条坏了，不要笼统说"编码问题"。**
 
@@ -38,15 +37,14 @@
 | `.ps1` / `.psm1` / `.psd1`，含非 ASCII | UTF-8 | **要有** | 5.1 无 BOM 按 ACP(936) 解析；7 无 BOM 按 UTF-8。带 BOM 两边都对 |
 | `.ps1` / `.psm1` / `.psd1`，纯 ASCII | UTF-8 或 ASCII | 无所谓 | 没有非 ASCII 字节时 BOM 是唯一差异 |
 | `.bat` / `.cmd` | ANSI(GBK 936) | **不能有** | cmd.exe 不认 BOM，`<EF BB BF>@echo` 会变成"不是内部或外部命令" |
-| `.bat` / `.cmd`，必须 UTF-8 时 | UTF-8 | **不能有**，首行 `chcp 65001 >nul` | 本机实测可用；老版本 Win10 在 65001 下 `for /f`、管道有历史缺陷，换机器要重测 |
+| `.bat` / `.cmd`，必须 UTF-8 时 | UTF-8 | **不能有**，首行 `chcp 65001 >nul` | 本机实测可用；老 Win10 在 65001 下 `for /f`、管道有缺陷，换机器重测 |
 | `.py` | UTF-8 | **不要** | PEP 263 默认 UTF-8；BOM 会让"第一行"类工具出错 |
 | `.sh` / `.bash` | UTF-8 | **不要** | BOM 会跑到 shebang 前面，脚本不再是可执行文件 |
 | `.json` / `.yaml` / `.ini` / `.csv` | UTF-8 | **不要** | 大量解析器直接拒绝 BOM |
 | 要给别的程序读的数据文件 | UTF-8 | **不要** | 宁可显式 `latin` 也不要用系统默认 |
 | 任何 `.ps1`（UTF-16LE/BE） | 别这么存 | 有 BOM 才能跑 | 见 3.1：能执行但没人能 review，改造工具链成本远大于收益 |
 
-一句话判据：**只有当消费方是 Windows PowerShell 5.1 的脚本时才需要 BOM，
-其他一律不要 BOM。**
+一句话判据：**只有给 Windows PowerShell 5.1 跑的脚本才需要 BOM，其他一律不要。**
 
 ### 2.1 Python 的源码编码声明（PEP 263）
 
@@ -59,24 +57,25 @@ Python 3 默认按 UTF-8 读源码，但前两行里的注释可以改这个默�
 | GB2312 | `gb2312` / `euc-cn` / `euccn` | 正常执行 | `WARN`（`DECLARED`，名字报 `gb2312`） |
 | 7 位 HZ | `hz` / `hzgb` / `hz-gb-2312` | 正常执行 | `WARN`（`HZ`） |
 | GB18030（含四字节） | `gb18030` / `gb18030-2000` | 正常执行 | `WARN`（`DECLARED`） |
-| GBK 扩展（如 `81 40`） | `gb2312` | `SyntaxError: encoding problem: gb2312` | `FAIL`（`INVALID_BYTES`） |
+| GBK 扩展（如 `81 40`） | `gb2312` | `SyntaxError: 'gb2312' codec can't decode byte 0x81` | `FAIL`（`INVALID_BYTES`） |
 | 非 UTF-8 | 无 | `SyntaxError: Non-UTF-8 code ...` | `FAIL`（`CP936_PYTHON`） |
 | UTF-8 + BOM | `gbk` / `latin-1` / `cp1252` | `SyntaxError: … with BOM` | `FAIL`（`BOM_CONFLICT`） |
 | UTF-8 + BOM | `utf8`（非规范写法） | `SyntaxError: encoding problem: utf8 with BOM` | `FAIL`（`BOM_CONFLICT`） |
 | UTF-8 + BOM | `utf-8` / `utf-8-sig` | 正常执行 | `OK` |
-| UTF-8 | `gbk`（字节解不出） | `SyntaxError: encoding problem: gbk` | `FAIL`（`INVALID_BYTES`） |
+| UTF-8 | `gbk`（字节解不出） | `SyntaxError: 'gbk' codec can't decode byte 0xff` | `FAIL`（`INVALID_BYTES`） |
 | UTF-8 | `gbk`（字节解得出的那种） | 能跑，读出来是乱码 | `WARN`（`AMBIGUOUS`） |
 | 非 ASCII | `latin-1` | 正常执行 | `WARN`（`DECLARED`，`ENCODING=unknown`） |
 | 任意 | `cp1252` / `shift_jis` / `big5` … | 正常执行 | `WARN`（`UNVERIFIED`，`PAYLOAD=unverified`） |
-| 含该编码无映射的字节 | `cp1252`（正文有 `0x81`） | `SyntaxError: encoding problem: cp1252` | `WARN`（`UNVERIFIED`，**工具看不见这个洞**） |
+| 含该编码无映射的字节 | `cp1252`（正文有 `0x81`） | `SyntaxError: 'charmap' codec can't decode byte 0x81` | `WARN`（`UNVERIFIED`，**工具看不见这个洞**） |
 | 截断的多字节字符 | `shift_jis`（`93` 后无尾字节） | `SyntaxError: … can't decode byte` | `WARN`（`UNVERIFIED`，同上） |
-| 任意 | `utf-9` / `windows-936` / `cp54936` / `54936` / `hzgb2312` / `cn-gb` | `SyntaxError: encoding problem: <名字>` | `FAIL`（`UNKNOWN`；带 BOM 时归 `BOM_CONFLICT`） |
+| 任意 | `utf-9` / `windows-936` / `cp54936` / `54936` / `hzgb2312` / `cn-gb` | `SyntaxError: unknown encoding: <名字>` | `FAIL`（`UNKNOWN`；带 BOM 时归 `BOM_CONFLICT`） |
+| 任意 | `base64` / `rot13` / `hex` / `zlib` / `uu` / `bz2` / `quopri` | `SyntaxError: 'base64' is not a text encoding` | `FAIL`（`UNUSABLE`，名字没错，它不是文本 codec） |
 | UTF-8 | `utf-8` | 正常执行 | `OK` / `WARN`（带 BOM 时） |
 
 ### 2.1.1 细节在别处
 
-这一节只放结论表和理由码；GBK 的 21791 格、HZ 逐字节规则、歧义怎么分、codec
-名字四档都在 `python.md` 第 7 节。
+本节只放结论表和理由码；GBK 网格、HZ 逐字节规则、歧义分档、codec 名字四档都在
+`python.md` 第 7 节。
 
 ### 2.1.2 什么时候 `WARN`、什么时候 `FAIL`
 
@@ -88,11 +87,11 @@ Python 3 默认按 UTF-8 读源码，但前两行里的注释可以改这个默�
 | `PY_SOURCE_CODING_DECLARED` | `WARN` | 声明成立、唯一匹配 | 1 |
 | `PY_SOURCE_CODING_AMBIGUOUS` | `WARN` | 声明成立，另一族也能解 | 1 |
 | `PY_SOURCE_CODING_HZ` | `WARN` | HZ 声明成立（七位字节，无高位字节） | 1 |
-| `PY_SOURCE_CODING_UNVERIFIED` | `WARN` | 名字 Python 认识，检测器没有该表（附 `SOURCE_CODING_PAYLOAD=unverified`） | 1 |
+| `PY_SOURCE_CODING_UNVERIFIED` | `WARN` | 名字在本项目验证过的兼容集合里，但当前解释器可能不认识；检测器也没有该表（附 `SOURCE_CODING_PAYLOAD=unverified`） | 1 |
 | `PY_SOURCE_CODING_UNKNOWN` | `FAIL` | `codecs.lookup` 不认这个名字 | 2 |
 | `PY_SOURCE_CODING_INVALID_BYTES` | `FAIL` | 声明的编码解不出整段字节 | 2 |
 | `PY_SOURCE_CODING_BOM_CONFLICT` | `FAIL` | 声明与 BOM 互斥（先于查名字判定，名字本身不合法也一样） | 2 |
-| `PY_SOURCE_CODING_UNUSABLE` | `FAIL` | `utf-16` / `utf-32` 之类不能做源码编码 | 2 |
+| `PY_SOURCE_CODING_UNUSABLE` | `FAIL` | 名字解析得了但这个 codec 不能作源码编码：`utf-16` / `utf-32` 族，以及 `base64` / `rot13` 这类转换器 | 2 |
 
 三条不走 `FAIL` 的情形值得单独记住，它们都是**修复前误判**的地方：
 
@@ -100,10 +99,14 @@ Python 3 默认按 UTF-8 读源码，但前两行里的注释可以改这个默�
 2. 「别的编码也能解」被判 `FAIL` —— 那是歧义不是错误，见 `python.md` 7.1。
 3. 「检测器不认识这个 codec」被判 `FAIL` —— 那是工具欠缺不是文件错误（7.3）。
 
-第 3 条的边界要说清：`WARN` 只表示**名字**通过了解释器解析，不表示文件能跑。
-`cp1252` 配 `0x81`、`shift_jis` 配孤立 `93`，解释器都报 `SyntaxError`，检测器
-看不见这些洞，只能输出 `SOURCE_CODING_PAYLOAD=unverified`（JSON
-`SourceCodingPayload`）说「负载未验证」——已知盲区，不是 `OK`。
+第 3 条的边界要说清：`WARN` 只表示**名字**落在本项目验证过的 CPython 兼容集合里，
+既不保证文件能跑，也不保证**当前**解释器认识它（集合是各补丁版本的并集，
+`cp00858` 在 3.11/3.13 上就是 `unknown encoding`）。`cp1252` 配 `0x81`、
+`shift_jis` 配孤立 `93`，解释器都报 `SyntaxError`，检测器只能输出
+`SOURCE_CODING_PAYLOAD=unverified`（JSON `SourceCodingPayload`）说「负载未验证」
+——已知盲区，不是 `OK`。名字解析得了但不是文本 codec 的（`base64` / `rot13` /
+`hex` / `zlib` / `uu` / `bz2` / `quopri`）不走这条路：`FAIL` + `UNUSABLE`，与
+「名字不认识」的 `UNKNOWN` 分开——前者没有拼写要改。
 
 反过来，`utf8` + BOM 这种「Python 实报 SyntaxError」的必须 `FAIL`：它看起来
 只是拼写差异，实际连解释器都不放行（实测 `encoding problem: utf8 with BOM`）。
@@ -118,14 +121,10 @@ Python 3 默认按 UTF-8 读源码，但前两行里的注释可以改这个默�
 - **GB18030** 在 GBK 之上补了四字节序列，合法 GBK 字节也是合法 GB18030。
 - **GBK** 是 CP936 的近亲但**不等于** CP936，差 2149 格，见 `python.md` 7.4。
 
-所以「用 CP936 验证 GB2312」会放过 Python 拒绝的文件，HZ 更是完全看不见；反过来
-把 GB2312 归进 GBK 也误伤。检测器按「子集方向合法、超集方向非法」处理，判据是
-**声明必须和字节相符**而不是「能不能解出来」：UTF-8 文件声明 `coding: gbk` 也能
-解出一串乱码字。两步都过（`Test-CodingDecodes` + `Test-PythonCodingAgrees`）才是
-`WARN`。
-
-项目仍然只存 UTF-8 的 `.py`。声明成 GBK 只是让检测器不再判它「跑不了」，
-不是推荐写法。
+所以「用 CP936 验证 GB2312」会放过 Python 拒绝的文件，HZ 更是完全看不见；反过来把
+GB2312 归进 GBK 也误伤。判据是**声明必须和字节相符**而不是「能不能解出来」：UTF-8
+文件声明 `coding: gbk` 也能解出乱码。两步都过（`Test-CodingDecodes` +
+`Test-PythonCodingAgrees`）才给 `WARN`。项目自己的 `.py` 仍只存 UTF-8。
 
 ## 3. BOM 的字节签名
 
@@ -140,19 +139,17 @@ Python 3 默认按 UTF-8 读源码，但前两行里的注释可以改这个默�
 | GBK / CP936 | 无签名 | 中文双字节，首字节 `81–FE`，尾字节 `40–FE` |
 
 四字节签名必须先判，因为 `FF FE 00 00` 的前两字节就是 `FF FE`：两字节优先的实现
-会把 UTF-32LE 文件报成「UTF-16LE 损坏」。检测器先判四字节，UTF-32 一律 `FAIL` +
+会把 UTF-32LE 报成「UTF-16LE 损坏」。检测器先判四字节，UTF-32 一律 `FAIL` +
 `UTF32_UNSUPPORTED`——没有运行时能读 UTF-32 源码。
 
 注意 CP936 在 .NET 里**没有"未定义字节"**：`0xFF` 映射到 `U+F8F5`，所以"解不出
-UTF-8"根本不能证明"就是 GBK"。检测工具要求 CP936 往返（解码再编码）字节完全一致
-才敢标 `gbk`，并且只给 `confidence=medium`。
+UTF-8"根本不能证明"就是 GBK"。工具要求 CP936 往返（解码再编码）字节完全一致才敢标
+`gbk`，并且只给 `confidence=medium`。
 
 ## 3.1 「能跑」和「推荐」是两件事
 
-BOM 只说明生产者声明了什么，不说明内容是不是合法文本。分开判断，否则两个方向
-都错：坏文件判成 OK，或能跑的判成不能跑。
-
-实测（Windows PowerShell 5.1.26100 与 PowerShell 7.7.0，各跑一次）：
+BOM 只说明生产者声明了什么，不说明内容是否合法文本。不分开判断会两头错：坏文件判
+成 OK，或能跑的判成不能跑。下表由 5.1.26100 与 7.7.0 各跑一次：
 
 | 文件形式 | 能否被 PowerShell 解析执行 | 推荐 | 检测器判定 |
 | --- | --- | --- | --- |
@@ -166,13 +163,13 @@ BOM 只说明生产者声明了什么，不说明内容是不是合法文本。�
 两条结论：
 
 1. **"PowerShell 不支持 UTF-16 脚本"是错的。** 带 BOM 的 LE/BE 都能跑；不推荐
-   是生态原因：`cmd.exe`、`git diff`、多数编辑器按单字节读，等于没人能 review。
-2. **退出码 0 不能证明脚本跑对了。** 上表里三行"能跑/半个跑"都是 0。判断文件
-   是否可读只能看字节，这就是检测器存在的理由。
+   是生态原因：`cmd.exe`、`git diff`、多数编辑器按单字节读，没人能 review。
+2. **退出码 0 不能证明跑对了。** 上表三行「能跑/半个跑」都是 0。能否读只能看
+   字节，这就是检测器的理由。
 
 ## 4. 已实测的写入行为（同一句代码，两个版本不同）
 
-测试载荷是两个汉字（U+4E2D U+6587），文件内容两行。下表是**实际落盘字节**。
+测试载荷是两个汉字（U+4E2D U+6587），内容两行。下表是**实际落盘字节**。
 
 | 写法 | Windows PowerShell 5.1 | PowerShell 7.6 |
 | --- | --- | --- |

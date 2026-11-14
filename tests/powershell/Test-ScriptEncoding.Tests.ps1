@@ -637,6 +637,80 @@ Describe 'Test-ScriptEncoding.ps1' {
             $r.StdOut | Should -Match 'SOURCE_CODING_PAYLOAD=unverified'
         }
 
+        It 'does not claim the running interpreter resolves <Codec>' -ForEach @(
+            @{ Codec = 'cp00858' }
+            @{ Codec = 'csibm00858' }
+            @{ Codec = 'shift_jis' }
+            @{ Codec = 'cp1252' }
+        ) {
+            # The table is a union over the releases in the matrix, so a hit
+            # means "some verified CPython resolves this", not "this host does":
+            # 3.14 taught cp858 the spelling cp00858 and 3.11/3.13.9 reject it
+            # with "unknown encoding". The old sentence said "CPython recognizes
+            # this codec" -- true of the set, false of the interpreter in front
+            # of the user. The verdict stays WARN and the payload stays
+            # unverified; only the claim gets narrower.
+            $r = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec $Codec), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'WARN'
+            Get-Field $r.StdOut 'SOURCE_CODING_PAYLOAD' | Should -Be 'unverified'
+            $r.StdOut | Should -Match 'compatibility set'
+            $r.StdOut | Should -Match 'may not resolve it'
+            $r.StdOut | Should -Match 'may still fail during decoding'
+            $r.StdOut | Should -Not -Match 'CPython recognizes this codec'
+        }
+
+        It 'calls <Codec> a transform and not an unknown name' -ForEach @(
+            @{ Codec = 'base64' }
+            @{ Codec = 'base64_codec' }
+            @{ Codec = 'rot13' }
+            @{ Codec = 'rot_13' }
+            @{ Codec = 'hex' }
+            @{ Codec = 'zlib' }
+            @{ Codec = 'uu' }
+            @{ Codec = 'bz2' }
+            @{ Codec = 'quopri' }
+        ) {
+            # codecs.lookup() resolves every one of these, so "unknown encoding"
+            # sends the reader hunting for a typo that does not exist. What the
+            # interpreter actually says is "'base64' is not a text encoding; use
+            # codecs.decode() to handle arbitrary codecs". The verdict stays
+            # FAIL: this is a diagnosis fix, not a relaxation.
+            $r = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec $Codec), '-Profile', 'python')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'FAIL'
+            Get-Field $r.StdOut 'SOURCE_CODING_KIND' | Should -Be 'unusable-codec'
+            Get-Field $r.StdOut 'SOURCE_CODING_SUPPORT' | Should -Be 'unusable'
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_UNUSABLE'
+            $r.StdOut | Should -Not -Match 'PY_SOURCE_CODING_UNKNOWN'
+            $r.StdOut | Should -Match 'is not a text encoding'
+        }
+
+        It 'keeps a genuinely unknown name on the other code' {
+            # The two reasons must not collapse into one: unknown-name says the
+            # interpreter never found the codec, unusable-codec says it found it
+            # and refused it. Same FAIL, different advice.
+            $unknown = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec 'ghost-codec'), '-Profile', 'python')
+            $unknown.ExitCode | Should -Be 2
+            Get-Field $unknown.StdOut 'SOURCE_CODING_KIND' | Should -Be 'unknown-name'
+            $unknown.StdOut | Should -Match 'PY_SOURCE_CODING_UNKNOWN'
+            $unknown.StdOut | Should -Not -Match 'PY_SOURCE_CODING_UNUSABLE'
+
+            $transform = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec 'base64'), '-Profile', 'python')
+            Get-Field $transform.StdOut 'SOURCE_CODING_KIND' | Should -Be 'unusable-codec'
+        }
+
+        It 'keeps a text codec that merely looks like a transform on the warn path' {
+            # idna is in deep-freeze aliases and resolves as a text codec, so it
+            # is not a transform: an ASCII source really does compile under it.
+            # Sweeping every codecs.lookup() result into unusable-codec would
+            # mislabel it as "not a text encoding".
+            $r = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec 'idna'), '-Profile', 'python')
+            Get-Field $r.StdOut 'SOURCE_CODING_SUPPORT' | Should -Be 'python-only'
+            Get-Field $r.StdOut 'SOURCE_CODING_KIND' | Should -BeNullOrEmpty
+            $r.StdOut | Should -Not -Match 'PY_SOURCE_CODING_UNUSABLE'
+        }
+
         It 'resolves a name longer than the twelve characters the tokenizer inspects' {
             # ansi-x3.4-1968 is 14 characters, and its first twelve are not a
             # codec. It resolves anyway, because get_normal_name only truncates
