@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Writes a text file in a chosen encoding without ever corrupting the original.
@@ -96,7 +96,7 @@ $ErrorActionPreference = 'Stop'
 
 $result = [ordered]@{
     Tool           = 'New-EncodedScript.ps1'
-    Version        = '1.0.3'
+    Version        = '1.0.4'
     Runtime        = $PSVersionTable.PSEdition
     Target         = $null
     Status         = $null
