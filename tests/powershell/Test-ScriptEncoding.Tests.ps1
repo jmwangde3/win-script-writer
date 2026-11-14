@@ -617,6 +617,26 @@ Describe 'Test-ScriptEncoding.ps1' {
             $r.StdOut | Should -Match 'PY_SOURCE_CODING_UNVERIFIED'
         }
 
+        It 'carries the aliases a newer patch of the same minor added' -ForEach @(
+            @{ Codec = 'cp858' }
+            @{ Codec = 'cp00858' }
+            @{ Codec = 'csibm00858' }
+            @{ Codec = 'ibm00858' }
+            @{ Codec = 'pc_multilingual_850_euro' }
+        ) {
+            # 3.13.17 added these four spellings for cp858 and 3.13.9 has none
+            # of them. A table built by copying one host's stdlib rejects a file
+            # written on the newer patch -- that is how CI found this, on a
+            # runner whose 3.13.17 reported 479 aliases against this host's 471.
+            # Accepting a spelling the local interpreter cannot resolve costs a
+            # WARN and an unverified payload, which is the honest answer.
+            $r = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec $Codec), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            Get-Field $r.StdOut 'SOURCE_CODING_SUPPORT' | Should -Be 'python-only'
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_UNVERIFIED'
+            $r.StdOut | Should -Match 'SOURCE_CODING_PAYLOAD=unverified'
+        }
+
         It 'resolves a name longer than the twelve characters the tokenizer inspects' {
             # ansi-x3.4-1968 is 14 characters, and its first twelve are not a
             # codec. It resolves anyway, because get_normal_name only truncates

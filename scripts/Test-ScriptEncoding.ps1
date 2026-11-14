@@ -351,6 +351,12 @@ begin {
     #
     # The lookup key is what the tokenizer hands to codecs.lookup(), not the
     # spelling in the comment. See Get-PythonCodecKey.
+    #
+    # The table is the union over the releases in the test matrix, not a copy
+    # of one host's stdlib: 3.13.17 added four cp858 aliases that 3.13.9 has
+    # never heard of, and a host on the older patch must not reject a file
+    # written on the newer one. Carrying a spelling an old host cannot resolve
+    # costs a WARN, never an OK -- the payload stays unverified either way.
     # ------------------------------------------------------------------
 
         $script:PythonCodecVerifiable = [ordered]@{
@@ -465,7 +471,10 @@ begin {
                 '857', 'cp857', 'csibm857', 'ibm857'
             )
             'cp858' = @(
-                '858', 'cp858', 'csibm858', 'ibm858'
+                # cp00858 / csibm00858 / ibm00858 / pc_multilingual_850_euro
+                # are 3.13.17's spellings for this codec; 3.13.9 has neither.
+                '858', 'cp00858', 'cp858', 'csibm00858', 'csibm858',
+                'ibm00858', 'ibm858', 'pc_multilingual_850_euro'
             )
             'cp860' = @(
                 '860', 'cp860', 'csibm860', 'ibm860'
