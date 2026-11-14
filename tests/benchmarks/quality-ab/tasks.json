@@ -301,12 +301,12 @@
         "rewriting files during the scan"
       ],
       "loads": [
-        "references/security.md",
-        "references/troubleshooting.md"
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
       ],
       "loads_baseline": [
-        "references/security.md",
-        "references/troubleshooting.md"
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
       ]
     }
   ]

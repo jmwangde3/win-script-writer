@@ -1,0 +1,27 @@
+{
+  "generated": "2026-11-15",
+  "task_id": "tool-02",
+  "finding": "BENCHMARK_ROUTING_DEFECT",
+  "summary": "The SAFETY task is an encoding audit. SKILL.md routes it to encoding-matrix + powershell-51, which every session read. The declared loads named security + troubleshooting, which are about tool defaults and symptom-to-fix, not an audit.",
+  "before": {
+    "loads": ["references/security.md", "references/troubleshooting.md"],
+    "loads_baseline": ["references/security.md", "references/troubleshooting.md"]
+  },
+  "after": {
+    "loads": ["references/encoding-matrix.md", "references/powershell-51.md"],
+    "loads_baseline": ["references/encoding-matrix.md", "references/powershell-51.md"]
+  },
+  "evidence": {
+    "sessions": 6,
+    "a_sessions": 3,
+    "b_sessions": 3,
+    "all_opened": ["references/encoding-matrix.md", "references/powershell-51.md"],
+    "model_variance": false,
+    "client_mismatch": false,
+    "logging_defect": false
+  },
+  "files_changed": ["tests/benchmarks/quality-ab/tasks.json"],
+  "skill_changed": false,
+  "tests": ["tests/evals/test_stage31_metadata.py"],
+  "notes": "Only tool-02 changed. Other tasks and both frozen snapshots are untouched."
+}

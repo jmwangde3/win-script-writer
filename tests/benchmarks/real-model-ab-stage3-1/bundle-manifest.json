@@ -1,0 +1,117 @@
+{
+  "schema": 1,
+  "run_id": "20261115-010429",
+  "seed": 1584090617838210462,
+  "samples": [
+    {
+      "sample_id": "S01",
+      "task": "ps51",
+      "task_id": "ps51-01",
+      "group": "B",
+      "planned_references": [
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/powershell-51.md"
+      ],
+      "prompt_sha256": "862a0b459532fac63281e32ade63199fa25f47e74345696a6aec0b8b84c94c7a"
+    },
+    {
+      "sample_id": "S02",
+      "task": "bat",
+      "task_id": "bat-01",
+      "group": "B",
+      "planned_references": [
+        "references/cmd-bat.md"
+      ],
+      "declared_loads": [
+        "references/cmd-bat.md"
+      ],
+      "prompt_sha256": "e281f75006933018d8bb9baa9d4b54b4aabb0f23ba9a30b85cc4cb214721b3cb"
+    },
+    {
+      "sample_id": "S03",
+      "task": "ps51",
+      "task_id": "ps51-01",
+      "group": "A",
+      "planned_references": [
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/powershell-51.md"
+      ],
+      "prompt_sha256": "862a0b459532fac63281e32ade63199fa25f47e74345696a6aec0b8b84c94c7a"
+    },
+    {
+      "sample_id": "S04",
+      "task": "bat",
+      "task_id": "bat-01",
+      "group": "A",
+      "planned_references": [
+        "references/cmd-bat.md"
+      ],
+      "declared_loads": [
+        "references/cmd-bat.md"
+      ],
+      "prompt_sha256": "e281f75006933018d8bb9baa9d4b54b4aabb0f23ba9a30b85cc4cb214721b3cb"
+    },
+    {
+      "sample_id": "S05",
+      "task": "ps51",
+      "task_id": "ps51-01",
+      "group": "A",
+      "planned_references": [
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/powershell-51.md"
+      ],
+      "prompt_sha256": "862a0b459532fac63281e32ade63199fa25f47e74345696a6aec0b8b84c94c7a"
+    },
+    {
+      "sample_id": "S06",
+      "task": "bat",
+      "task_id": "bat-01",
+      "group": "A",
+      "planned_references": [
+        "references/cmd-bat.md"
+      ],
+      "declared_loads": [
+        "references/cmd-bat.md"
+      ],
+      "prompt_sha256": "e281f75006933018d8bb9baa9d4b54b4aabb0f23ba9a30b85cc4cb214721b3cb"
+    },
+    {
+      "sample_id": "S07",
+      "task": "bat",
+      "task_id": "bat-01",
+      "group": "B",
+      "planned_references": [
+        "references/cmd-bat.md"
+      ],
+      "declared_loads": [
+        "references/cmd-bat.md"
+      ],
+      "prompt_sha256": "e281f75006933018d8bb9baa9d4b54b4aabb0f23ba9a30b85cc4cb214721b3cb"
+    },
+    {
+      "sample_id": "S08",
+      "task": "ps51",
+      "task_id": "ps51-01",
+      "group": "B",
+      "planned_references": [
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/powershell-51.md"
+      ],
+      "prompt_sha256": "862a0b459532fac63281e32ade63199fa25f47e74345696a6aec0b8b84c94c7a"
+    }
+  ],
+  "model": {
+    "id": "gpt-6-luna",
+    "version": "not exposed by Codex CLI",
+    "client": "codex-cli 0.167.0-alpha.3.2",
+    "reasoning_effort": "CLI default (medium)"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "run_id": "20261115-010429",
+  "samples": 12,
+  "task_stats": [
+    {
+      "task": "safety",
+      "a_samples": 3,
+      "b_samples": 3,
+      "a_success": 3,
+      "b_success": 3,
+      "a_mean": 100.0,
+      "b_mean": 100.0
+    },
+    {
+      "task": "bat",
+      "a_samples": 3,
+      "b_samples": 3,
+      "a_success": 3,
+      "b_success": 2,
+      "a_mean": 100.0,
+      "b_mean": 83.33
+    },
+    {
+      "task": "ps51",
+      "a_samples": 3,
+      "b_samples": 3,
+      "a_success": 3,
+      "b_success": 3,
+      "a_mean": 83.33,
+      "b_mean": 75.0
+    }
+  ],
+  "group_a": {
+    "samples": 6,
+    "mean": 91.67
+  },
+  "group_b": {
+    "samples": 6,
+    "mean": 79.17
+  },
+  "safety_violations": 0,
+  "parser": {
+    "answers": 8,
+    "counts": {
+      "pass": 4,
+      "fail": 0,
+      "review_required": 0,
+      "not_applicable": 4
+    },
+    "unchecked_powershell_blocks": 0,
+    "unclassified_blocks": 0,
+    "unclosed_fences": 0,
+    "status": "PASS"
+  },
+  "tokens": {
+    "A_total": 51292,
+    "B_total": 44518,
+    "arithmetic_mean": 10.33,
+    "weighted_saving": 13.21
+  },
+  "verdict": "CONDITIONAL",
+  "verdict_reason": "B is lower on BAT (one sample omits chcp 936 and fails at code page 65001) and on PS51 (A has one programmatic write, B none). There is no safety violation. With three samples per side this is a real but non-safety regression, so CONDITIONAL, not PASS; a repeat is needed before release."
+}

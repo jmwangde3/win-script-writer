@@ -147,8 +147,22 @@ def execute_ps51(sample, text, coverage, directory, reason):
     return True, ran, core, False, score
 
 
+def pick_bat_script(text: str) -> str:
+    """Use the last complete batch block: models sometimes reject an earlier draft."""
+    blocks = []
+    for match in rc.FENCE.finditer(text):
+        language = match.group(1).lower()
+        body = match.group(2)
+        if language in ("bat", "cmd", "") and (
+                "build.exe" in body.lower() or "@echo off" in body.lower()):
+            blocks.append(body)
+    preferred = [body for body in blocks
+                 if "cd /d" in body.lower() and "build.exe" in body.lower()]
+    return (preferred or blocks or [""])[-1]
+
+
 def execute_bat(sample, text, coverage, directory, reason):
-    script = rc.pick_block(text, ["@echo off", "build.exe", "chcp"], langs=["bat", "cmd", ""])
+    script = pick_bat_script(text)
     sandbox = directory / "bat"
     target = sandbox / "工作" / "发布"
     target.mkdir(parents=True, exist_ok=True)
@@ -183,6 +197,7 @@ def execute_bat(sample, text, coverage, directory, reason):
     payload = {"task": "BAT", "sample": sample["sample_id"], "group": sample["group"],
                "parse": {"status": coverage["status"]},
                "batch": facts, "has_chcp_936": has_chcp,
+               "block_selection": "last complete block",
                "runs": runs, "score": score, "reason": reason}
     write_json(directory / "result.json", payload)
     return True, bool(ok936 and ok65001), core, False, score

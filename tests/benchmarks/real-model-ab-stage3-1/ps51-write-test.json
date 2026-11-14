@@ -1,0 +1,35 @@
+{
+  "generated": "2026-11-15",
+  "candidate_code": "New-Object -TypeName System.Text.UTF8Encoding -ArgumentList @($true); [System.IO.File]::WriteAllText($Path, $Content, $Utf8Bom)",
+  "content": "开始部署\r\n部署完成：成功\r\n",
+  "temp_root": "H:\\temp\\user\\wsw-stage31-write-hf6uza0g",
+  "hosts": [
+    {
+      "host": "5.1",
+      "exit": 0,
+      "stderr": "",
+      "path_inside_temp_root": true,
+      "path": "H:\\temp\\user\\wsw-stage31-write-hf6uza0g\\中文目录\\部署.ps1",
+      "exists": true,
+      "bytes": 40,
+      "head_hex": "ef bb bf",
+      "bom": true,
+      "content_ok": true,
+      "content": "开始部署\r\n部署完成：成功\r\n"
+    },
+    {
+      "host": "7",
+      "exit": 0,
+      "stderr": "",
+      "path_inside_temp_root": true,
+      "path": "H:\\temp\\user\\wsw-stage31-write-hf6uza0g\\中文目录\\部署.ps1",
+      "exists": true,
+      "bytes": 40,
+      "head_hex": "ef bb bf",
+      "bom": true,
+      "content_ok": true,
+      "content": "开始部署\r\n部署完成：成功\r\n"
+    }
+  ],
+  "ok": true
+}
