@@ -106,8 +106,10 @@ The only large deltas are `python.md` and `encoding-matrix.md` — the two files
 **restructured**, not translated. Their combined content did not disappear: it reappears
 as the two new pages at the bottom of the table.
 
-So 5.7% — the figure before the restructure — was the honest ceiling of a pure
-translation. Anything above it had to come from moving content, which is the next section.
+So 5.7% — the first round, before the restructure, when translation and the rewritten
+description were the only changes in play — was the ceiling of *that* combination. The
+part attributable to translation alone is the 1.2% above, not 5.7%. Anything above the
+first-round figure had to come from moving content, which is the next section.
 
 ### 3.2 The one structural defect worth fixing
 
