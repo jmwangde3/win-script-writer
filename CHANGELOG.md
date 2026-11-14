@@ -19,7 +19,7 @@
   「Python 认识、本工具没验」，而解释器对这四个都抛 `SyntaxError`。
   现在先把名字按 tokenizer 的规则归一化（小写、`_`→`-`、`utf-8-*` 折叠成
   `utf-8`、`latin-1` 族折叠成 `latin-1`、其余保留原样只在 utf-8/latin-1
-  两族上截断 `.`），再查按族组织的精确表（99 个族、406 条拼写，逐条跑过解释器）；
+  两族上截断 `.`），再查按族组织的精确表（98 个族、389 条拼写，逐条跑过解释器）；
   `utf-16` / `utf-32` 族单独一档
   表示「解析得了但不能作源码」。
   **影响**：上述四个仿写名与 `mac` / `macos` / `macx` / `iso_646_us` /
@@ -52,10 +52,13 @@
 - 集成测试 `TestCodecAliasCoverage`：遍历 `encodings.aliases` 与
   `encodings/` 下的模块名，把每个拼写写成真实源文件，先 `compile()` 再问
   检测器，只比较两边结论是否一致，不写死任何名字的答案。3.13.9 上 471 个
-  拼写、380 个可作源码、91 个被拒、0 处分歧。同一类新增
-  `TestPythonOnlyPayload`：三对「完整字符 / 残缺字节」夹具，要求检测器对
-  六者给出同一答案 `WARN + unverified`，同时实测解释器对前一半 `rc=0`、
-  后一半 `rc=1`。
+  拼写、380 个可作源码、91 个被拒、0 处分歧；这 471 个是 327 个别名键、
+  98 个规范名（都不是键）、121 个模块名（其中 22 个是新的）与 24 个仿写
+  拼写去重而来。同一类新增 `TestPythonOnlyPayload`：三对「完整字符 /
+  残缺字节」夹具，要求检测器对六者给出同一答案 `WARN + unverified`，同时
+  实测解释器对前一半 `rc=0`、后一半 `rc=1`；另加一条 `ansi` 回归——
+  `ansi` 是 `mbcs`（本机即 CP936），`ansi_x3.4-1968` / `ansi-x3.4-1968`
+  是 `ascii`，同一个 GBK 负载下解释器跑前者、拒后两者，检测器必须跟着分叉。
 
 ### Fixed
 
@@ -103,7 +106,8 @@
   「Python 不认识」和「检测器不支持」，于是 `cp1252`、`shift_jis`、`big5`
   （Python 实测 `rc=0`）被判 `FAIL UNKNOWN`。现在返回 `supported` /
   `python-only` / `unknown` 三档，外加独立的 BOM 冲突分支。名字表按族重写，
-  448 个 `encodings.aliases` 拼写逐个跑解释器核对，0 例不一致：
+  327 个别名键加 121 个 `encodings/` 模块名、共 448 个拼写逐个跑解释器核对，
+  0 例不一致：
   **影响**：`cp1252` / `shift_jis` / `big5` / `euc-jp` / `mac-roman` /
   `csisolatin2` / `latin2` / `1252` / `ansi` 等从 `FAIL` 变成 `WARN`
   （`PY_SOURCE_CODING_UNVERIFIED`，明确说「检测器没有该表」）；

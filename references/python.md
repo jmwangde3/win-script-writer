@@ -194,23 +194,24 @@ BOM 判定**先于**名字查表：`windows-936` 单独报 `encoding problem: wi
 等）归类，于是 `mac-bogus`、`shift_jis_typo`、`big5-nope`、`ibm99999` 都被当成
 Python 认识的名字——解释器对这四个都抛 `SyntaxError`。v1.0.4 改**精确表**：按
 tokenizer 规则归一化（小写、`_`→`-`、`utf-8-*` 折叠成 `utf-8`、`latin-1` 族折叠成
-`latin-1`，其余保留原样）后查按族组织的精确表。`TestCodecAliasCoverage` 每轮
-遍历 `encodings.aliases` 与 `encodings/` 模块名，逐个 `compile()` 再和检测器比对：
-3.13.9 上 471 个拼写 / 380 可作 / 91 被拒 / **0 分歧**。
+`latin-1`，其余保留原样）后查按族组织的精确表（98 个族、389 条拼写）。
+`TestCodecAliasCoverage` 遍历 `encodings.aliases` 与 `encodings/` 模块名，
+逐个 `compile()` 再问检测器：3.13.9 上 471 个拼写 / 380 可作 / 91 被拒 /
+**0 分歧**。`ansi` 归 `mbcs`（本机即 CP936），`ansi_x3.4-1968` 归 `ascii`：
+同一段 GBK 字节，解释器跑前者、拒后者，`TestPythonOnlyPayload` 钉住分叉。
 
 三类边界全部实测：
 
 - **`utf-8-*` 前缀一律当 UTF-8。** `codecs.lookup('utf-8-unix')` 抛
   `LookupError`，可文件照样能跑——tokenizer 先归一化再查表。所以
-  `utf-8-unix`、`utf-8-bogus` 都得给 `WARN`，判 `FAIL` 是错的。
+  `utf-8-unix`、`utf-8-bogus` 都得给 `WARN`，不能判 `FAIL`。
 - **`latin-2` 到 `latin-16` 的连字符形式全都不认。** `latin2` 能跑、
   `latin-2` 与 `latin_2` 都报 `encoding problem`；`latin-1` 是唯一例外
-  （它被归一化成 `iso-8859-1`）。这种反直觉的分界只能靠实测，不能靠推理。
+  （它被归一化成 `iso-8859-1`）。这种分界只能靠实测。
 - **裸代码页数字是合法别名。** `# coding: 1252` 能跑，`# coding: 936` 是 GBK；
   唯一不成立的是 `54936`。
 
-集成测试 `TestCodingNameAgreement` 因此不写死任何名字的结论：名字写进真实源
-文件，先问解释器再问检测器，只比对是否一致。表漏拼写或 stdlib 改别名时它变红。
+固定名单版 `TestCodingNameAgreement` 只覆盖 36 个名字。
 
 
 ### 7.4 GBK 网格：21791 格，和 CP936 差 2149 格
