@@ -1,0 +1,400 @@
+{
+  "generated": "2026-11-14",
+  "method": "planned_references and opened_references from the session log; the declared requirement is loads for B and loads_baseline for A; read order and repeats come from the Codex command log when it is present",
+  "summary": {
+    "samples": 12,
+    "missing_required": 2,
+    "extra_loads": 5,
+    "duplicates": 0,
+    "event_log_available": 12,
+    "status": "FAIL"
+  },
+  "samples": [
+    {
+      "task": "ps51",
+      "task_id": "ps51-01",
+      "group": "A",
+      "sample_id": "S06",
+      "required": [
+        "references/powershell-51.md"
+      ],
+      "planned": [
+        "references/powershell-51.md"
+      ],
+      "opened": [
+        "SKILL.md",
+        "references/powershell-51.md",
+        "references/execution.md"
+      ],
+      "entry_opened": [
+        "SKILL.md"
+      ],
+      "read_order": [
+        "SKILL.md",
+        "references/powershell-51.md",
+        "references/execution.md"
+      ],
+      "missing_required": [],
+      "planned_not_opened": [],
+      "extra": [
+        "references/execution.md"
+      ],
+      "duplicates": [],
+      "duplicate_evidence": "codex jsonl command log",
+      "status": "PASS"
+    },
+    {
+      "task": "ps51",
+      "task_id": "ps51-01",
+      "group": "B",
+      "sample_id": "S18",
+      "required": [
+        "references/powershell-51.md"
+      ],
+      "planned": [
+        "references/powershell-51.md"
+      ],
+      "opened": [
+        "SKILL.md",
+        "references/powershell-51.md",
+        "references/execution.md"
+      ],
+      "entry_opened": [
+        "SKILL.md"
+      ],
+      "read_order": [
+        "SKILL.md",
+        "references/powershell-51.md",
+        "references/execution.md"
+      ],
+      "missing_required": [],
+      "planned_not_opened": [],
+      "extra": [
+        "references/execution.md"
+      ],
+      "duplicates": [],
+      "duplicate_evidence": "codex jsonl command log",
+      "status": "PASS"
+    },
+    {
+      "task": "ps7",
+      "task_id": "ps7-01",
+      "group": "A",
+      "sample_id": "S04",
+      "required": [
+        "references/powershell-7.md"
+      ],
+      "planned": [
+        "references/powershell-7.md"
+      ],
+      "opened": [
+        "SKILL.md",
+        "references/powershell-7.md"
+      ],
+      "entry_opened": [
+        "SKILL.md"
+      ],
+      "read_order": [
+        "SKILL.md",
+        "references/powershell-7.md"
+      ],
+      "missing_required": [],
+      "planned_not_opened": [],
+      "extra": [],
+      "duplicates": [],
+      "duplicate_evidence": "codex jsonl command log",
+      "status": "PASS"
+    },
+    {
+      "task": "ps7",
+      "task_id": "ps7-01",
+      "group": "B",
+      "sample_id": "S20",
+      "required": [
+        "references/powershell-7.md"
+      ],
+      "planned": [
+        "references/powershell-7.md"
+      ],
+      "opened": [
+        "SKILL.md",
+        "references/powershell-7.md"
+      ],
+      "entry_opened": [
+        "SKILL.md"
+      ],
+      "read_order": [
+        "SKILL.md",
+        "references/powershell-7.md"
+      ],
+      "missing_required": [],
+      "planned_not_opened": [],
+      "extra": [],
+      "duplicates": [],
+      "duplicate_evidence": "codex jsonl command log",
+      "status": "PASS"
+    },
+    {
+      "task": "dual",
+      "task_id": "dual-02",
+      "group": "A",
+      "sample_id": "S19",
+      "required": [
+        "references/dual-version-compatibility.md"
+      ],
+      "planned": [
+        "references/dual-version-compatibility.md"
+      ],
+      "opened": [
+        "SKILL.md",
+        "references/dual-version-compatibility.md"
+      ],
+      "entry_opened": [
+        "SKILL.md"
+      ],
+      "read_order": [
+        "SKILL.md",
+        "references/dual-version-compatibility.md"
+      ],
+      "missing_required": [],
+      "planned_not_opened": [],
+      "extra": [],
+      "duplicates": [],
+      "duplicate_evidence": "codex jsonl command log",
+      "status": "PASS"
+    },
+    {
+      "task": "dual",
+      "task_id": "dual-02",
+      "group": "B",
+      "sample_id": "S01",
+      "required": [
+        "references/dual-version-compatibility.md"
+      ],
+      "planned": [
+        "references/dual-version-compatibility.md"
+      ],
+      "opened": [
+        "SKILL.md",
+        "references/dual-version-compatibility.md"
+      ],
+      "entry_opened": [
+        "SKILL.md"
+      ],
+      "read_order": [
+        "SKILL.md",
+        "references/dual-version-compatibility.md"
+      ],
+      "missing_required": [],
+      "planned_not_opened": [],
+      "extra": [],
+      "duplicates": [],
+      "duplicate_evidence": "codex jsonl command log",
+      "status": "PASS"
+    },
+    {
+      "task": "bat",
+      "task_id": "bat-01",
+      "group": "A",
+      "sample_id": "S07",
+      "required": [
+        "references/cmd-bat.md"
+      ],
+      "planned": [
+        "references/cmd-bat.md"
+      ],
+      "opened": [
+        "SKILL.md",
+        "references/cmd-bat.md"
+      ],
+      "entry_opened": [
+        "SKILL.md"
+      ],
+      "read_order": [
+        "SKILL.md",
+        "references/cmd-bat.md"
+      ],
+      "missing_required": [],
+      "planned_not_opened": [],
+      "extra": [],
+      "duplicates": [],
+      "duplicate_evidence": "codex jsonl command log",
+      "status": "PASS"
+    },
+    {
+      "task": "bat",
+      "task_id": "bat-01",
+      "group": "B",
+      "sample_id": "S21",
+      "required": [
+        "references/cmd-bat.md"
+      ],
+      "planned": [
+        "references/cmd-bat.md"
+      ],
+      "opened": [
+        "SKILL.md",
+        "references/cmd-bat.md"
+      ],
+      "entry_opened": [
+        "SKILL.md"
+      ],
+      "read_order": [
+        "SKILL.md",
+        "references/cmd-bat.md"
+      ],
+      "missing_required": [],
+      "planned_not_opened": [],
+      "extra": [],
+      "duplicates": [],
+      "duplicate_evidence": "codex jsonl command log",
+      "status": "PASS"
+    },
+    {
+      "task": "python",
+      "task_id": "py-02",
+      "group": "A",
+      "sample_id": "S05",
+      "required": [
+        "references/python.md"
+      ],
+      "planned": [
+        "references/python.md"
+      ],
+      "opened": [
+        "SKILL.md",
+        "references/python.md"
+      ],
+      "entry_opened": [
+        "SKILL.md"
+      ],
+      "read_order": [
+        "SKILL.md",
+        "references/python.md"
+      ],
+      "missing_required": [],
+      "planned_not_opened": [],
+      "extra": [],
+      "duplicates": [],
+      "duplicate_evidence": "codex jsonl command log",
+      "status": "PASS"
+    },
+    {
+      "task": "python",
+      "task_id": "py-02",
+      "group": "B",
+      "sample_id": "S22",
+      "required": [
+        "references/python-source-encoding.md"
+      ],
+      "planned": [
+        "references/python-source-encoding.md"
+      ],
+      "opened": [
+        "SKILL.md",
+        "references/python.md",
+        "references/python-source-encoding.md"
+      ],
+      "entry_opened": [
+        "SKILL.md"
+      ],
+      "read_order": [
+        "SKILL.md",
+        "references/python.md",
+        "references/python-source-encoding.md"
+      ],
+      "missing_required": [],
+      "planned_not_opened": [],
+      "extra": [
+        "references/python.md"
+      ],
+      "duplicates": [],
+      "duplicate_evidence": "codex jsonl command log",
+      "status": "PASS"
+    },
+    {
+      "task": "safety",
+      "task_id": "tool-02",
+      "group": "A",
+      "sample_id": "S08",
+      "required": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "planned": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "opened": [
+        "SKILL.md",
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "entry_opened": [
+        "SKILL.md"
+      ],
+      "read_order": [
+        "SKILL.md",
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "missing_required": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "planned_not_opened": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "extra": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "duplicates": [],
+      "duplicate_evidence": "codex jsonl command log",
+      "status": "FAIL"
+    },
+    {
+      "task": "safety",
+      "task_id": "tool-02",
+      "group": "B",
+      "sample_id": "S12",
+      "required": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "planned": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "opened": [
+        "SKILL.md",
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "entry_opened": [
+        "SKILL.md"
+      ],
+      "read_order": [
+        "SKILL.md",
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "missing_required": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "planned_not_opened": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "extra": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "duplicates": [],
+      "duplicate_evidence": "codex jsonl command log",
+      "status": "FAIL"
+    }
+  ]
+}
