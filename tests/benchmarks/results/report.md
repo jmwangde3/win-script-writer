@@ -221,3 +221,12 @@ python tests/benchmarks/compute.py --tokenizer /path/to/tokenizer.json
 `results/raw.jsonl` holds every per-task row, `comparison.csv` the pairwise table,
 `summary.json` the aggregates above. The two snapshots under `baseline/` and `candidate/`
 are frozen text; regenerate the candidate snapshot after any edit meant to change cost.
+
+The model quality A/B (`../quality-ab/`) is a separate run with its own prerequisites; its
+bundle is built with:
+
+```bash
+python tests/benchmarks/quality-ab/prepare.py --out D:/qa-run
+```
+
+It is `PENDING` — see `../quality-ab/STATUS.md`.
