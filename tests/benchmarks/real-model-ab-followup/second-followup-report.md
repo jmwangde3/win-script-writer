@@ -128,10 +128,11 @@ reject `B/SAFETY` before a run, but a gate is not a substitute for the run.
 
 | Suite | Result |
 | --- | --- |
-| New follow-up tests | 20/20 |
-| evals | see the branch CI run |
-| python | see the branch CI run |
-| integration | see the branch CI run |
+| New follow-up tests | **20/20** |
+| evals (including the 20 new) | **103/103** |
+| python | **50/50** |
+| integration | **55/55** |
+| CI on `b6e161b` | **6/6 jobs** — https://github.com/jmwangde3/win-script-writer/actions/runs/43611266215 |
 
 ## Artifacts
 
