@@ -184,7 +184,12 @@ latin-1 与 UTF-8 的任何混用都不在本节保护范围内：`WARN` 说的�
 | `supported` | 名字合法，检测器自己会验 | `utf-8`、`gbk`、`gb2312`、`hz`、`gb18030`、`latin-1` | 按 7.1 |
 | `python-only` | 名字合法，检测器没有该编码的表 | `cp1252`、`shift_jis`、`big5`、`euc-jp`、`koi8-r`、`unicode_escape` | `WARN` + `UNVERIFIED` |
 | `unknown` | Python 的 `codecs.lookup` 不认 | `windows-936`、`cp54936`、`54936`、`hzgb2312`、`cn-gb`、`gb18030-2022` | `FAIL` + `UNKNOWN` |
-| `bom-conflict` | 名字合法但和 BOM 冲突 | `gbk` + BOM、`utf8` + BOM | `FAIL` + `BOM_CONFLICT` |
+| `bom-conflict` | 声明与 BOM 互斥 | `gbk` + BOM、`utf8` + BOM、`windows-936` + BOM | `FAIL` + `BOM_CONFLICT` |
+
+BOM 的判定**先于**名字查表：`# coding: windows-936` 单独出现报
+`encoding problem: windows-936`，同一个名字配上 BOM 报
+`encoding problem: windows-936 with BOM`。两种都拒，但理由码不同，
+检测器按解释器的顺序走（`py-coding-unknown-bom.py` 钉住这一点）。
 
 `UNVERIFIED` 是诚实的欠缺，不是缺陷：检测器没有 `shift_jis` 的双字节表，就不能
 声称验过它。给 `WARN` 加一句「CPython 认识这个名字，本工具无法验证字节」比

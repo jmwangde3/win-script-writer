@@ -335,6 +335,9 @@ class TestPythonSourceCoding(unittest.TestCase):
         # normalised name with "utf-8" before it accepts a BOM.
         ("py-coding-utf8-sig.py", 0, 0, b"VERDICT=OK"),
         ("py-coding-utf8-spelling-bom.py", 1, 2, b"PY_SOURCE_CODING_BOM_CONFLICT"),
+        # The BOM outranks the name lookup: this one is reported as a BOM
+        # conflict even though the name never resolves either.
+        ("py-coding-unknown-bom.py", 1, 2, b"PY_SOURCE_CODING_BOM_CONFLICT"),
         # The declaration cannot decode these bytes at all.
         ("py-coding-utf8-as-gbk.py", 1, 2, b"PY_SOURCE_CODING_INVALID_BYTES"),
         ("py-coding-utf8-as-gb2312.py", 1, 2, b"PY_SOURCE_CODING_INVALID_BYTES"),

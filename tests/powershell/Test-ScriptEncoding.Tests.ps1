@@ -538,6 +538,17 @@ Describe 'Test-ScriptEncoding.ps1' {
             $r.ExitCode | Should -Be 2
             $r.StdOut | Should -Match 'PY_SOURCE_CODING_BOM_CONFLICT'
         }
+
+        It 'reports a BOM conflict for a name CPython does not resolve either' {
+            # The BOM is checked before the codec is looked up, so the
+            # interpreter says "encoding problem: windows-936 with BOM" and not
+            # "unknown codec". Both fail; naming the right one is the point.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-unknown-bom.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'SOURCE_CODING_KIND' | Should -Be 'bom-conflict'
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_BOM_CONFLICT'
+            $r.StdOut | Should -Match 'with BOM'
+        }
     }
 
     Context 'UTF-32 with a BOM' {

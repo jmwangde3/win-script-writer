@@ -369,6 +369,10 @@ Write-Fixture 'py-coding-utf8-sig.py' (Get-EncodedBytes $utf8NoBom ('# -*- codin
 # compiles.
 Write-Fixture 'py-coding-utf8-spelling-bom.py' (Get-EncodedBytes $utf8Strict ('# -*- coding: utf8 -*-' + "`n" + 'print("PYCODING_UTF8_SPELLING_SHOULD_NOT_RUN")' + "`n") -WithBom) 'BOM plus the utf8 spelling of utf-8'
 
+# The BOM rule is checked before the codec name is looked up, so an unknown
+# name plus a BOM reports itself as a BOM problem and not as an unknown codec.
+Write-Fixture 'py-coding-unknown-bom.py' (Get-EncodedBytes $utf8Strict ('# -*- coding: windows-936 -*-' + "`n" + 'print("PYCODING_UNKNOWN_BOM_SHOULD_NOT_RUN")' + "`n") -WithBom) 'BOM plus a name CPython does not resolve'
+
 
 # --- writer inputs -------------------------------------------------------
 $contentBody = $zh + $ceshi + ': content source for the writer.' + "`r`n"
