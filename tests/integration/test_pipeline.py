@@ -850,6 +850,46 @@ class TestPythonOnlyPayload(unittest.TestCase):
                 self.assertEqual(run.returncode, interpreter_rc,
                                  (name, run.stderr[:300]))
 
+    def test_ansi_is_the_console_code_page_and_not_ascii(self):
+        """'ansi' resolves to mbcs; 'ansi_x3.4-1968' and 'ansi-x3.4-1968' to ascii.
+
+        Three spellings, two codecs, and they look like one family. Folding them
+        together is invisible to the name corpus, whose bodies are ASCII: the
+        difference only shows when the payload leaves ascii. Here it does -- the
+        same GBK bytes under all three declarations. A table that called 'ansi'
+        ascii would fail a file the interpreter runs; a table that called the
+        ascii aliases mbcs would pass two files that never compile.
+        """
+        payload = "中文".encode("gbk")
+        cases = (
+            ("ansi", "python-only"),
+            ("ansi_x3.4-1968", "supported"),
+            ("ansi-x3.4-1968", "supported"),
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            for index, (name, support) in enumerate(cases):
+                with self.subTest(name=name):
+                    path = pathlib.Path(tmp) / ("ansi-%02d.py" % index)
+                    path.write_bytes(("# coding: %s\ns = \"" % name).encode("ascii")
+                                     + payload + b"\"\n")
+                    document = json.loads(decode_console_output(
+                        ps_tool("Test-ScriptEncoding.ps1",
+                                ["-Path", str(path), "-Profile", "python",
+                                 "-Output", "json"]).stdout))
+                    item = document["Files"][0]
+                    self.assertEqual(item["SourceCodingSupport"], support, name)
+                    run = run_python_fixture(path)
+                    if support == "python-only":
+                        # mbcs decodes whatever the ANSI code page says, so the
+                        # interpreter's answer is host dependent -- 936 here,
+                        # 1252 on a hosted runner. The invariant that holds
+                        # everywhere is that the detector never fails the name.
+                        self.assertEqual(item["Verdict"], "WARN", name)
+                        self.assertEqual(item["SourceCodingPayload"], "unverified")
+                    else:
+                        self.assertEqual(item["Verdict"], "FAIL", name)
+                        self.assertNotEqual(run.returncode, 0, name)
+
     def test_the_payload_key_is_absent_when_the_question_does_not_apply(self):
         fixtures = pathlib.Path(__file__).resolve().parent.parent / "fixtures" / "data"
         for name in ("py-coding-gbk.py", "py-coding-utf8-sig.py", "py-coding-54936.py"):

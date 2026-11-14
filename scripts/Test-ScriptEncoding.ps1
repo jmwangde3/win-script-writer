@@ -387,8 +387,7 @@ begin {
                 'utf_32be', 'utf_32le'
             )
             'utf-8' = @(
-                '<utf-8>', 'cp65001', 'u8', 'utf', 'utf8', 'utf8_ucs2',
-                'utf8_ucs4'
+                'cp65001', 'u8', 'utf', 'utf8', 'utf8_ucs2', 'utf8_ucs4'
             )
         }
 
@@ -523,9 +522,6 @@ begin {
             )
             'idna' = @(
                 'idna'
-            )
-            'iso-8859-1' = @(
-                '<iso-8859-1>'
             )
             'iso2022_jp' = @(
                 'csiso2022jp', 'iso2022_jp', 'iso2022jp', 'iso_2022_jp'
