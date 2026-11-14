@@ -185,9 +185,20 @@ Install-Module PSScriptAnalyzer -Scope CurrentUser
 ```
 
 `tests/benchmarks/` is separate from that matrix: it measures how many tokens the skill
-costs per task, with the official DeepSeek tokenizer, and it is not part of the release
-archive. See `tests/benchmarks/README.md`; the current numbers are in
+costs per task, with the official DeepSeek V4 offline tokenizer, and it is not part of the
+release archive. See `tests/benchmarks/README.md`; the current numbers are in
 `tests/benchmarks/results/report.md`.
+
+Those numbers are **tokenizer estimates under a pre-declared routing plan**, not API
+`usage` and not observed run-time behaviour: `compute.py` calls no agent, so the pages it
+attributes to a task are the `loads` lists in `tasks.json`, not what a live session
+actually read. The 15.5% mean is therefore specific to this tokenizer and this plan — do
+not restate it as the saving a GPT, Codex or Claude user would see. The boundary is
+written out in full at the top of both benchmark documents.
+
+`tests/benchmarks/quality-ab/` is the model quality A/B plan (10 tasks, isolated
+sessions, anonymised scoring, 100-point rubric). Its status is **PENDING** — no answer has
+been generated and no score assigned.
 
 ## Verified scope
 

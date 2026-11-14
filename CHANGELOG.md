@@ -38,20 +38,38 @@ parameter and write semantic is identical to v1.0.4.
   records — the distinction is stated in the report rather than glossed over.
 - Two routing-table rows and two evaluation scenarios (P11, P12) so the new pages are
   reachable and exercised.
+- `tests/benchmarks/quality-ab/`: a 10-task model quality A/B plan — isolated sessions,
+  anonymised samples with a sealed mapping, a 100-point rubric (correctness 30, encoding
+  25, host compatibility 20, safety 15, completeness 10) and `prepare.py`, which builds
+  the run bundle and the scoring sheet. Status `PENDING`: no target model is callable
+  here, so no result is claimed.
 
 ### Measured
 
 - Skill context per call, 20 tasks: mean 4868.7 → 4114.1 tokens (**−15.5%**), median
   4073.0 → 3460.0 (**−15.1%**), p90 6556.0 → 5857.0 (−10.7%). Description alone
   136 → 75 (−44.9%). No task regressed; the smallest saving is 2.5%.
-- The distribution is bimodal by design: 14 tasks that only gained a translation save
-  3–5%, the five tasks that gained the restructure save 22–54%.
+- The distribution is bimodal by design. Measured at file level, the eight references
+  that were translated and not restructured total **14372 → 14201 tokens (−1.2%)** —
+  translation on its own buys almost nothing. The 15 tasks that were not restructured
+  show 2.5–5.5% per call, and that band also carries the rewritten description (−44.9%)
+  and the shortened body (−4.3%); the five restructured tasks save 22–54%. The 2.5–5.5%
+  per-call band is **not** a translation-only figure and must not be quoted as one.
+- Scope of all of the above: official DeepSeek V4 offline tokenizer; tokenizer
+  **estimates**, not API `usage`; reference loading taken from the `loads` lists in
+  `tasks.json`, not observed from a live session; no agent or model was called. The 15.5%
+  is specific to this tokenizer and this routing plan and must not be restated as the
+  saving a GPT, Codex or Claude user would see.
 
 ### Known limits
 
 - The 15% mean is carried by the five restructured tasks. Translation alone does not
   save tokens on English-vs-Chinese prose at equal information density, and claiming
   otherwise would be the kind of unverified number this project exists to remove.
+- The 100-point quality A/B is **specified but not executed**:
+  `tests/benchmarks/quality-ab/` holds the 10-task plan, the isolated-session procedure,
+  the anonymised scoring sheet and a builder script, with `STATUS.md` reading `PENDING`.
+  No answer was generated and no score assigned, so the quality gate stays `CONDITIONAL`.
 
 ## [1.0.4] - 2026-11-14
 

@@ -7,6 +7,26 @@ Method, task set and reproduction steps: `../README.md`.
 > character-count division dressed up as a token number would be exactly the kind of
 > unverified figure this release exists to remove.
 
+## 0. Measurement boundary
+
+Six statements bound everything below. They are not caveats bolted on at the end; they
+define what the numbers are.
+
+1. **Tokenizer:** the official **DeepSeek V4** offline tokenizer, and nothing else.
+2. **Estimate, not usage:** `tokenizer estimate`, never API `usage`, never billable
+   tokens.
+3. **Routing is a plan, not an observation:** the loaded pages are the `loads` lists in
+   `tasks.json` (plus one documented `loads_baseline` override). `compute.py` does not
+   watch a running session.
+4. **No agent ran:** no model call, no tool call, no real file-loading behaviour was
+   observed. A real session can load less (answer from the entry file) or more (a second
+   hop into `appendix-codec-evidence.md`).
+5. **What 15.5% is:** the mean `skill_context` saving (metadata + body + routed
+   reference) over these 20 tasks, under this tokenizer and this routing plan.
+6. **No cross-model transfer:** this percentage must not be quoted as the saving for
+   GPT, Codex, Claude or any other model. Different tokenizers split the same English and
+   Chinese text differently; re-measure before claiming anything about them.
+
 ## 1. Headline
 
 | Metric | A (v1.0.4) | B (v1.1.0) | Saving |
@@ -67,13 +87,20 @@ Per-file tokens, body and references only, frontmatter excluded:
 | `references/python-source-encoding.md` | — | 3193 | new |
 | `references/appendix-codec-evidence.md` | — | 1706 | new |
 
-Read the first group honestly. **The eight references that were only translated save
-1.2% between them** (14372 → 14201). English needs more bytes for the same facts, and the
-tokenizer's English advantage over Chinese (≈0.21 vs ≈0.67 token per character) is almost
-entirely cancelled by the extra characters. The `SKILL.md` body does slightly better
-(−4.3%) because its English version also dropped a redundant transition and merged two
-conclusions; the description does far better (−44.9%) because it was rewritten, not
-translated.
+Read the first group honestly. **The eight references that were only translated — no
+restructuring — total 14372 → 14201 tokens, a saving of 1.2%.** That is the only number
+here that isolates translation, and it is the number to quote when someone asks what
+translating the docs bought: almost nothing. English needs more bytes for the same facts,
+and the tokenizer's English advantage over Chinese (≈0.21 vs ≈0.67 token per character)
+is almost entirely cancelled by the extra characters. The `SKILL.md` body does slightly
+better (−4.3%) because its English version also dropped a redundant transition and
+merged two conclusions; the description does far better (−44.9%) because it was
+rewritten, not translated.
+
+Do not restate this as "translation saves 3–5%". The 2.5–5.5% band on the 15
+non-restructured tasks (`comparison.csv`, per task) is a **per-call** figure, and each
+call also carries the rewritten description and the shortened body. Mixing the two scopes
+is how a 1.2% effect gets sold as 5%.
 
 The only large deltas are `python.md` and `encoding-matrix.md` — the two files that were
 **restructured**, not translated. Their combined content did not disappear: it reappears
@@ -136,7 +163,7 @@ rejected:
 
 ## 4. The tail: why p90 is 10.7% and not 15%
 
-`p90` picks the 18th of 20 values, which lands in the 3–5% band: two-reference tasks such
+`p90` picks the 18th of 20 values, which lands in the 2.5–5.5% band: two-reference tasks such
 as `ps7-02` (`powershell-7.md` + `execution.md`) and `tool-02`
 (`security.md` + `troubleshooting.md`). Those tasks load two pages that were neither
 duplicated nor mistuned, so there is nothing to remove without deleting a rule.
@@ -178,6 +205,11 @@ What was actually done, and why:
   unreachable. **The quality gate is therefore `CONDITIONAL`, not `PASS`**: the structural
   evidence is there, the human quality score is not, and inventing one would be worse than
   leaving it open.
+- **The blind review is now specified, not performed.** `../quality-ab/` holds a 10-task
+  model A/B plan with isolated sessions, anonymised samples and a sealed mapping, plus
+  `prepare.py` which builds the run bundle and the scoring sheet. Its status is
+  **PENDING**: this environment has no callable target model, so no answer was generated
+  and no score was assigned. `quality-ab/STATUS.md` is the file to change when it runs.
 
 ## 6. Reproduction
 

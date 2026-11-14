@@ -29,6 +29,32 @@ Three consequences, stated rather than hidden:
 - Prefix caching is real, but a cache hit and a fresh input are not additive. Only the
   input side is reported.
 
+## Measurement boundary
+
+Read every number in `results/` against these six statements. They are the whole of what
+the benchmark supports; anything outside them is not measured here.
+
+1. **Tokenizer.** Tokens are counted with the official **DeepSeek V4** offline tokenizer
+   (`deepseek_v4_tokenizer.zip`, published at
+   <https://api-docs.deepseek.com/zh-cn/quick_start/token_usage/>). No other tokenizer,
+   and no character-count approximation, is used anywhere in `results/`.
+2. **Estimate, not usage.** The figures are **tokenizer estimates**. They are not API
+   `usage` objects, not billable tokens, and not a measurement of any served request.
+3. **Routing is pre-declared.** The reference pages attributed to a task are exactly the
+   `loads` list in `tasks.json` (with the single `loads_baseline` override described
+   below). The benchmark does not decide routing at run time; it reads a plan.
+4. **No agent was executed.** `compute.py` never calls a model or an agent, and it does
+   **not** observe which files a real session would load. A real run may load fewer
+   pages (an agent might answer from the entry file) or more (a second hop into
+   `appendix-codec-evidence.md`). Neither direction is captured.
+5. **What 15.5% means.** It is the mean `skill_context` saving — metadata + body + the
+   routed reference — over these 20 tasks, under this tokenizer and this routing plan.
+   It is a property of the documents and the plan, not of any particular runtime.
+6. **No cross-model transfer.** Do not quote this figure as the saving a GPT, Codex,
+   Claude or any other model would see. Tokenizers differ in how they split English and
+   Chinese, so the percentage is tokenizer-specific. Re-measure with that model's own
+   tokenizer before making any claim about it.
+
 ## What one task costs
 
 ```
@@ -86,13 +112,31 @@ change context cost.
 
 ## Reading the result
 
-The saving is not uniform, and averaging it away would be dishonest:
+The saving is not uniform, and averaging it away would be dishonest. Three statements,
+each with its scope attached:
 
-- **Translation alone saves 3–5%.** English carries the same facts at the same
-  information density. Anyone promising 30% from "translate to English" is measuring
-  bytes, or deleted content.
+- **Translation, measured at file level: 1.2%.** The eight references that were
+  translated and *not* restructured — `cmd-bat`, `dual-version-compatibility`,
+  `execution`, `git-bash`, `powershell-51`, `powershell-7`, `security`,
+  `troubleshooting` — total 14372 → 14201 tokens, i.e. **−1.2%**.
+  This is the only figure that isolates translation. It is near zero because English
+  needs 20–40% more bytes for the same facts, which cancels the tokenizer's English
+  advantage (≈0.21 vs ≈0.67 token per character).
+- **Translation, measured per call: 2.5–5.5% on the 15 tasks that were not
+  restructured.** That band is *not* the value of translation alone — every call also
+  carries the rewritten description (−44.9%) and the shortened `SKILL.md` body (−4.3%).
+  Quote it as a per-call figure with that composition, never as "translation saves
+  3–5%".
 - **Restructuring saved 22–54%** on the five tasks whose material was duplicated or
   routed too coarsely: one page that was 73% a topic the task did not need, and a verdict
   table described twice in two files.
 - The 15% gate is met on the mean and median, **not on p90** — see `results/report.md`
   for the breakdown and for why the tail is the hard part.
+
+## Quality, which this directory does not measure
+
+Token cost is not answer quality, and nothing above says the English documents are better.
+`quality-ab/` holds the plan for that: 10 tasks, one pinned model, isolated sessions,
+anonymised samples with a sealed mapping, and a 100-point rubric (correctness 30, encoding
+25, host compatibility 20, safety 15, completeness 10). `quality-ab/STATUS.md` reads
+**PENDING** — no model was called, so no answer and no score exists.
