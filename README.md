@@ -136,6 +136,12 @@ progressive disclosure 的前提：入口文件大了，就等于每次都全量
 - **只认证据，不猜。** 解不成 UTF-8 不能证明是 GBK——CP936 在 .NET 里没有
   未定义字节，`0xFF` 会映射到 `U+F8F5`。只有解码再编码字节完全一致才标
   `gbk`，且只给 medium 置信度。
+- **`WARN` 不代表文件能跑。** Python 的 codec 名表比检测器能验的多：`cp1252`、
+  `shift_jis`、`big5` 这类名字 Python 认，但检测器没有对应字节表，正文里有没有
+  非法字节它看不见。这种情况报 `WARN` + `SOURCE_CODING_PAYLOAD=unverified`
+  （JSON `SourceCodingPayload`），说明「名字成立、负载未验证」，而不是假装
+  `OK`。名字表本身是 448 项精确表，不是前缀正则——`mac-bogus` 之类的仿写
+  一律 `FAIL`。
 - **默认不改系统状态。** 不注入 `-ExecutionPolicy Bypass`、不自动提权、
   不改 `ACP`、不覆盖已有文件、不把无法编码的字符换成 `?`。理由见
   `references/security.md`。
@@ -175,6 +181,10 @@ Pester 5.7.1，PSScriptAnalyzer 1.24.0，Python 3.13.9。
 
 其他环境没有实测过。判据可以复用，数字请自己跑
 `Get-WinScriptEnvironment.ps1` 确认。
+
+codec 别名的全量回归不写死名单：测试现场遍历 `encodings.aliases` 与
+`encodings/` 下的模块名，逐个 `compile()` 后再问检测器。3.13.9 上是 471 个
+拼写、380 个可作源码、91 个被拒、0 处分歧；换解释器版本数字会变，判据不变。
 
 CP936 相关的断言只在真正 ACP=936 的机器上有意义，GitHub 托管 runner 是
 en-US（ACP 1252），那部分用例会在那里跳过自己。本机（ACP=936）的一次性

@@ -3,6 +3,74 @@
 格式参照 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号按 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.4] - 2026-11-14
+
+编码判定准确性的第二轮修复。v1.0.3 把 codec 名字分成三档是对的，但分档靠的是
+前缀正则，于是「像别名但不是别名」的一类名字被算进 `python-only`；同时
+`python-only` 的文案暗示「名字通过 = 文件能跑」，而检测器对这类文件的字节一无所知。
+这一版把名字表换成精确表，并让未验证这件事显式出现在输出里。
+
+### Changed（会改变既有行为，需注意）
+
+- **codec 名字表从宽泛前缀正则换成精确表。** 原实现用
+  `^mac[-_.]?[a-z0-9]*$`、`^(shift|s)[-_.]?jis[a-z0-9_]*$`、
+  `^(big5|csbig5|hkscs)[-_.a-z0-9]*$`、`^ibm[0-9]{3,5}$` 这类模式归类，
+  于是 `mac-bogus`、`shift_jis_typo`、`big5-nope`、`ibm99999` 全被判成
+  「Python 认识、本工具没验」，而解释器对这四个都抛 `SyntaxError`。
+  现在先把名字按 tokenizer 的规则归一化（小写、`_`→`-`、`utf-8-*` 折叠成
+  `utf-8`、`latin-1` 族折叠成 `latin-1`、其余保留原样只在 utf-8/latin-1
+  两族上截断 `.`），再查一张 448 项的哈希表；`utf-16` / `utf-32` 族单独一档
+  表示「解析得了但不能作源码」。
+  **影响**：上述四个仿写名与 `mac` / `macos` / `macx` / `iso_646_us` /
+  `jisx0208` / `x_mac_cyrillic` / `pt_154` / `cshproman8` / `utf-8.unix`
+  从 `WARN` 变成 `FAIL` + `PY_SOURCE_CODING_UNKNOWN`。
+  反方向没变松：`cp1252` / `shift_jis` / `big5` / `mac-roman` / `latin2` /
+  `euc-jp` / `ansi` / `ansi-x3.4-1968` 仍是 `python-only`；`utf-16` 族仍
+  `FAIL` + `UNUSABLE`。
+- **`python-only` 不再声称文件能跑，新增 `SOURCE_CODING_PAYLOAD=unverified`。**
+  文案从「CPython resolves that name and the file runs」改为「resolves that
+  name and accepts this spelling, but this detector has no byte level
+  verifier for it, so the payload was not checked; the file may still fail
+  to decode」。文本输出多一行 `SOURCE_CODING_PAYLOAD=unverified`，JSON 多一个
+  `"SourceCodingPayload": "unverified"`，**只在 `python-only` 时出现**，
+  其它档位键不存在（不是空字符串——消费方判真假时会读错）。
+  **影响**：`WARN` 的含义被收紧成「名字成立」，不再被读成「可以运行」。
+  一份 `# coding: cp1252` 且正文含 `0x81` 的文件在解释器里是
+  `SyntaxError: encoding problem: cp1252`，检测器仍是 `WARN` + `unverified`。
+  这是写进输出的盲区，不是 `OK`。
+
+### Added
+
+- 夹具 8 个：`py-coding-hz-gb-newline.py` / `-gb-crlf.py`（GB 模式行续接，
+  LF 与 CRLF 各一）、`py-coding-shift-jis-bytes.py` / `-truncated.py`、
+  `py-coding-big5-bytes.py` / `-truncated.py`、`py-coding-cp1252-bytes.py` /
+  `-undefined.py`（完整字符与残缺字节各一）。夹具总数 69 → 77，原有 69 个
+  的字节 SHA256 全部未变。
+- Pester 新增 3 个 Context、46 例：`codec name table`、`python-only payload
+  state`、`HZ state machine boundaries`。Pester 总数 134 → 180。
+- 集成测试 `TestCodecAliasCoverage`：遍历 `encodings.aliases` 与
+  `encodings/` 下的模块名，把每个拼写写成真实源文件，先 `compile()` 再问
+  检测器，只比较两边结论是否一致，不写死任何名字的答案。3.13.9 上 471 个
+  拼写、380 个可作源码、91 个被拒、0 处分歧。同一类新增
+  `TestPythonOnlyPayload`：三对「完整字符 / 残缺字节」夹具，要求检测器对
+  六者给出同一答案 `WARN + unverified`，同时实测解释器对前一半 `rc=0`、
+  后一半 `rc=1`。
+
+### Fixed
+
+- **HZ 的 GB 模式行续接按实测钉住。** RFC 1843 允许 `~\n` 在两种模式下都
+  续行，CPython 只允许在 ASCII 模式：GB 模式下 `~` 是一个双字节格的起始，
+  第二字节必须落在 `0x21–0x7E`，`0x0A` 与 `0x0D` 都不在范围内，于是
+  `"~{VP~\nXX~}"` 与 `"~{VP~\r\nXX~}"` 都报 `UnicodeDecodeError`。检测器的
+  状态机本来就按这个结论走，缺的是证据——新增两份夹具把 LF 与 CRLF 都钉住，
+  只处理 LF 的实现会在 CRLF 那份上放行。
+- 文档：`references/python.md` §7.3 改写为「精确表 + 归一化规则 + 全量回归」，
+  新增 payload 三行表与仿写名的负向清单；§7.5 补 GB 模式 `~\r\n` 行与
+  RFC 差异的成因。`references/encoding-matrix.md` 补两行「声明里的洞」与
+  一段「`WARN` 只表示名字通过」的边界说明。`README.md` 的设计取舍补一条
+  「`WARN` 不代表文件能跑」，已验证范围补别名回归的数字。`SKILL.md` 的
+  检测器条目补一句 payload 含义（入口文件仍保持只放路由与硬规则）。
+
 ## [1.0.3] - 2026-11-14
 
 编码别名的准确性修复。检测器把 GBK、GB2312、HZ-GB-2312 和 GB18030 当成

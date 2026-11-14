@@ -15,9 +15,9 @@ PowerShell 5.1、PowerShell 7.4+、未开启系统级 UTF-8；Git Bash / MSYS2
    ACP、OEMCP、控制台输入/输出代码页、`$OutputEncoding`、
    `[Encoding]::Default`、CP936 是否可用、当前是 5.1 还是 7。
    这些是**四个不同的设置**，混为一谈是绝大多数误判的来源。
-2. **读一份参考**：按下表只读与你当前任务相关的那一份，不要全量加载。
+2. **读一份参考**：按下表只读与当前任务相关的那一份，不要全量加载。
 3. **交付前自检**：`scripts/Test-ScriptEncoding.ps1 -Path <文件>` 必须
-   `VERDICT=OK`，退出码 0。它不是风格检查，是字节级判定。
+   `VERDICT=OK`、退出码 0。它不是风格检查，是字节级判定。
 
 ## 1. 路由表
 
@@ -57,15 +57,17 @@ PowerShell 5.1、PowerShell 7.4+、未开启系统级 UTF-8；Git Bash / MSYS2
 
 ## 3. 工具
 
-四个工具都只依赖 PowerShell 5.1 自带的 .NET 与 Python 标准库，不需要
-安装模块、不需要管理员权限。
+四个工具都只依赖 PowerShell 5.1 自带的 .NET 与 Python 标准库，不需要装模块、
+不需要管理员权限。
 
 - `scripts/Get-WinScriptEnvironment.ps1` —— 只读自检。`-Output Json`
   出机器可读报告，`WARNING=` 行只在条件真的成立时出现。
 - `scripts/Test-ScriptEncoding.ps1` —— 字节级检测。报告 BOM、非 ASCII
   字节数、严格 UTF-8 是否成立、CP936 往返是否无损，再按目标消费方
   （ps51 / ps7 / cmd / python / bash / data）给 OK/WARN/FAIL。只认证据：
-  解不成 UTF-8 不等于就是 GBK，只有往返完全一致才标 gbk。
+  解不成 UTF-8 不等于就是 GBK，只有往返完全一致才标 gbk。`WARN` 不等于
+  能跑：`cp1252` / `shift_jis` / `big5` 这类名字 Python 认、本工具没有字节
+  表，会输出 `SOURCE_CODING_PAYLOAD=unverified`（负载未验证）。
 - `scripts/New-EncodedScript.ps1` —— 按指定编码落盘。中文内容通过文件
   传入而不走命令行；先写临时文件、读回复验、再原子替换；默认拒绝覆盖，
   要覆盖必须显式 `-Force`。
@@ -77,10 +79,9 @@ PowerShell 5.1、PowerShell 7.4+、未开启系统级 UTF-8；Git Bash / MSYS2
 
 ## 4. 边界
 
-这些工具解决的是**编码与传输层**问题，不是权限、不是沙箱、不是安全
-审计。默认行为一律「不改系统状态」：不注入 `-ExecutionPolicy Bypass`、
-不自动提权、不自动改 `ACP`。要改必须显式传参，理由见
-`references/security.md`。
+这些工具解决的是**编码与传输层**问题，不管权限、沙箱或安全审计。默认一律
+「不改系统状态」：不注入 `-ExecutionPolicy Bypass`、不自动提权、不改 `ACP`。
+要改必须显式传参，理由见 `references/security.md`。
 
 ## 5. 已知限制
 
@@ -88,5 +89,5 @@ PowerShell 5.1、PowerShell 7.4+、未开启系统级 UTF-8；Git Bash / MSYS2
   径。装了 7 也不影响工具继续以绝对路径调用 5.1。
 - 系统级 UTF-8（Beta 选项）需重启，且会让旧 GBK 软件乱码；它**不修**
   `Out-File` 的 UTF-16LE，也不修 `$OutputEncoding` 的 us-ascii。
-- 本规范以简体中文 Windows 为默认前提。其他语言/代码页环境下判据相同，
-  具体数值要按 `Get-WinScriptEnvironment.ps1` 的实际输出调整。
+- 本规范以简体中文 Windows 为默认前提。其他语言/代码页下判据相同，数值按
+  `Get-WinScriptEnvironment.ps1` 的实际输出调整。
