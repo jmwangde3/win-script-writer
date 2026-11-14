@@ -196,9 +196,11 @@ actually read. The 15.5% mean is therefore specific to this tokenizer and this p
 not restate it as the saving a GPT, Codex or Claude user would see. The boundary is
 written out in full at the top of both benchmark documents.
 
-`tests/benchmarks/quality-ab/` is the model quality A/B plan (10 tasks, isolated
-sessions, anonymised scoring, 100-point rubric). Its status is **PENDING** — no answer has
-been generated and no score assigned.
+`tests/benchmarks/quality-ab/` is the model quality A/B plan (11 tasks across 8 areas,
+isolated sessions, a randomly anonymised scoring packet kept separate from the executor's
+sealed mapping, 100-point rubric). The toolchain — `prepare.py`, `make_scoring_packet.py`,
+`unseal.py` — is `READY` and tested. Its status is **PENDING**: no answer has been
+generated and no score assigned, so readiness is not a quality result.
 
 ## Verified scope
 

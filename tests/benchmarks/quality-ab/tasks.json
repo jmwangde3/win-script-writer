@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "note": "Ten tasks selected from ../tasks.json for the model quality A/B. Same prompts, same model, two documentation snapshots. loads = group B (v1.1.0), loads_baseline = group A (v1.0.4). Nothing here is generated output.",
+  "note": "Eleven tasks selected from ../tasks.json for the model quality A/B. Same prompts, same model, two documentation snapshots. loads = group B (v1.1.0), loads_baseline = group A (v1.0.4). Nothing here is generated output.",
   "coverage": {
     "powershell-51": [
       "ps51-01",
@@ -19,6 +19,9 @@
     "python-encoding": [
       "py-02",
       "py-03"
+    ],
+    "git-bash": [
+      "bash-01"
     ],
     "executor-arguments": [
       "tool-01"
@@ -235,6 +238,29 @@
     },
     {
       "sample_index": 9,
+      "task_id": "bash-01",
+      "area": "git-bash",
+      "area_note": "MSYS path conversion across python.exe and powershell.exe",
+      "category": "git-bash",
+      "prompt": "用 Git Bash 批量处理一批中文文件名的脚本，中途要调用 python.exe 和 powershell.exe。路径和编码怎么处理才不会两边都不认。",
+      "expected_behavior": "Explains MSYS path conversion, when to set MSYS_NO_PATHCONV, and the clean UTF-8 chain inside Bash.",
+      "required_checks": [
+        "path spelling per consumer",
+        "no global MSYS_NO_PATHCONV",
+        "LANG=C.UTF-8"
+      ],
+      "forbidden_actions": [
+        "hard-coding H:/ paths inside Bash-only tools"
+      ],
+      "loads": [
+        "references/git-bash.md"
+      ],
+      "loads_baseline": [
+        "references/git-bash.md"
+      ]
+    },
+    {
+      "sample_index": 10,
       "task_id": "tool-01",
       "area": "executor",
       "area_note": "real $PSScriptRoot, Chinese arguments, no policy widening",
@@ -258,7 +284,7 @@
       ]
     },
     {
-      "sample_index": 10,
+      "sample_index": 11,
       "task_id": "tool-02",
       "area": "security",
       "area_note": "read-only sweep of a directory, change nothing",

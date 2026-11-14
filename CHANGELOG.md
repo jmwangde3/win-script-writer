@@ -38,11 +38,14 @@ parameter and write semantic is identical to v1.0.4.
   records — the distinction is stated in the report rather than glossed over.
 - Two routing-table rows and two evaluation scenarios (P11, P12) so the new pages are
   reachable and exercised.
-- `tests/benchmarks/quality-ab/`: a 10-task model quality A/B plan — isolated sessions,
-  anonymised samples with a sealed mapping, a 100-point rubric (correctness 30, encoding
-  25, host compatibility 20, safety 15, completeness 10) and `prepare.py`, which builds
-  the run bundle and the scoring sheet. Status `PENDING`: no target model is callable
-  here, so no result is claimed.
+- `tests/benchmarks/quality-ab/`: an 11-task model quality A/B plan covering all eight
+  categories of the benchmark — isolated sessions, a randomly shuffled sample order whose
+  seed stays in the executor's manifest, a separate anonymous scoring packet, a sealed
+  mapping held only by the executor, a 100-point rubric (correctness 30, encoding 25, host
+  compatibility 20, safety 15, completeness 10), and three tools: `prepare.py` builds the
+  run bundle, `make_scoring_packet.py` renumbers the finished answers for blind scoring,
+  `unseal.py` joins the reviewer sheets and writes the report. Status `PENDING`: no target
+  model is callable here, so no result is claimed.
 
 ### Measured
 
@@ -67,9 +70,10 @@ parameter and write semantic is identical to v1.0.4.
   save tokens on English-vs-Chinese prose at equal information density, and claiming
   otherwise would be the kind of unverified number this project exists to remove.
 - The 100-point quality A/B is **specified but not executed**:
-  `tests/benchmarks/quality-ab/` holds the 10-task plan, the isolated-session procedure,
-  the anonymised scoring sheet and a builder script, with `STATUS.md` reading `PENDING`.
-  No answer was generated and no score assigned, so the quality gate stays `CONDITIONAL`.
+  `tests/benchmarks/quality-ab/` holds the 11-task plan, the isolated-session procedure,
+  the blind scoring packet builder and the unsealing tool, with `STATUS.md` reading
+  `PENDING`. No answer was generated and no score assigned, so the quality gate stays
+  `CONDITIONAL`. The toolchain being ready is not a quality result.
 
 ## [1.0.4] - 2026-11-14
 
