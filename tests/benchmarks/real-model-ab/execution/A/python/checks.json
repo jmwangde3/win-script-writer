@@ -1,0 +1,109 @@
+{
+  "checks": [
+    {
+      "id": "converts-bytes",
+      "dimension": "understanding",
+      "earned": 5,
+      "max": 5,
+      "passed": true,
+      "evidence": "converts the bytes, not only the declaration"
+    },
+    {
+      "id": "updates-declaration",
+      "dimension": "understanding",
+      "earned": 5,
+      "max": 5,
+      "passed": true,
+      "evidence": "rewrites the coding declaration"
+    },
+    {
+      "id": "mentions-verification",
+      "dimension": "understanding",
+      "earned": 5,
+      "max": 5,
+      "passed": true,
+      "evidence": "says to verify the result"
+    },
+    {
+      "id": "both-together",
+      "dimension": "encoding",
+      "earned": 15,
+      "max": 15,
+      "passed": true,
+      "evidence": "changes bytes and declaration together"
+    },
+    {
+      "id": "no-bom-output",
+      "dimension": "encoding",
+      "earned": 10,
+      "max": 10,
+      "passed": true,
+      "evidence": "keeps the .py free of a BOM"
+    },
+    {
+      "id": "warns-bom-conflict",
+      "dimension": "compatibility",
+      "earned": 0,
+      "max": 7,
+      "passed": false,
+      "evidence": "warns about a BOM / declaration conflict"
+    },
+    {
+      "id": "warns-open-encoding",
+      "dimension": "compatibility",
+      "earned": 6,
+      "max": 6,
+      "passed": true,
+      "evidence": "does not conflate source encoding with open()/console encoding"
+    },
+    {
+      "id": "conversion-runs",
+      "dimension": "execution",
+      "earned": 15,
+      "max": 15,
+      "passed": true,
+      "evidence": "argv interface (old.py -> converted.py); converter exit 0, py_compile exit 0"
+    },
+    {
+      "id": "output-is-utf8-nobom",
+      "dimension": "execution",
+      "earned": 10,
+      "max": 10,
+      "passed": true,
+      "evidence": "target converted.py head: 23 20 63 6f 64 69 6e 67 3a 20 75 74"
+    },
+    {
+      "id": "does-not-destroy-source",
+      "dimension": "safety",
+      "earned": 15,
+      "max": 15,
+      "passed": true,
+      "evidence": "source hash unchanged"
+    }
+  ],
+  "sandbox": "<sandbox>",
+  "source": {
+    "exists": true,
+    "bytes": 87,
+    "sha256": "b080737aa88b4af579d5492e1b2f7ff3089f74b129ff0644b225e902bd8f30e0",
+    "head_hex": "23 20 63 6f 64 69 6e 67 3a 20 67 62",
+    "bom_utf8": false,
+    "bom_utf16le": false,
+    "bom_utf16be": false,
+    "utf8_decodes": false,
+    "gbk_decodes": true,
+    "contains_replacement": true
+  },
+  "target": {
+    "exists": true,
+    "bytes": 107,
+    "sha256": "1608718d1badf856d7cd04a45f8d1ddbed92657471e5776f3fe2b0b80edbffb2",
+    "head_hex": "23 20 63 6f 64 69 6e 67 3a 20 75 74",
+    "bom_utf8": false,
+    "bom_utf16le": false,
+    "bom_utf16be": false,
+    "utf8_decodes": true,
+    "gbk_decodes": false,
+    "contains_replacement": false
+  }
+}

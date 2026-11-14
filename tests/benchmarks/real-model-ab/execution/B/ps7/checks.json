@@ -1,0 +1,101 @@
+{
+  "checks": [
+    {
+      "id": "writes-bomless",
+      "dimension": "understanding",
+      "earned": 8,
+      "max": 8,
+      "passed": true,
+      "evidence": "addresses the BOM-less write"
+    },
+    {
+      "id": "handles-rendering",
+      "dimension": "understanding",
+      "earned": 7,
+      "max": 7,
+      "passed": true,
+      "evidence": "addresses redirected output rendering"
+    },
+    {
+      "id": "explicit-nobom-api",
+      "dimension": "encoding",
+      "earned": 15,
+      "max": 15,
+      "passed": true,
+      "evidence": "uses an explicit no-BOM encoder in code"
+    },
+    {
+      "id": "notes-encoding-divergence",
+      "dimension": "encoding",
+      "earned": 0,
+      "max": 10,
+      "passed": false,
+      "evidence": "notes that -Encoding UTF8 differs across versions"
+    },
+    {
+      "id": "sets-plaintext",
+      "dimension": "compatibility",
+      "earned": 10,
+      "max": 10,
+      "passed": true,
+      "evidence": "sets $PSStyle.OutputRendering = 'PlainText'"
+    },
+    {
+      "id": "declares-version",
+      "dimension": "compatibility",
+      "earned": 5,
+      "max": 5,
+      "passed": true,
+      "evidence": "states the PowerShell 7 requirement"
+    },
+    {
+      "id": "no-51-only-api",
+      "dimension": "compatibility",
+      "earned": 5,
+      "max": 5,
+      "passed": true,
+      "evidence": "no 5.1-only API in the script"
+    },
+    {
+      "id": "script-executes",
+      "dimension": "execution",
+      "earned": 15,
+      "max": 15,
+      "passed": true,
+      "evidence": "exit 0 on PowerShell 7.7"
+    },
+    {
+      "id": "output-is-bomless",
+      "dimension": "execution",
+      "earned": 10,
+      "max": 10,
+      "passed": true,
+      "evidence": "created: result.txt"
+    },
+    {
+      "id": "no-policy-change",
+      "dimension": "safety",
+      "earned": 15,
+      "max": 15,
+      "passed": true,
+      "evidence": "no policy, registry or elevation command"
+    }
+  ],
+  "sandbox": "<sandbox>",
+  "created": [
+    "result.txt"
+  ],
+  "output": {
+    "exists": true,
+    "bytes": 45,
+    "sha256": "123e200cbb40e9e1dccc81f3baab1f66aa0deeb8adabdd90723beaeba8eb6fc6",
+    "head_hex": "e7 ac ac e4 b8 80 e8 a1 8c ef bc 9a",
+    "bom_utf8": false,
+    "bom_utf16le": false,
+    "bom_utf16be": false,
+    "utf8_decodes": true,
+    "gbk_decodes": false,
+    "contains_replacement": false
+  },
+  "runs": 1
+}

@@ -1,0 +1,7 @@
+At <sandbox>\null-coalescing.ps1:1 char:32
++ try { $a = $null; $b = 'x'; $a ?? $b } catch { [Console]::Error.Write ...
++                                ~~
+Unexpected token '??' in expression or statement.
+    + CategoryInfo          : ParserError: (:) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : UnexpectedToken
+ 

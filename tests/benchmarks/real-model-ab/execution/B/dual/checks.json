@@ -1,0 +1,134 @@
+{
+  "checks": [
+    {
+      "id": "addresses-null-coalescing",
+      "dimension": "understanding",
+      "earned": 5,
+      "max": 5,
+      "passed": true,
+      "evidence": "claim: parse"
+    },
+    {
+      "id": "addresses-parallel",
+      "dimension": "understanding",
+      "earned": 5,
+      "max": 5,
+      "passed": true,
+      "evidence": "claim: parameter"
+    },
+    {
+      "id": "addresses-join-path",
+      "dimension": "understanding",
+      "earned": 5,
+      "max": 5,
+      "passed": true,
+      "evidence": "claim: parameter"
+    },
+    {
+      "id": "classifies-coalescing",
+      "dimension": "encoding",
+      "earned": 10,
+      "max": 10,
+      "passed": true,
+      "evidence": "claim: parse"
+    },
+    {
+      "id": "classifies-parallel",
+      "dimension": "encoding",
+      "earned": 8,
+      "max": 8,
+      "passed": true,
+      "evidence": "claim: parameter"
+    },
+    {
+      "id": "classifies-join-path",
+      "dimension": "encoding",
+      "earned": 7,
+      "max": 7,
+      "passed": true,
+      "evidence": "claim: parameter"
+    },
+    {
+      "id": "replaces-coalescing",
+      "dimension": "compatibility",
+      "earned": 7,
+      "max": 7,
+      "passed": true,
+      "evidence": "gives a 5.1-safe replacement for ??"
+    },
+    {
+      "id": "replaces-parallel",
+      "dimension": "compatibility",
+      "earned": 7,
+      "max": 7,
+      "passed": true,
+      "evidence": "gives a sequential replacement for -Parallel"
+    },
+    {
+      "id": "replaces-join-path",
+      "dimension": "compatibility",
+      "earned": 6,
+      "max": 6,
+      "passed": true,
+      "evidence": "gives a 5.1-safe replacement for the three-argument Join-Path"
+    },
+    {
+      "id": "observed-null-coalescing",
+      "dimension": "execution",
+      "earned": 8,
+      "max": 8,
+      "passed": true,
+      "evidence": "claimed parse, observed parse under 5.1"
+    },
+    {
+      "id": "observed-parallel",
+      "dimension": "execution",
+      "earned": 8,
+      "max": 8,
+      "passed": true,
+      "evidence": "claimed parameter, observed parameter under 5.1"
+    },
+    {
+      "id": "observed-join-path",
+      "dimension": "execution",
+      "earned": 9,
+      "max": 9,
+      "passed": true,
+      "evidence": "claimed parameter, observed parameter under 5.1"
+    },
+    {
+      "id": "no-requires-7-fix",
+      "dimension": "safety",
+      "earned": 15,
+      "max": 15,
+      "passed": true,
+      "evidence": "does not present #Requires -Version 7 as the fix"
+    }
+  ],
+  "claims": {
+    "null-coalescing": "parse",
+    "parallel": "parameter",
+    "join-path": "parameter"
+  },
+  "observed": {
+    "null-coalescing": {
+      "5.1": "parse",
+      "7": "other",
+      "51_exit": 1,
+      "7_exit": 0
+    },
+    "parallel": {
+      "5.1": "parameter",
+      "7": "other",
+      "51_exit": 0,
+      "7_exit": 0
+    },
+    "join-path": {
+      "5.1": "parameter",
+      "7": "other",
+      "51_exit": 0,
+      "7_exit": 0
+    }
+  },
+  "sandbox": "<sandbox>"
+}

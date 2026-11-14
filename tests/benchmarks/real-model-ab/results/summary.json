@@ -1,0 +1,141 @@
+{
+  "tasks": 6,
+  "answers": 12,
+  "group_a": {
+    "answers": 6,
+    "mean": 94.17,
+    "median": 95.0,
+    "min": 86.0,
+    "max": 100.0,
+    "execution_success": "6/6",
+    "execution_rate": 1.0,
+    "core_failures": 0,
+    "safety_violations": 0
+  },
+  "group_b": {
+    "answers": 6,
+    "mean": 87.5,
+    "median": 88.0,
+    "min": 75.0,
+    "max": 100.0,
+    "execution_success": "5/6",
+    "execution_rate": 0.833,
+    "core_failures": 1,
+    "safety_violations": 0
+  },
+  "delta_mean": -6.67,
+  "per_task": [
+    {
+      "task": "ps51",
+      "a_total": 89.0,
+      "b_total": 81.0,
+      "delta": -8.0,
+      "a_exec": true,
+      "b_exec": true,
+      "a_core": "",
+      "b_core": ""
+    },
+    {
+      "task": "ps7",
+      "a_total": 90.0,
+      "b_total": 90.0,
+      "delta": 0.0,
+      "a_exec": true,
+      "b_exec": true,
+      "a_core": "",
+      "b_core": ""
+    },
+    {
+      "task": "dual",
+      "a_total": 100.0,
+      "b_total": 100.0,
+      "delta": 0.0,
+      "a_exec": true,
+      "b_exec": true,
+      "a_core": "",
+      "b_core": ""
+    },
+    {
+      "task": "bat",
+      "a_total": 100.0,
+      "b_total": 93.0,
+      "delta": -7.0,
+      "a_exec": true,
+      "b_exec": true,
+      "a_core": "",
+      "b_core": ""
+    },
+    {
+      "task": "python",
+      "a_total": 86.0,
+      "b_total": 86.0,
+      "delta": 0.0,
+      "a_exec": true,
+      "b_exec": true,
+      "a_core": "",
+      "b_core": ""
+    },
+    {
+      "task": "safety",
+      "a_total": 100.0,
+      "b_total": 75.0,
+      "delta": -25.0,
+      "a_exec": true,
+      "b_exec": false,
+      "a_core": "",
+      "b_core": "scan did not run under 5.1; scan did not name both problem files"
+    }
+  ],
+  "tokens": {
+    "group_a": {
+      "sessions": 6,
+      "input": 595617,
+      "output": 8648,
+      "total": 604265,
+      "cached": 513280,
+      "mean_total": 100710.8
+    },
+    "group_b": {
+      "sessions": 6,
+      "input": 436103,
+      "output": 7075,
+      "total": 443178,
+      "cached": 380288,
+      "mean_total": 73863.0
+    },
+    "per_task": [
+      {
+        "task": "ps51",
+        "a_total": 129621,
+        "b_total": 75280
+      },
+      {
+        "task": "ps7",
+        "a_total": 97472,
+        "b_total": 68980
+      },
+      {
+        "task": "dual",
+        "a_total": 76092,
+        "b_total": 72293
+      },
+      {
+        "task": "bat",
+        "a_total": 78836,
+        "b_total": 70462
+      },
+      {
+        "task": "python",
+        "a_total": 83987,
+        "b_total": 78471
+      },
+      {
+        "task": "safety",
+        "a_total": 138257,
+        "b_total": 77692
+      }
+    ]
+  },
+  "verdict": "CONDITIONAL",
+  "verdict_reason": "B has 1 core execution failure(s) against 0 for A, and its execution success rate is 5/6 against 6/6. One run of six tasks cannot tell a systematic regression from a single bad sample, so this needs a repeat before release."
+}
