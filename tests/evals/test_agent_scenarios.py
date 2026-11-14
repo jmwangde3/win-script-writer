@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Routing contract for the 14 evaluation scenarios in agent-scenarios.md.
+"""Routing contract for the 16 evaluation scenarios in agent-scenarios.md.
 
 What this can and cannot check
 ------------------------------
@@ -39,6 +39,9 @@ POSITIVE = [
     ("P8", "every Chinese character in my .ps1 is mojibake, one fix", "troubleshooting.md"),
     ("P9", "Python script scanning a directory and writing json on Windows", "python.md"),
     ("P10", "git status shows Chinese file names as octal escapes in Git Bash", "git-bash.md"),
+    ("P11", "a .py starts with # coding: gbk and I want to convert it", "python-source-encoding.md"),
+    ("P12", "why did the detector say WARN instead of FAIL on this declaration",
+     "appendix-codec-evidence.md"),
 ]
 
 #: Tasks that must not trigger. They share vocabulary with the skill on purpose.
@@ -92,9 +95,13 @@ class TestScenarioRouting(unittest.TestCase):
                     self.assertNotIn(path.stem, task)
 
     def test_scenario_count_is_within_the_planned_range(self):
+        # One positive scenario per reference is the floor: a page no scenario
+        # exercises is a page nothing keeps honest. The ceiling leaves room for
+        # negatives only, so the set cannot grow into a checklist of positives.
         total = len(POSITIVE) + len(NEGATIVE)
-        self.assertGreaterEqual(total, 10, "the plan called for 10 to 15 scenarios")
-        self.assertLessEqual(total, 15)
+        floor = len(list(REFERENCES.glob("*.md"))) + len(NEGATIVE)
+        self.assertGreaterEqual(total, 10, "the plan called for at least 10 scenarios")
+        self.assertLessEqual(total, floor + 2)
 
     def test_negative_scenarios_are_a_real_minority(self):
         # A checklist that is mostly negatives measures nothing about triggering.
@@ -114,7 +121,7 @@ class TestFirstHopCost(unittest.TestCase):
                 )
 
     def test_reading_everything_is_measurably_worse(self):
-        # The number that motivates routing at all: all ten pages plus the entry
+        # The number that motivates routing at all: every page plus the entry
         # file. If this ever approaches the single-page cost, the split stopped
         # paying for itself.
         entry = SKILL.stat().st_size
