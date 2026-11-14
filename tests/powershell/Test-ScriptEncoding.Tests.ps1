@@ -551,6 +551,308 @@ Describe 'Test-ScriptEncoding.ps1' {
         }
     }
 
+    Context 'codec name table' {
+
+        BeforeAll {
+            # A declaration on its own is enough: the interpreter decides whether
+            # the name resolves before it reads any body, and so does the tool.
+            function New-CodecNameProbe {
+                param([string]$Codec)
+                $safe = ($Codec -replace '[^A-Za-z0-9]', '_')
+                $path = Join-Path $TestDrive ('probe-' + $safe + '.py')
+                $body = '# -*- coding: ' + $Codec + ' -*-' + "`n" + 's = "A"' + "`n"
+                [System.IO.File]::WriteAllText($path, $body, (New-Object System.Text.UTF8Encoding($false)))
+                return $path
+            }
+        }
+
+        It 'fails <Codec>, which no CPython 3 release resolves' -ForEach @(
+            @{ Codec = 'mac-bogus' }
+            @{ Codec = 'shift_jis_typo' }
+            @{ Codec = 'big5-nope' }
+            @{ Codec = 'ibm99999' }
+        ) {
+            # These four are the reason the family patterns are gone. '^mac[a-z]*$'
+            # and '^ibm[0-9]{3,5}$' matched all of them, so v1.0.3 called a file
+            # the interpreter refuses merely unverified.
+            $r = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec $Codec), '-Profile', 'python')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'SOURCE_CODING_KIND' | Should -Be 'unknown-name'
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_UNKNOWN'
+        }
+
+        It 'fails <Codec>, which looks like an alias and is not one' -ForEach @(
+            @{ Codec = 'mac' }
+            @{ Codec = 'macos' }
+            @{ Codec = 'macx' }
+            @{ Codec = 'iso_646_us' }
+            @{ Codec = 'jisx0208' }
+            @{ Codec = 'x_mac_cyrillic' }
+            @{ Codec = 'pt_154' }
+            @{ Codec = 'cshproman8' }
+            @{ Codec = 'utf-8.unix' }
+        ) {
+            # utf-8.unix is the one that used to be wrong in the other direction:
+            # the normaliser cut the name at the first '.', so it read as a plain
+            # utf-8 declaration and passed. The interpreter looks up the whole
+            # spelling and finds nothing.
+            $r = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec $Codec), '-Profile', 'python')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'SOURCE_CODING_KIND' | Should -Be 'unknown-name'
+        }
+
+        It 'accepts <Codec>, which CPython resolves and cannot verify' -ForEach @(
+            @{ Codec = 'cp1252' }
+            @{ Codec = 'shift_jis' }
+            @{ Codec = 'big5' }
+            @{ Codec = 'mac-roman' }
+            @{ Codec = 'latin2' }
+            @{ Codec = 'euc-jp' }
+            @{ Codec = 'ansi' }
+        ) {
+            $r = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec $Codec), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'WARN'
+            Get-Field $r.StdOut 'SOURCE_CODING_SUPPORT' | Should -Be 'python-only'
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_UNVERIFIED'
+        }
+
+        It 'carries the aliases a newer patch of the same minor added' -ForEach @(
+            @{ Codec = 'cp858' }
+            @{ Codec = 'cp00858' }
+            @{ Codec = 'csibm00858' }
+            @{ Codec = 'ibm00858' }
+            @{ Codec = 'pc_multilingual_850_euro' }
+        ) {
+            # gh-149801 added these four spellings for cp858 and they ship from
+            # 3.13.14 on, so 3.13.9 has none of them. A table built by copying
+            # one host's stdlib rejects a file written on the newer patch --
+            # that is how CI found this, on a runner whose 3.13.17 reported 479
+            # aliases against this host's 471. Accepting a spelling the local
+            # interpreter cannot resolve costs a WARN and an unverified
+            # payload, which is the honest answer.
+            $r = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec $Codec), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            Get-Field $r.StdOut 'SOURCE_CODING_SUPPORT' | Should -Be 'python-only'
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_UNVERIFIED'
+            $r.StdOut | Should -Match 'SOURCE_CODING_PAYLOAD=unverified'
+        }
+
+        It 'does not claim the running interpreter resolves <Codec>' -ForEach @(
+            @{ Codec = 'cp00858' }
+            @{ Codec = 'csibm00858' }
+            @{ Codec = 'shift_jis' }
+            @{ Codec = 'cp1252' }
+        ) {
+            # The table is a union over the releases in the matrix, so a hit
+            # means "some verified CPython resolves this", not "this host does":
+            # 3.14.6 gave cp858 the spelling cp00858 (gh-149801) and 3.11/3.13.9
+            # reject it with "unknown encoding". The old sentence said "CPython
+            # recognizes this codec" -- true of the set, false of the
+            # interpreter in front of the user. The verdict stays WARN and the
+            # payload stays unverified; only the claim gets narrower.
+            $r = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec $Codec), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'WARN'
+            Get-Field $r.StdOut 'SOURCE_CODING_PAYLOAD' | Should -Be 'unverified'
+            $r.StdOut | Should -Match 'compatibility set'
+            $r.StdOut | Should -Match 'may not resolve it'
+            $r.StdOut | Should -Match 'may still fail during decoding'
+            $r.StdOut | Should -Not -Match 'CPython recognizes this codec'
+        }
+
+        It 'calls <Codec> a transform and not an unknown name' -ForEach @(
+            @{ Codec = 'base64' }
+            @{ Codec = 'base64_codec' }
+            @{ Codec = 'rot13' }
+            @{ Codec = 'rot_13' }
+            @{ Codec = 'hex' }
+            @{ Codec = 'zlib' }
+            @{ Codec = 'uu' }
+            @{ Codec = 'bz2' }
+            @{ Codec = 'quopri' }
+        ) {
+            # codecs.lookup() resolves every one of these, so "unknown encoding"
+            # sends the reader hunting for a typo that does not exist. What the
+            # interpreter actually says is "'base64' is not a text encoding; use
+            # codecs.decode() to handle arbitrary codecs". The verdict stays
+            # FAIL: this is a diagnosis fix, not a relaxation.
+            $r = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec $Codec), '-Profile', 'python')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'FAIL'
+            Get-Field $r.StdOut 'SOURCE_CODING_KIND' | Should -Be 'unusable-codec'
+            Get-Field $r.StdOut 'SOURCE_CODING_SUPPORT' | Should -Be 'unusable'
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_UNUSABLE'
+            $r.StdOut | Should -Not -Match 'PY_SOURCE_CODING_UNKNOWN'
+            $r.StdOut | Should -Match 'is not a text encoding'
+        }
+
+        It 'keeps a genuinely unknown name on the other code' {
+            # The two reasons must not collapse into one: unknown-name says the
+            # interpreter never found the codec, unusable-codec says it found it
+            # and refused it. Same FAIL, different advice.
+            $unknown = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec 'ghost-codec'), '-Profile', 'python')
+            $unknown.ExitCode | Should -Be 2
+            Get-Field $unknown.StdOut 'SOURCE_CODING_KIND' | Should -Be 'unknown-name'
+            $unknown.StdOut | Should -Match 'PY_SOURCE_CODING_UNKNOWN'
+            $unknown.StdOut | Should -Not -Match 'PY_SOURCE_CODING_UNUSABLE'
+
+            $transform = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec 'base64'), '-Profile', 'python')
+            Get-Field $transform.StdOut 'SOURCE_CODING_KIND' | Should -Be 'unusable-codec'
+        }
+
+        It 'keeps a text codec that merely looks like a transform on the warn path' {
+            # idna is in deep-freeze aliases and resolves as a text codec, so it
+            # is not a transform: an ASCII source really does compile under it.
+            # Sweeping every codecs.lookup() result into unusable-codec would
+            # mislabel it as "not a text encoding".
+            $r = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec 'idna'), '-Profile', 'python')
+            Get-Field $r.StdOut 'SOURCE_CODING_SUPPORT' | Should -Be 'python-only'
+            Get-Field $r.StdOut 'SOURCE_CODING_KIND' | Should -BeNullOrEmpty
+            $r.StdOut | Should -Not -Match 'PY_SOURCE_CODING_UNUSABLE'
+        }
+
+        It 'resolves a name longer than the twelve characters the tokenizer inspects' {
+            # ansi-x3.4-1968 is 14 characters, and its first twelve are not a
+            # codec. It resolves anyway, because get_normal_name only truncates
+            # to decide the utf-8 and latin-1 families; every other spelling goes
+            # to lookup as written. A table built from truncated keys would call
+            # this unknown and fail a file the interpreter runs.
+            $r = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec 'ansi-x3.4-1968'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 0
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'OK'
+            Get-Field $r.StdOut 'SOURCE_CODING_NAME' | Should -Be 'ascii'
+            Get-Field $r.StdOut 'SOURCE_CODING_SUPPORT' | Should -Be 'supported'
+        }
+
+        It 'separates latin2 from latin-2, which differ by more than punctuation' {
+            # The separator is the whole difference: lookup normalises latin-2 to
+            # latin_2, which has no module, while latin2 is an alias for
+            # iso-8859-2. One runs, the other does not.
+            $ok = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec 'latin2'), '-Profile', 'python')
+            $ok.ExitCode | Should -Be 1
+            Get-Field $ok.StdOut 'SOURCE_CODING_SUPPORT' | Should -Be 'python-only'
+
+            $bad = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec 'latin-2'), '-Profile', 'python')
+            $bad.ExitCode | Should -Be 2
+            Get-Field $bad.StdOut 'SOURCE_CODING_KIND' | Should -Be 'unknown-name'
+        }
+
+        It 'keeps the four Chinese families apart' -ForEach @(
+            @{ Codec = 'gbk'; Name = 'gbk' }
+            @{ Codec = 'gb2312'; Name = 'gb2312' }
+            @{ Codec = 'hz'; Name = 'hz' }
+            @{ Codec = 'gb18030'; Name = 'gb18030' }
+            @{ Codec = 'cp936'; Name = 'gbk' }
+            @{ Codec = 'euc-cn'; Name = 'gb2312' }
+        ) {
+            $r = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec $Codec), '-Profile', 'python')
+            Get-Field $r.StdOut 'SOURCE_CODING_NAME' | Should -Be $Name
+            Get-Field $r.StdOut 'SOURCE_CODING_SUPPORT' | Should -Be 'supported'
+        }
+
+        It 'still refuses utf-16 and utf-32 as source encodings' -ForEach @(
+            @{ Codec = 'utf-16' }
+            @{ Codec = 'utf-16-le' }
+            @{ Codec = 'utf-32' }
+            @{ Codec = 'unicodebigunmarked' }
+        ) {
+            $r = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec $Codec), '-Profile', 'python')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'SOURCE_CODING_KIND' | Should -Be 'unusable-codec'
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_UNUSABLE'
+        }
+    }
+
+    Context 'python-only payload state' {
+
+        It 'marks <File> unverified instead of passing or failing it' -ForEach @(
+            @{ File = 'py-coding-shift-jis-bytes.py'; Codec = 'shift_jis' }
+            @{ File = 'py-coding-shift-jis-truncated.py'; Codec = 'shift_jis' }
+            @{ File = 'py-coding-big5-bytes.py'; Codec = 'big5' }
+            @{ File = 'py-coding-big5-truncated.py'; Codec = 'big5' }
+            @{ File = 'py-coding-cp1252-bytes.py'; Codec = 'cp1252' }
+            @{ File = 'py-coding-cp1252-undefined.py'; Codec = 'cp1252' }
+        ) {
+            # The same answer for a complete character and a truncated one, on
+            # purpose. The detector has no table for these codecs, so it cannot
+            # tell them apart -- and inventing a pass or a failure from a name it
+            # resolved would be worse than saying so.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir $File), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'WARN'
+            Get-Field $r.StdOut 'SOURCE_CODING_SUPPORT' | Should -Be 'python-only'
+            Get-Field $r.StdOut 'SOURCE_CODING_PAYLOAD' | Should -Be 'unverified'
+            $r.StdOut | Should -Match 'may still fail during decoding'
+            # The old wording promised something the tool cannot know.
+            $r.StdOut | Should -Not -Match 'the file runs'
+        }
+
+        It 'reports the same payload state in json as in text' {
+            $path = Join-Path $FixturesDir 'py-coding-big5-truncated.py'
+            $text = Invoke-Tool @('-Path', $path, '-Profile', 'python')
+            $json = Invoke-Tool @('-Path', $path, '-Profile', 'python', '-Output', 'json')
+
+            Get-Field $text.StdOut 'SOURCE_CODING_PAYLOAD' | Should -Be 'unverified'
+            $document = $json.StdOut | ConvertFrom-Json
+            $document.Files[0].SourceCodingPayload | Should -Be 'unverified'
+            $document.Files[0].SourceCodingSupport | Should -Be 'python-only'
+        }
+
+        It 'leaves the payload key out when the question does not apply' {
+            # Absent, not empty: a consumer that tests truthiness would read an
+            # empty string two ways, and one of them is "verified".
+            $json = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-gbk.py'), '-Profile', 'python', '-Output', 'json')
+            $document = $json.StdOut | ConvertFrom-Json
+            ($document.Files[0].PSObject.Properties.Name -contains 'SourceCodingPayload') | Should -BeFalse
+
+            $text = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-gbk.py'), '-Profile', 'python')
+            Get-Field $text.StdOut 'SOURCE_CODING_PAYLOAD' | Should -BeNullOrEmpty
+        }
+    }
+
+    Context 'HZ state machine boundaries' {
+
+        It 'fails a line continuation inside GB mode, which the interpreter rejects' -ForEach @(
+            @{ File = 'py-coding-hz-gb-newline.py'; Label = 'LF' }
+            @{ File = 'py-coding-hz-gb-crlf.py'; Label = 'CRLF' }
+        ) {
+            # RFC 1843 allows ~LF in both modes. CPython does not: inside GB mode
+            # the tilde starts a cell whose second byte is 0x0A, and 0x0A is not
+            # in 0x21-0x7E. The interpreter wins, which is why both line endings
+            # are pinned instead of one.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir $File), '-Profile', 'python')
+            $r.ExitCode | Should -Be 2
+            Get-Field $r.StdOut 'SOURCE_CODING_KIND' | Should -Be 'bytes-mismatch'
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_INVALID_BYTES'
+        }
+
+        It 'still accepts a line continuation in ASCII mode' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-hz-continuation.py'), '-Profile', 'python')
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'WARN'
+            Get-Field $r.StdOut 'SOURCE_CODING_NAME' | Should -Be 'hz'
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_HZ'
+        }
+
+        It 'keeps warning about a run that ends inside GB mode' {
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-hz-open.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'WARN'
+            $r.StdOut | Should -Match 'ends inside GB mode'
+        }
+
+        It 'keeps accepting 0x7E as the trail byte of a GB2312 cell' {
+            # 56 7E shifts to D6 FE, a real cell. A machine that looks for the
+            # tilde before it looks at the mode refuses this file.
+            $r = Invoke-Tool @('-Path', (Join-Path $FixturesDir 'py-coding-hz-tilde-in-gb.py'), '-Profile', 'python')
+            $r.ExitCode | Should -Be 1
+            Get-Field $r.StdOut 'VERDICT' | Should -Be 'WARN'
+            Get-Field $r.StdOut 'SOURCE_CODING_NAME' | Should -Be 'hz'
+            $r.StdOut | Should -Match 'PY_SOURCE_CODING_HZ'
+            $r.StdOut | Should -Not -Match 'PY_SOURCE_CODING_INVALID_BYTES'
+        }
+    }
+
     Context 'UTF-32 with a BOM' {
 
         It 'names <Encoding> and refuses it' -ForEach @(

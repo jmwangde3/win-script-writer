@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Execute script text in Windows PowerShell or PowerShell 7 without code page loss.
 
@@ -64,7 +64,7 @@ import subprocess
 import sys
 import tempfile
 
-__version__ = "1.0.3"
+__version__ = "1.0.4"
 
 EXIT_LOCAL_ERROR = 3
 EXIT_TIMEOUT = 124

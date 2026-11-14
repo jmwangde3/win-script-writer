@@ -102,6 +102,9 @@ function Get-WindowsCodePage {
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 $utf8Strict = New-Object System.Text.UTF8Encoding($true)
 $gbk = [System.Text.Encoding]::GetEncoding(936)
+# Raw double byte payloads cannot go through an Encoding: the point of these
+# fixtures is the exact bytes, including the truncated ones.
+$ascii = New-Object System.Text.ASCIIEncoding
 $utf16LeBom = New-Object System.Text.UnicodeEncoding($false, $true)
 $utf16BeBom = New-Object System.Text.UnicodeEncoding($true, $true)
 $utf16LeNoBom = New-Object System.Text.UnicodeEncoding($false, $false)
@@ -310,6 +313,20 @@ Write-Fixture 'py-coding-hz-continuation.py' (Get-EncodedBytes $utf8NoBom (
         'MARKER = "ab~' + "`n" + 'cd"' + "`n" +
         'print("PYCODING_HZ_CONTINUATION_OK " + MARKER)' + "`n")) 'HZ line continuation in ASCII mode'
 
+# The same escape inside GB mode is a different question, and CPython answers
+# it the other way. Both continuations are pinned here, LF and CRLF, because
+# the answer came from the interpreter and not from RFC 1843 -- which allows
+# the continuation in both modes and would have had us accept these two.
+Write-Fixture 'py-coding-hz-gb-newline.py' (Get-EncodedBytes $utf8NoBom (
+        '# -*- coding: hz -*-' + "`n" +
+        'MARKER = "~{VP~' + "`n" + 'XX~}"' + "`n" +
+        'print("PYCODING_HZ_GB_NEWLINE_SHOULD_NOT_RUN")' + "`n")) 'HZ ~LF inside GB mode'
+
+Write-Fixture 'py-coding-hz-gb-crlf.py' (Get-EncodedBytes $utf8NoBom (
+        '# -*- coding: hz -*-' + "`n" +
+        'MARKER = "~{VP~' + "`r`n" + 'XX~}"' + "`n" +
+        'print("PYCODING_HZ_GB_CRLF_SHOULD_NOT_RUN")' + "`n")) 'HZ ~CRLF inside GB mode'
+
 Write-Fixture 'py-coding-hz-open.py' (Get-EncodedBytes $utf8NoBom (
         '# -*- coding: hz -*-' + "`n" +
         'print("PYCODING_HZ_OPEN_OK")' + "`n" +
@@ -354,6 +371,29 @@ Write-Fixture 'py-coding-latin1-bom.py' (Get-EncodedBytes $utf8Strict ('# -*- co
 Write-Fixture 'py-coding-cp1252.py' (Get-EncodedBytes $utf8NoBom ('# -*- coding: cp1252 -*-' + "`n" + 'print("PYCODING_CP1252_OK")' + "`n")) 'a codec Python knows and this tool does not verify'
 Write-Fixture 'py-coding-shift-jis.py' (Get-EncodedBytes $utf8NoBom ('# -*- coding: shift_jis -*-' + "`n" + 'print("PYCODING_SHIFTJIS_OK")' + "`n")) 'a codec Python knows and this tool does not verify'
 Write-Fixture 'py-coding-big5.py' (Get-EncodedBytes $utf8NoBom ('# -*- coding: big5 -*-' + "`n" + 'print("PYCODING_BIG5_OK")' + "`n")) 'a codec Python knows and this tool does not verify'
+
+# --- non-UTF-8 payloads behind a python-only declaration (v1.0.4) ---------
+# A resolved name says nothing about the bytes. Each pair below is one codec
+# with a payload that survives it and a payload that does not, so the suite can
+# assert that the detector answers the same way to both -- unverified -- rather
+# than inventing a pass or a failure it cannot justify.
+#
+# The bytes are built by hand: an Encoding would refuse to produce the
+# truncated halves, which are exactly the interesting case.
+$sjisHead = $ascii.GetBytes('# -*- coding: shift_jis -*-' + "`n" + 'print("')
+$sjisTail = $ascii.GetBytes('")' + "`n")
+Write-Fixture 'py-coding-shift-jis-bytes.py' ([byte[]]($sjisHead + @(0x93, 0xFA) + $sjisTail)) 'shift_jis 93 FA, a complete character'
+Write-Fixture 'py-coding-shift-jis-truncated.py' ([byte[]]($sjisHead + @(0x93) + $sjisTail)) 'shift_jis lead byte with no trail'
+
+$big5Head = $ascii.GetBytes('# -*- coding: big5 -*-' + "`n" + 'print("')
+$big5Tail = $ascii.GetBytes('")' + "`n")
+Write-Fixture 'py-coding-big5-bytes.py' ([byte[]]($big5Head + @(0xA4, 0xA4) + $big5Tail)) 'big5 A4 A4, a complete character'
+Write-Fixture 'py-coding-big5-truncated.py' ([byte[]]($big5Head + @(0xA4) + $big5Tail)) 'big5 lead byte with no trail'
+
+$cp1252Head = $ascii.GetBytes('# -*- coding: cp1252 -*-' + "`n" + 'print("')
+$cp1252Tail = $ascii.GetBytes('")' + "`n")
+Write-Fixture 'py-coding-cp1252-bytes.py' ([byte[]]($cp1252Head + @(0x80, 0xE9) + $cp1252Tail)) 'cp1252 80 E9, the euro sign and e-acute'
+Write-Fixture 'py-coding-cp1252-undefined.py' ([byte[]]($cp1252Head + @(0x81) + $cp1252Tail)) 'cp1252 81, an unassigned slot the strict decoder rejects'
 
 # Names that look like codecs and are not. Each one was checked with
 # codecs.lookup() on the interpreter the tests run on.

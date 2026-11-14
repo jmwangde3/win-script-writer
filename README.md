@@ -136,6 +136,14 @@ progressive disclosure 的前提：入口文件大了，就等于每次都全量
 - **只认证据，不猜。** 解不成 UTF-8 不能证明是 GBK——CP936 在 .NET 里没有
   未定义字节，`0xFF` 会映射到 `U+F8F5`。只有解码再编码字节完全一致才标
   `gbk`，且只给 medium 置信度。
+- **`WARN` 不代表文件能跑。** Python 的 codec 名表比检测器能验的多：`cp1252`、
+  `shift_jis`、`big5` 这类名字在验证过的 CPython 上成立，但检测器没有对应字节表，
+  正文里有没有非法字节它看不见。这种情况报 `WARN` +
+  `SOURCE_CODING_PAYLOAD=unverified`（JSON `SourceCodingPayload`），说明
+  「名字落在兼容集合里、但当前解释器可能不支持它、负载未验证」，而不是假装
+  `OK`。名字表本身是按族组织的精确表，不是前缀正则——`mac-bogus` 之类的仿写
+  一律 `FAIL`；反过来，`base64` / `rot13` 这类解析得了但不能作源码的转换器
+  是 `FAIL` + `PY_SOURCE_CODING_UNUSABLE`，与「名字不认识」分开报。
 - **默认不改系统状态。** 不注入 `-ExecutionPolicy Bypass`、不自动提权、
   不改 `ACP`、不覆盖已有文件、不把无法编码的字符换成 `?`。理由见
   `references/security.md`。
@@ -169,16 +177,37 @@ Install-Module PSScriptAnalyzer -Scope CurrentUser
 
 ## 已验证范围
 
-本仓库的所有实测数字来自：Windows 11 简体中文，ACP=936，OEMCP=936，
-Windows PowerShell 5.1.26100（Desktop）、PowerShell 7.7.0（Core），
-Pester 5.7.1，PSScriptAnalyzer 1.24.0，Python 3.13.9。
+先分清三件事，混起来就会把「跑过」说成「支持」。
+
+**正式验证矩阵（CI 六个作业，每次推送都跑）**：Windows PowerShell 5.1 与
+Python 3.11、5.1 与 3.13、PowerShell 7 与 3.11、PowerShell 7 与 3.13、
+UTF-8 模式预览（Python 3.13 + `PYTHONUTF8=1`）、docs contract。托管 runner 是
+en-US / ACP 1252，CP936 相关用例在那里跳过自己；CP936 的断言只在自托管 runner
+（`cp936.yml`，仓库尚未注册这种 runner，所以它还没跑过）或本机上成立，
+**跳过不算通过**。
+
+**额外实测（手工跑过，不进 CI）**：Windows 11 简体中文 ACP=936 / OEMCP=936，
+PowerShell 5.1.26100（Desktop）与 7.7.0（Core），Pester 5.7.1、
+PSScriptAnalyzer 1.24.0，Python 3.11.17 / 3.13.9 / 3.13.16 / 3.14.8 / 3.15.0rc3。
+
+**尚未纳入正式矩阵**：Python 3.14 与 3.15。它们的别名表比本项目采样过的更宽，
+检测器还没跟上：同一套别名回归在 3.14.8 上有 6 处分歧、3.15.0rc3 上有 58 处
+（清单见 `CHANGELOG.md` 的「已知未覆盖」）。UTF-8 模式作业模拟的是 3.15 的默认
+行为，**不是** 3.15 兼容测试。在这些版本上，检测器会把个别解释器能编译的文件
+判 `FAIL`——方向是「多说一句」，不是放行。
 
 其他环境没有实测过。判据可以复用，数字请自己跑
 `Get-WinScriptEnvironment.ps1` 确认。
 
-CP936 相关的断言只在真正 ACP=936 的机器上有意义，GitHub 托管 runner 是
-en-US（ACP 1252），那部分用例会在那里跳过自己。本机（ACP=936）的一次性
-验证记录与"跳过不等于覆盖"的说明在 `tests/cp936/README.md`。
+codec 别名的全量回归不写死名单：测试现场遍历 `encodings.aliases` 与
+`encodings/` 下的模块名，逐个 `compile()` 后再问检测器。3.13.9 上是 471 个
+拼写（327 个别名键 + 98 个规范名 + 121 个模块名 + 24 个仿写拼写，去重后）、
+380 个可作源码、91 个被拒、0 处分歧；3.13.16 上是 479 个（多出的是 gh-149801
+给 `cp858` / `cp1140` 的前导零别名，从 3.13.14 起才有），同样 0 处分歧。
+换解释器版本数字会变，判据不变。
+
+本机（ACP=936）的一次性验证记录与「跳过不等于覆盖」的说明在
+`tests/cp936/README.md`。
 
 ## 许可
 

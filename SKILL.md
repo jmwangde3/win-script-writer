@@ -5,19 +5,17 @@ description: 在中文 Windows（zh-CN / 代码页 936 / GBK）上写或改脚�
 
 # 中文 Windows 写脚本规范
 
-适用环境：Windows 10/11 简体中文（系统 ANSI 代码页 936）、Windows
-PowerShell 5.1、PowerShell 7.4+、未开启系统级 UTF-8；Git Bash / MSYS2
-侧为 UTF-8。目标是让脚本在这些边界上不再反复踩同一个坑。
+适用环境：Windows 10/11 简体中文（ANSI 代码页 936）、Windows PowerShell 5.1、
+PowerShell 7.4+、未开启系统级 UTF-8；Git Bash / MSYS2 侧为 UTF-8。
 
 ## 0. 三步走通
 
-1. **看清这台机器**：`scripts/Get-WinScriptEnvironment.ps1`。一次报出
-   ACP、OEMCP、控制台输入/输出代码页、`$OutputEncoding`、
-   `[Encoding]::Default`、CP936 是否可用、当前是 5.1 还是 7。
-   这些是**四个不同的设置**，混为一谈是绝大多数误判的来源。
-2. **读一份参考**：按下表只读与你当前任务相关的那一份，不要全量加载。
+1. **看清这台机器**：`scripts/Get-WinScriptEnvironment.ps1`。一次报出 ACP、
+   OEMCP、控制台代码页、`$OutputEncoding`、`[Encoding]::Default`、CP936 是否
+   可用、当前是 5.1 还是 7。这些是**四个不同的设置**，混为一谈必然误判。
+2. **读一份参考**：按下表只读与当前任务相关的那一份，不要全量加载。
 3. **交付前自检**：`scripts/Test-ScriptEncoding.ps1 -Path <文件>` 必须
-   `VERDICT=OK`，退出码 0。它不是风格检查，是字节级判定。
+   `VERDICT=OK`、退出码 0。它是字节级判定，不是风格检查。
 
 ## 1. 路由表
 
@@ -36,57 +34,54 @@ PowerShell 5.1、PowerShell 7.4+、未开启系统级 UTF-8；Git Bash / MSYS2
 
 ## 2. 四条硬规则
 
-违反其中任何一条都要返工，细节见对应参考文件。
+违反任一条都要返工，细节见对应参考页。
 
-1. **`.ps1` 里出现非 ASCII 字符 → 存 UTF-8 with BOM。** 5.1 对无 BOM
-   文件按系统 ANSI 代码页（936）解析，UTF-8 中文会变成乱码字符串；7 对
-   无 BOM 文件按 UTF-8 解析。带 BOM 是两边都对、别的工具也读得懂的推荐
-   存法（UTF-16 带 BOM 也能跑，但只有它一家认，别用）。纯 ASCII 的
-   脚本存无 BOM 即可。
-2. **不要用 `>`、`>>`、`Out-File`、`Set-Content` 写文件。** 5.1 下它们
-   产出 UTF-16LE + BOM 或 ANSI，Python、Node、git 读进来就是乱码。改
+1. **`.ps1` 出现非 ASCII → 存 UTF-8 with BOM。** 5.1 对无 BOM 文件按 ANSI
+   代码页（936）解析，UTF-8 中文变乱码；7 按 UTF-8 解析。带 BOM 两边都对、别的
+   工具也读得懂（UTF-16 带 BOM 也能跑，但只它一家认）。纯 ASCII 存无 BOM 即可。
+2. **不要用 `>`、`>>`、`Out-File`、`Set-Content` 写文件。** 5.1 下它们产出
+   UTF-16LE + BOM 或 ANSI，Python、Node、git 读进来就是乱码。改
    `[System.IO.File]::WriteAllText($p, $s, $utf8NoBom)`，写前读回校验。
-3. **中文与嵌套引号不要手拼命令行。** 用 argv 列表调用时 Windows 的命令行
-   本身是 Unicode，不丢字；丢字发生在字节层：GBK 的 `.bat` 里写的命令、
-   Shell 把参数重新拼成字符串、以及把 stdout 按错的代码页解码。要稳就走
-   文件：`-File`，或 `scripts/run_ps.py`。需要真实文件语义（`$PSScriptRoot`、
-   相对 dot-source）用它的 `--invoke-file`，见 `references/execution.md`。
+3. **中文与嵌套引号不要手拼命令行。** argv 列表调用时命令行本身是 Unicode，
+   不丢字；丢字发生在字节层：GBK 的 `.bat` 里写的命令、Shell 重新拼参数字符串、
+   把 stdout 按错的代码页解码。要稳就走文件：`-File` 或 `scripts/run_ps.py`；
+   需要 `$PSScriptRoot` 语义用它的 `--invoke-file`。
 4. **不要假设 profile 生效。** agent 宿主普遍以
    `-NoProfile -NonInteractive` 启动，`$PROFILE` 不会被加载。需要编码
    兜底就在脚本开头显式写，不要依赖用户配置。
 
 ## 3. 工具
 
-四个工具都只依赖 PowerShell 5.1 自带的 .NET 与 Python 标准库，不需要
-安装模块、不需要管理员权限。
+四个工具只依赖 5.1 自带的 .NET 与 Python 标准库，不装模块、不要管理员。
 
-- `scripts/Get-WinScriptEnvironment.ps1` —— 只读自检。`-Output Json`
-  出机器可读报告，`WARNING=` 行只在条件真的成立时出现。
+- `scripts/Get-WinScriptEnvironment.ps1` —— 只读自检。`-Output Json` 出机器
+  可读报告，`WARNING=` 行只在条件真的成立时出现。
 - `scripts/Test-ScriptEncoding.ps1` —— 字节级检测。报告 BOM、非 ASCII
   字节数、严格 UTF-8 是否成立、CP936 往返是否无损，再按目标消费方
   （ps51 / ps7 / cmd / python / bash / data）给 OK/WARN/FAIL。只认证据：
-  解不成 UTF-8 不等于就是 GBK，只有往返完全一致才标 gbk。
-- `scripts/New-EncodedScript.ps1` —— 按指定编码落盘。中文内容通过文件
-  传入而不走命令行；先写临时文件、读回复验、再原子替换；默认拒绝覆盖，
-  要覆盖必须显式 `-Force`。
+  解不成 UTF-8 不等于就是 GBK，只有往返完全一致才标 gbk。`WARN` 不等于
+  能跑：`cp1252` / `shift_jis` 这类名字本工具没有字节表，只输出
+  `SOURCE_CODING_PAYLOAD=unverified`；`base64` / `rot13` 这类转换器直接
+  `FAIL`（`UNUSABLE`）。
+- `scripts/New-EncodedScript.ps1` —— 按指定编码落盘。中文内容走文件而不走
+  命令行；先写临时文件、读回复验、再原子替换；默认拒绝覆盖，要覆盖用 `-Force`。
 - `scripts/run_ps.py` —— 编码无关地执行脚本。`--command` / `--file` /
   `--stdin` 把正文走 `-EncodedCommand`，没有文件上下文；`--invoke-file`
   用原生 `-File`，保留 `$PSScriptRoot` 与 `$PSCommandPath`。默认不改执行
-  策略、不改控制台编码；它不是沙箱。退出码：子进程原样透传，3 本地错误，
-  124 超时，127 找不到指定 shell。
+  策略、不改控制台编码；不是沙箱。退出码：子进程透传，3 本地错误，124 超时，
+  127 找不到 shell。
 
 ## 4. 边界
 
-这些工具解决的是**编码与传输层**问题，不是权限、不是沙箱、不是安全
-审计。默认行为一律「不改系统状态」：不注入 `-ExecutionPolicy Bypass`、
-不自动提权、不自动改 `ACP`。要改必须显式传参，理由见
-`references/security.md`。
+这些工具只解决**编码与传输层**问题，不管权限、沙箱或安全审计。默认一律
+「不改系统状态」：不注入 `-ExecutionPolicy Bypass`、不自动提权、不改 `ACP`；
+要改必须显式传参。
 
 ## 5. 已知限制
 
-- Windows PowerShell 5.1 是系统组件，不能卸载，也没有就地升级到 7 的路
-  径。装了 7 也不影响工具继续以绝对路径调用 5.1。
-- 系统级 UTF-8（Beta 选项）需重启，且会让旧 GBK 软件乱码；它**不修**
-  `Out-File` 的 UTF-16LE，也不修 `$OutputEncoding` 的 us-ascii。
-- 本规范以简体中文 Windows 为默认前提。其他语言/代码页环境下判据相同，
-  具体数值要按 `Get-WinScriptEnvironment.ps1` 的实际输出调整。
+- 5.1 是系统组件，不能卸载，也没有就地升级到 7 的路径；装了 7 也不影响工具
+  继续以绝对路径调用 5.1。
+- 系统级 UTF-8（Beta）需重启，且会让旧 GBK 软件乱码；它**不修** `Out-File`
+  的 UTF-16LE，也不修 `$OutputEncoding` 的 us-ascii。
+- 本规范以简体中文 Windows 为前提；其他语言/代码页判据相同，数值按
+  `Get-WinScriptEnvironment.ps1` 输出调整。

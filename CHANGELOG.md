@@ -3,6 +3,148 @@
 格式参照 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号按 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.4] - 2026-11-14
+
+编码判定准确性的第二轮修复。v1.0.3 把 codec 名字分成三档是对的，但分档靠的是
+前缀正则，于是「像别名但不是别名」的一类名字被算进 `python-only`；同时
+`python-only` 的文案暗示「名字通过 = 文件能跑」，而检测器对这类文件的字节一无所知。
+这一版把名字表换成精确表，并让未验证这件事显式出现在输出里。
+
+### Changed（会改变既有行为，需注意）
+
+- **codec 名字表从宽泛前缀正则换成精确表。** 原实现用
+  `^mac[-_.]?[a-z0-9]*$`、`^(shift|s)[-_.]?jis[a-z0-9_]*$`、
+  `^(big5|csbig5|hkscs)[-_.a-z0-9]*$`、`^ibm[0-9]{3,5}$` 这类模式归类，
+  于是 `mac-bogus`、`shift_jis_typo`、`big5-nope`、`ibm99999` 全被判成
+  「Python 认识、本工具没验」，而解释器对这四个都抛 `SyntaxError`。
+  现在先把名字按 tokenizer 的规则归一化（小写、`_`→`-`、`utf-8-*` 折叠成
+  `utf-8`、`latin-1` 族折叠成 `latin-1`、其余保留原样只在 utf-8/latin-1
+  两族上截断 `.`），再查按族组织的精确表（105 个族、411 条拼写，逐条跑过解释器，
+  或由 CI 在更新补丁上跑过——表是矩阵内各版本的并集；其中 7 族 18 条是转换器
+  codec，见下一条）；
+  `utf-16` / `utf-32` 族单独一档
+  表示「解析得了但不能作源码」。
+  **影响**：上述四个仿写名与 `mac` / `macos` / `macx` / `iso_646_us` /
+  `jisx0208` / `x_mac_cyrillic` / `pt_154` / `cshproman8` / `utf-8.unix`
+  从 `WARN` 变成 `FAIL` + `PY_SOURCE_CODING_UNKNOWN`。
+  反方向没变松：`cp1252` / `shift_jis` / `big5` / `mac-roman` / `latin2` /
+  `euc-jp` / `ansi` / `ansi-x3.4-1968` 仍是 `python-only`；`utf-16` 族仍
+  `FAIL` + `UNUSABLE`。
+- **`python-only` 不再声称文件能跑，新增 `SOURCE_CODING_PAYLOAD=unverified`。**
+  文案从「CPython resolves that name and the file runs」改为「resolves that
+  name and accepts this spelling, but this detector has no byte level
+  verifier for it, so the payload was not checked; the file may still fail
+  to decode」。文本输出多一行 `SOURCE_CODING_PAYLOAD=unverified`，JSON 多一个
+  `"SourceCodingPayload": "unverified"`，**只在 `python-only` 时出现**，
+  其它档位键不存在（不是空字符串——消费方判真假时会读错）。
+  **影响**：`WARN` 的含义被收紧成「名字成立」，不再被读成「可以运行」。
+  一份 `# coding: cp1252` 且正文含 `0x81` 的文件在解释器里是
+  `SyntaxError: 'charmap' codec can't decode byte 0x81 ... character maps to
+  <undefined>`，检测器仍是 `WARN` + `unverified`。
+  这是写进输出的盲区，不是 `OK`。
+- **`python-only` 的提示语改成「兼容集合」口径。** 表是采样到的各版本并集，
+  所以命中只意味着「本项目验证过的某个 CPython 认识它」，不意味着**当前**解释器
+  认识它：`cp00858` / `csibm00858` / `ibm00858` / `pc_multilingual_850_euro`
+  是 `cp858` 的四条前导零别名，来自 CPython gh-149801，自 3.13.14、3.14.6、
+  3.15.0b2 起才随补丁发布（3.13.9 与 3.11.17 都没有）；实测 3.11.17 与 3.13.9 报
+  `unknown encoding: cp00858`，3.14.8 与 3.15.0rc3 编译通过。
+  原文案
+  「CPython recognizes this codec」对集合成立、对用户机器上的解释器不成立。
+  现在改为「该名字在本项目对 CPython 验证过的兼容集合里，但运行这个文件的解释器
+  可能不支持它，且检测器没有验证字节」，`SOURCE_CODING_PAYLOAD=unverified` 保留，
+  `WARN` 不升级为 `OK`，判定宽度一点没变。
+- **转换器 codec 单开一档 `unusable`，与「名字不认识」分开。** `base64` /
+  `rot13` / `hex` / `zlib` / `uu` / `bz2` / `quopri` 这 7 族 18 条拼写
+  `codecs.lookup()` 都能解析，但都不是文本 codec，解释器拒绝声明时的原话是
+  `SyntaxError: 'base64' is not a text encoding; use codecs.decode() to handle
+  arbitrary codecs`。v1.0.3 把它们和 `mac-bogus` 一起归进 `unknown-name`，
+  等于让人去改一个并没有拼错的拼写。
+  **影响**：这几条从 `PY_SOURCE_CODING_UNKNOWN` 变成 `PY_SOURCE_CODING_UNUSABLE`，
+  `SOURCE_CODING_SUPPORT` 新增取值 `unusable`，`VERDICT` 仍是 `FAIL`、
+  退出码仍是 2——只改诊断，没放宽。`idna` / `punycode` 这类真·文本 codec
+  没有进这张表（前者 ASCII 源码真能编译，后者是解字节失败而不是名字失败）。
+
+### Added
+
+- 夹具 8 个：`py-coding-hz-gb-newline.py` / `-gb-crlf.py`（GB 模式行续接，
+  LF 与 CRLF 各一）、`py-coding-shift-jis-bytes.py` / `-truncated.py`、
+  `py-coding-big5-bytes.py` / `-truncated.py`、`py-coding-cp1252-bytes.py` /
+  `-undefined.py`（完整字符与残缺字节各一）。夹具总数 69 → 77，原有 69 个
+  的字节 SHA256 全部未变。
+- Pester 新增 3 个 Context、46 例：`codec name table`、`python-only payload
+  state`、`HZ state machine boundaries`；收尾又在 `codec name table` 里补 15 例
+  ——兼容集合文案 4 例（`cp00858` / `csibm00858` / `shift_jis` / `cp1252`）、
+  转换器分类 9 例、未知名与转换器分叉 1 例、`idna` 边界 1 例。Pester 累计 200 例，
+  5.1 与 7 各 200/200。
+- 集成测试 `TestCodecAliasCoverage`：遍历 `encodings.aliases` 与
+  `encodings/` 下的模块名，把每个拼写写成真实源文件，先 `compile()` 再问
+  检测器，只比较两边结论是否一致，不写死任何名字的答案。3.13.9 上 471 个
+  拼写、380 个可作源码、91 个被拒、0 处分歧；这 471 个是 327 个别名键、
+  98 个规范名（都不是键）、121 个模块名（其中 22 个是新的）与 24 个仿写
+  拼写去重而来。同一类新增 `TestPythonOnlyPayload`：三对「完整字符 /
+  残缺字节」夹具，要求检测器对六者给出同一答案 `WARN + unverified`，同时
+  实测解释器对前一半 `rc=0`、后一半 `rc=1`；另加一条 `ansi` 回归——
+  `ansi` 是 `mbcs`（本机即 CP936），`ansi_x3.4-1968` / `ansi-x3.4-1968`
+  是 `ascii`，同一个 GBK 负载下解释器跑前者、拒后两者，检测器必须跟着分叉。
+- 集成新增 `TestUnusableCodecReason` 与 `TestCodecCompatibilitySet`。前者把 18 条
+  转换器拼写逐个 `compile()`，确认解释器都在**名字**上拒绝（`is not a text
+  encoding`），再要求检测器逐条给 `unusable-codec`；后者把 `cp00858` 的两种宿主
+  都写成断言——认识它的宿主与不认识它的宿主都只能是 `WARN` + `unverified`，
+  不按解释器版本跳过任何一边。
+
+### Fixed
+
+- **HZ 的 GB 模式行续接按实测钉住。** RFC 1843 允许 `~\n` 在两种模式下都
+  续行，CPython 只允许在 ASCII 模式：GB 模式下 `~` 是一个双字节格的起始，
+  第二字节必须落在 `0x21–0x7E`，`0x0A` 与 `0x0D` 都不在范围内，于是
+  `"~{VP~\nXX~}"` 与 `"~{VP~\r\nXX~}"` 都报 `UnicodeDecodeError`。检测器的
+  状态机本来就按这个结论走，缺的是证据——新增两份夹具把 LF 与 CRLF 都钉住，
+  只处理 LF 的实现会在 CRLF 那份上放行。
+- **诊断里引用的解释器原话改成实测的。** `utf-16` / `utf-32` 那条理由原先写
+  「CPython raises SyntaxError: encoding problem: utf-16」，3.11.17 / 3.13.9 /
+  3.14.8 / 3.15.0rc3 四个版本实测都不是这句，而是
+  `'utf-16-le' codec can't decode byte 0x0a in position 22: truncated data`。
+  现在理由只说「不是 ASCII 兼容的源码编码，整份文件都要按它解」，不引一句不存在
+  的报错。同时把文档里同类的陈旧引用改掉：未知名字是
+  `unknown encoding: <名字>`（不是 `encoding problem:`），字节解不出是
+  `'gb2312' codec can't decode byte 0x81 …`。带 BOM 的
+  `encoding problem: <名字> with BOM` 是真的，保留。
+- 文档：`references/python.md` §7.3 改写为「精确表 + 归一化规则 + 全量回归」，
+  新增 payload 三行表与仿写名的负向清单；§7.5 补 GB 模式 `~\r\n` 行与
+  RFC 差异的成因。`references/encoding-matrix.md` 补两行「声明里的洞」与
+  一段「`WARN` 只表示名字通过」的边界说明。`README.md` 的设计取舍补一条
+  「`WARN` 不代表文件能跑」，已验证范围补别名回归的数字。`SKILL.md` 的
+  检测器条目补一句 payload 含义（入口文件仍保持只放路由与硬规则）。
+- **版本口径全仓库统一。** `cp858` 的别名来源此前三处不一致：脚本注释与 Pester
+  写「3.13.17 新增」、集成测试写「3.14 引入」、参考页写「3.13.17 补的」。按上游
+  事实统一：gh-149801 引入，3.13 线自 3.13.14、3.14 线自 3.14.6、3.15 线自
+  3.15.0b2 起随补丁发布；`ccsid00858` 是 3.15 独有的后续别名。
+  `README.md` 的「已验证范围」拆成正式 CI 矩阵 / 额外实测 / 未纳入三档，
+  `references/python.md` §7 与 `references/encoding-matrix.md` 同步这套口径，
+  明确写出 3.14 / 3.15 不在正式矩阵内。判定逻辑与表未动。
+
+### 已知未覆盖（留给 v1.0.5）
+
+**支持的边界先写在前面**：正式验证矩阵是 Python 3.11 与 3.13（配 Windows
+PowerShell 5.1 与 PowerShell 7，共四个作业），外加 UTF-8 模式预览作业与
+docs contract；本机另有 3.11.17 / 3.13.9 / 3.13.16 / 3.14.8 / 3.15.0rc3 的
+一次性实测。**3.14 与 3.15 不在正式矩阵内**，UTF-8 模式作业模拟的是 3.15 的
+默认行为，不是 3.15 兼容测试。
+
+表是 3.11 / 3.13 的并集，再往后的补丁与预览版又扩了别名，检测器还没跟上。
+用 `TestCodecAliasCoverage` 在五个解释器上各跑一遍（`compile()` 与检测器双向
+对照），分歧数：3.11.17 **0** / 3.13.9 **0** / 3.13.16 **0**（479 个名单）/
+3.14.8 **6** / 3.15.0rc3 **58**。
+3.14.8 的 6 个是新增的 `cp874` 族（`874` / `ms874` / `windows_874`）与
+`cseuckr` / `iso_8859_8_e` / `iso_8859_8_i`；3.15.0rc3 多出的 52 个是整批
+`cs*` 拼写（`cswindows1252`、`cswindows31j`…）、`latin_2`…`latin_10`、
+`mac`、`utf8-sig`、`windows-936`、`cshproman8`、`ccsid00858` 之类，在 3.15
+上都已可解析。
+这些名字在 3.11 / 3.13 上确实报 `unknown encoding`，所以现在判 `FAIL` 不是
+错判；要改的是表，不是判定逻辑——3.15 正式版发布时按同一套流程重采一次。
+在那之前，3.14 / 3.15 上会把个别解释器能编译的文件判 `FAIL`，方向是多说一句，
+不是放行。
+
 ## [1.0.3] - 2026-11-14
 
 编码别名的准确性修复。检测器把 GBK、GB2312、HZ-GB-2312 和 GB18030 当成
@@ -34,7 +176,8 @@
   「Python 不认识」和「检测器不支持」，于是 `cp1252`、`shift_jis`、`big5`
   （Python 实测 `rc=0`）被判 `FAIL UNKNOWN`。现在返回 `supported` /
   `python-only` / `unknown` 三档，外加独立的 BOM 冲突分支。名字表按族重写，
-  448 个 `encodings.aliases` 拼写逐个跑解释器核对，0 例不一致：
+  327 个别名键加 121 个 `encodings/` 模块名、共 448 个拼写逐个跑解释器核对，
+  0 例不一致：
   **影响**：`cp1252` / `shift_jis` / `big5` / `euc-jp` / `mac-roman` /
   `csisolatin2` / `latin2` / `1252` / `ansi` 等从 `FAIL` 变成 `WARN`
   （`PY_SOURCE_CODING_UNVERIFIED`，明确说「检测器没有该表」）；

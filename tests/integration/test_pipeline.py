@@ -490,6 +490,16 @@ class TestHzStateMachine(unittest.TestCase):
             ("~~ inside GB mode", b'MARKER = "~{~~}"\n', 1, 2, b"PY_SOURCE_CODING_INVALID_BYTES"),
             ("~} outside GB mode", b'MARKER = "~}"\n', 1, 2, b"PY_SOURCE_CODING_INVALID_BYTES"),
             ("dangling byte after a run", b"# ~{VPND\n", 1, 2, b"PY_SOURCE_CODING_INVALID_BYTES"),
+            # RFC 1843 allows a line continuation in both modes; the interpreter
+            # allows it in one. Inside GB mode the tilde starts a cell whose
+            # second byte would be 0x0A, and 0x0A is outside 0x21-0x7E. Both
+            # endings are pinned because the answer came from the codec and not
+            # from the document, and a rule that only handled LF would pass a
+            # CRLF file the interpreter rejects.
+            ("line continuation inside GB mode, LF", b'MARKER = "~{VP~\nXX~}"\n',
+             1, 2, b"PY_SOURCE_CODING_INVALID_BYTES"),
+            ("line continuation inside GB mode, CRLF", b'MARKER = "~{VP~\r\nXX~}"\n',
+             1, 2, b"PY_SOURCE_CODING_INVALID_BYTES"),
         )
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -638,6 +648,404 @@ class TestCodingNameAgreement(unittest.TestCase):
                             (name, run.returncode, t.returncode, support))
         self.assertEqual(disagreements, [],
                          "detector and interpreter disagree: %r" % (disagreements,))
+
+
+class TestUnusableCodecReason(unittest.TestCase):
+    """A transform codec is a third diagnosis, not a misspelt name.
+
+    codecs.lookup() resolves base64, rot13, hex, zlib, uu, bz2 and quopri; the
+    tokenizer then refuses the declaration because none of them is a text
+    codec, and says so in its own words. v1.0.3 filed all of them under
+    "unknown encoding", which points at a typo that is not there. The verdict
+    stays FAIL -- only the reason changes -- and this test holds both halves:
+    the interpreter really does refuse on the name, and the detector really
+    does use the other code.
+    """
+
+    TRANSFORMS = (
+        "base64", "base64_codec", "base_64",
+        "rot13", "rot_13",
+        "hex", "hex_codec",
+        "zlib", "zlib_codec", "zip",
+        "uu", "uu_codec",
+        "bz2", "bz2_codec",
+        "quopri", "quopri_codec", "quoted_printable", "quotedprintable",
+    )
+
+    def test_the_interpreter_refuses_the_declaration_on_the_name(self):
+        for name in self.TRANSFORMS:
+            with self.subTest(name=name):
+                data = ("# coding: %s\ns = 'A'\n" % name).encode("ascii")
+                with self.assertRaises(SyntaxError) as caught:
+                    compile(data, "<%s>" % name, "exec")
+                # The wording matters: it is the sentence the detector quotes
+                # and the reason the name is not the thing to fix.
+                self.assertIn("is not a text encoding", caught.exception.msg)
+
+    def test_the_detector_reports_unusable_and_not_unknown(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = []
+            for index, name in enumerate(self.TRANSFORMS):
+                path = pathlib.Path(tmp) / ("transform-%02d.py" % index)
+                path.write_bytes(("# coding: %s\ns = 'A'\n" % name).encode("ascii"))
+                paths.append((name, path))
+
+            result = run_detector_over_many([p for _, p in paths])
+            document = json.loads(decode_console_output(result.stdout))
+            by_path = {item["Path"]: item for item in document["Files"]}
+
+            for name, path in paths:
+                item = by_path[str(path)]
+                with self.subTest(name=name):
+                    self.assertEqual(item["Verdict"], "FAIL", item.get("Reasons"))
+                    self.assertEqual(item["SourceCodingKind"], "unusable-codec")
+                    self.assertEqual(item["SourceCodingSupport"], "unusable")
+                    reasons = " ".join(item.get("Reasons") or [])
+                    self.assertIn("PY_SOURCE_CODING_UNUSABLE", reasons)
+                    self.assertNotIn("PY_SOURCE_CODING_UNKNOWN", reasons)
+
+    def test_an_unknown_name_keeps_the_other_reason(self):
+        """The two diagnoses must stay apart.
+
+        Same FAIL, different advice: one is "fix the spelling", the other is
+        "that codec is for codecs.decode(), not for a source file".
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            unknown = pathlib.Path(tmp) / "unknown.py"
+            unknown.write_bytes(b"# coding: ghost-codec\ns = 'A'\n")
+            transform = pathlib.Path(tmp) / "transform.py"
+            transform.write_bytes(b"# coding: base64\ns = 'A'\n")
+
+            result = run_detector_over_many([unknown, transform])
+            document = json.loads(decode_console_output(result.stdout))
+            by_name = {pathlib.Path(i["Path"]).stem: i for i in document["Files"]}
+
+            ghost = by_name["unknown"]
+            self.assertEqual(ghost["Verdict"], "FAIL")
+            self.assertEqual(ghost["SourceCodingKind"], "unknown-name")
+            self.assertIn("PY_SOURCE_CODING_UNKNOWN", " ".join(ghost["Reasons"]))
+            self.assertNotIn("PY_SOURCE_CODING_UNUSABLE", " ".join(ghost["Reasons"]))
+
+            base = by_name["transform"]
+            self.assertEqual(base["Verdict"], "FAIL")
+            self.assertEqual(base["SourceCodingKind"], "unusable-codec")
+
+
+class TestCodecCompatibilitySet(unittest.TestCase):
+    """The name table is a union over releases, and says so.
+
+    cp858 gained the spelling cp00858 with gh-149801, which first shipped in
+    3.13.14 and 3.14.6 (3.15.0b2 on the 3.15 line): 3.11.17, 3.13.9 and 3.14.8
+    were each asked, and the first two answer "unknown encoding: cp00858" while
+    the last compiles it. A detector that copied one host's stdlib would either
+    reject a file the newer patch runs or promise a file the older patch cannot
+    compile. Neither is acceptable, so the answer is a WARN that names the set
+    instead of the interpreter, with the payload left unverified -- on every
+    host, whichever side of that line it sits on.
+    """
+
+    NAME = "cp00858"
+
+    def setUp(self):
+        import codecs
+
+        try:
+            self.resolved = codecs.lookup(self.NAME).name
+        except LookupError:
+            self.resolved = None
+
+    def test_the_host_really_sits_on_one_side_of_the_split(self):
+        data = ("# coding: %s\ns = 'A'\n" % self.NAME).encode("ascii")
+        if self.resolved is None:
+            with self.assertRaises(SyntaxError) as caught:
+                compile(data, "<compat>", "exec")
+            self.assertIn("unknown encoding", caught.exception.msg)
+        else:
+            compile(data, "<compat>", "exec")
+
+    def test_the_detector_warns_and_never_passes_or_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "compat.py"
+            path.write_bytes(("# coding: %s\ns = 'A'\n" % self.NAME).encode("ascii"))
+
+            text = ps_tool("Test-ScriptEncoding.ps1", ["-Path", str(path), "-Profile", "python"])
+            body = decode_console_output(text.stdout)
+
+            print("\n[compat-set] python=%s %s resolves=%s"
+                  % (sys.version.split()[0], self.NAME, self.resolved))
+            # 1 is WARN. 0 would be a pass on a file one of the two hosts in
+            # the matrix cannot compile, and 2 would fail a file the other runs.
+            self.assertEqual(text.returncode, 1, body[-800:])
+            self.assertIn("VERDICT=WARN", body)
+            self.assertIn("SOURCE_CODING_SUPPORT=python-only", body)
+            self.assertIn("SOURCE_CODING_PAYLOAD=unverified", body)
+            self.assertIn("compatibility set", body)
+            self.assertNotIn("CPython recognizes this codec", body)
+
+            document = json.loads(decode_console_output(
+                ps_tool("Test-ScriptEncoding.ps1",
+                        ["-Path", str(path), "-Profile", "python", "-Output", "json"]).stdout))
+            item = document["Files"][0]
+            self.assertEqual(item["Verdict"], "WARN")
+            self.assertEqual(item["SourceCodingPayload"], "unverified")
+            self.assertNotEqual(item["Verdict"], "OK")
+
+
+def run_detector_over_many(paths, timeout=600, exe=None):
+    """Detect a whole directory in one process.
+
+    One process per file would add half a second of PowerShell startup to each
+    of several hundred names. The paths go through a list file rather than the
+    command line: the Windows limit is 32767 characters and a few hundred paths
+    get close enough to matter.
+    """
+    host = exe or selected_host()[0]
+    listfile = pathlib.Path(tempfile.mkdtemp()) / "paths.txt"
+    listfile.write_text("\n".join(str(p) for p in paths), encoding="utf-8")
+    env = dict(os.environ)
+    env["WSW_BATCH_LIST"] = str(listfile)
+    env["WSW_BATCH_TOOL"] = str(SCRIPTS / "Test-ScriptEncoding.ps1")
+    command = (
+        "$list = Get-Content -LiteralPath $env:WSW_BATCH_LIST -Encoding UTF8; "
+        "& $env:WSW_BATCH_TOOL -Path $list -Profile python -Output json"
+    )
+    argv = [host, "-NoProfile", "-NonInteractive", "-Command", command]
+    return subprocess.run(argv, capture_output=True, timeout=timeout, env=env,
+                          stdin=subprocess.DEVNULL)
+
+
+def alias_spellings():
+    """Every spelling CPython itself offers, plus the shapes worth distrusting.
+
+    Taken from encodings.aliases and the module names in encodings/, so the set
+    follows the interpreter rather than a list someone typed. The extras are the
+    look-alikes: a separator dropped, a word glued on, a code page number.
+    """
+    import encodings
+    import encodings.aliases
+    import pkgutil
+
+    names = set(encodings.aliases.aliases)
+    names |= set(encodings.aliases.aliases.values())
+    for module in pkgutil.iter_modules(encodings.__path__):
+        names.add(module.name)
+    names |= {
+        "mac-bogus", "shift_jis_typo", "big5-nope", "ibm99999",
+        "windows-936", "cp54936", "54936", "hzgb2312", "cn-gb", "gb-2312",
+        "utf8-sig", "utf-8.unix", "latin-2", "latin_2", "iso_646_us",
+        "jisx0208", "x_mac_cyrillic", "pt_154", "cshproman8", "macos", "macx",
+        "ansi-x3.4-1968", "iso-2022-jp-2004", "utf-8-ucs2", "utf8-sig",
+    }
+    return sorted(names)
+
+
+class TestCodecAliasCoverage(unittest.TestCase):
+    """Every alias the interpreter has, compiled and detected, compared.
+
+    The detector's name tables are data, and data drifts: a stdlib release can
+    add an alias, and a table built by hand can quietly stop matching it. This
+    walks encodings.aliases instead of a fixed list, so the only way to pass is
+    to agree with the interpreter that is actually running.
+
+    The comparison is one-directional on purpose. It asks whether the detector
+    fails exactly when CPython fails, not which of several reasons was used --
+    the reason codes have their own tests.
+    """
+
+    def test_every_alias_agrees_with_the_interpreter(self):
+        names = alias_spellings()
+        with tempfile.TemporaryDirectory() as tmp:
+            cases = []
+            for index, name in enumerate(names):
+                path = pathlib.Path(tmp) / ("alias-%03d.py" % index)
+                path.write_bytes(("# coding: %s\ns = 'A'\n" % name).encode("ascii"))
+                cases.append((name, path))
+
+            interpreter_ok = {}
+            for name, path in cases:
+                data = path.read_bytes()
+                try:
+                    compile(data, str(path), "exec")
+                    interpreter_ok[name] = True
+                except SyntaxError:
+                    interpreter_ok[name] = False
+                except Exception as error:          # noqa: BLE001
+                    # A codec that raises something else is still a refusal.
+                    interpreter_ok[name] = False
+                    if name in ("utf-8", "ascii", "gbk"):
+                        self.fail("%s raised %r" % (name, error))
+
+            result = run_detector_over_many([path for _, path in cases])
+            # Exit 0 or 1 both mean "every file was inspected": the batch exit
+            # code rolls the per-file verdicts up, and a corpus this wide is
+            # bound to contain warnings. Exit 2 (all files failed) or 3 (tool
+            # error) would mean the run never got to the comparison.
+            self.assertIn(result.returncode, (0, 1),
+                          "batch detection exited %d: %s"
+                          % (result.returncode, decode_console_output(result.stdout)[-800:]))
+            document = json.loads(decode_console_output(result.stdout))
+            by_path = {item["Path"]: item for item in document["Files"]}
+
+            disagreements = []
+            for name, path in cases:
+                item = by_path.get(str(path))
+                self.assertIsNotNone(item, "no result for %s" % name)
+                detector_fails = item["Verdict"] == "FAIL"
+                if detector_fails == interpreter_ok[name]:
+                    disagreements.append(
+                        (name, interpreter_ok[name], item["Verdict"],
+                         item.get("SourceCodingSupport", "")))
+
+            usable = sum(1 for ok in interpreter_ok.values() if ok)
+            print("\n[codec-alias] python=%s checked=%d usable_as_source=%d "
+                  "refused=%d disagreements=%d"
+                  % (sys.version.split()[0], len(cases), usable,
+                     len(cases) - usable, len(disagreements)))
+            for row in disagreements[:20]:
+                print("  disagree: %r" % (row,))
+            self.assertEqual(disagreements, [],
+                             "detector and interpreter disagree on %d names"
+                             % len(disagreements))
+
+    def test_the_utf8_and_latin1_families_are_not_table_lookups(self):
+        """The two families are rewritten by the tokenizer, not resolved.
+
+        Every "utf-8-" spelling compiles even though lookup rejects the long
+        form, and every "latin-1-" spelling does the same. A detector that
+        looked those up as ordinary names would fail both families.
+        """
+        cases = [b"utf-8-unix", b"utf-8-bogus", b"iso-latin-1", b"latin-1-x",
+                 b"iso-8859-1-x"]
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = []
+            for index, name in enumerate(cases):
+                path = pathlib.Path(tmp) / ("family-%02d.py" % index)
+                path.write_bytes(b"# coding: " + name + b"\ns = 'A'\n")
+                paths.append(path)
+                compile(path.read_bytes(), str(path), "exec")
+
+            result = run_detector_over_many(paths)
+            document = json.loads(decode_console_output(result.stdout))
+            for item in document["Files"]:
+                name = pathlib.Path(item["Path"]).read_bytes().split(b"\n")[0]
+                with self.subTest(name=name):
+                    self.assertEqual(item["Verdict"], "OK", (name, item["Reasons"]))
+                    self.assertEqual(item["SourceCodingSupport"], "supported")
+
+
+class TestPythonOnlyPayload(unittest.TestCase):
+    """A resolved name is not a verified payload.
+
+    shift_jis, big5 and cp1252 are codecs CPython decodes with, and the detector
+    has no table for any of them. A truncated multi-byte character in one of
+    those files is invisible to this tool, so it must say "unverified" and not
+    guess. That means the same answer for the complete character and for the
+    truncated one -- which is the point, not an oversight.
+    """
+
+    CASES = (
+        # file, codec, what the byte sequence is, what CPython does with it
+        ("py-coding-shift-jis-bytes.py", "shift_jis", "complete character", 0),
+        ("py-coding-shift-jis-truncated.py", "shift_jis", "lead byte only", 1),
+        ("py-coding-big5-bytes.py", "big5", "complete character", 0),
+        ("py-coding-big5-truncated.py", "big5", "lead byte only", 1),
+        ("py-coding-cp1252-bytes.py", "cp1252", "assigned slots", 0),
+        # 0x81 has no mapping in cp1252 and the byte sits on the second line,
+        # so CPython refuses it while looking for the coding spec and reports
+        # "encoding problem: cp1252" rather than a body decode error. Either
+        # way the file does not run, and the detector still cannot see why.
+        ("py-coding-cp1252-undefined.py", "cp1252", "0x81, unassigned", 1),
+    )
+
+    def test_the_payload_is_reported_unverified_in_both_outputs(self):
+        fixtures = pathlib.Path(__file__).resolve().parent.parent / "fixtures" / "data"
+        for name, codec, label, interpreter_rc in self.CASES:
+            with self.subTest(file=name, codec=codec, payload=label):
+                path = fixtures / name
+                self.assertTrue(path.exists(), path)
+
+                text = ps_tool("Test-ScriptEncoding.ps1",
+                               ["-Path", str(path), "-Profile", "python"])
+                self.assertEqual(text.returncode, 1, decode_console_output(text.stdout)[-500:])
+                body = decode_console_output(text.stdout)
+                self.assertIn("VERDICT=WARN", body)
+                self.assertIn("SOURCE_CODING_SUPPORT=python-only", body)
+                self.assertIn("SOURCE_CODING_PAYLOAD=unverified", body)
+                self.assertIn("PY_SOURCE_CODING_UNVERIFIED", body)
+                self.assertNotIn("the file runs", body)
+
+                jsonr = ps_tool("Test-ScriptEncoding.ps1",
+                                ["-Path", str(path), "-Profile", "python",
+                                 "-Output", "json"])
+                document = json.loads(decode_console_output(jsonr.stdout))
+                item = document["Files"][0]
+                self.assertEqual(item["Verdict"], "WARN")
+                self.assertEqual(item["SourceCodingSupport"], "python-only")
+                self.assertEqual(item["SourceCodingPayload"], "unverified")
+
+                # The interpreter's own answer is measured, not assumed: the
+                # complete characters run and the damaged ones do not. The
+                # detector says unverified either way, which is why it must not
+                # be compared against this value.
+                run = run_python_fixture(path)
+                self.assertEqual(run.returncode, interpreter_rc,
+                                 (name, run.stderr[:300]))
+
+    def test_ansi_is_the_console_code_page_and_not_ascii(self):
+        """'ansi' resolves to mbcs; 'ansi_x3.4-1968' and 'ansi-x3.4-1968' to ascii.
+
+        Three spellings, two codecs, and they look like one family. Folding them
+        together is invisible to the name corpus, whose bodies are ASCII: the
+        difference only shows when the payload leaves ascii. Here it does -- the
+        same GBK bytes under all three declarations. A table that called 'ansi'
+        ascii would fail a file the interpreter runs; a table that called the
+        ascii aliases mbcs would pass two files that never compile.
+        """
+        payload = "中文".encode("gbk")
+        cases = (
+            ("ansi", "python-only"),
+            ("ansi_x3.4-1968", "supported"),
+            ("ansi-x3.4-1968", "supported"),
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            for index, (name, support) in enumerate(cases):
+                with self.subTest(name=name):
+                    path = pathlib.Path(tmp) / ("ansi-%02d.py" % index)
+                    path.write_bytes(("# coding: %s\ns = \"" % name).encode("ascii")
+                                     + payload + b"\"\n")
+                    document = json.loads(decode_console_output(
+                        ps_tool("Test-ScriptEncoding.ps1",
+                                ["-Path", str(path), "-Profile", "python",
+                                 "-Output", "json"]).stdout))
+                    item = document["Files"][0]
+                    self.assertEqual(item["SourceCodingSupport"], support, name)
+                    run = run_python_fixture(path)
+                    if support == "python-only":
+                        # mbcs decodes whatever the ANSI code page says, so the
+                        # interpreter's answer is host dependent -- 936 here,
+                        # 1252 on a hosted runner. The invariant that holds
+                        # everywhere is that the detector never fails the name.
+                        self.assertEqual(item["Verdict"], "WARN", name)
+                        self.assertEqual(item["SourceCodingPayload"], "unverified")
+                    else:
+                        self.assertEqual(item["Verdict"], "FAIL", name)
+                        self.assertNotEqual(run.returncode, 0, name)
+
+    def test_the_payload_key_is_absent_when_the_question_does_not_apply(self):
+        fixtures = pathlib.Path(__file__).resolve().parent.parent / "fixtures" / "data"
+        for name in ("py-coding-gbk.py", "py-coding-utf8-sig.py", "py-coding-54936.py"):
+            with self.subTest(file=name):
+                path = fixtures / name
+                jsonr = ps_tool("Test-ScriptEncoding.ps1",
+                                ["-Path", str(path), "-Profile", "python", "-Output", "json"])
+                item = json.loads(decode_console_output(jsonr.stdout))["Files"][0]
+                self.assertNotIn("SourceCodingPayload", item,
+                                 "%s should not carry a payload state" % name)
+
+                text = ps_tool("Test-ScriptEncoding.ps1",
+                               ["-Path", str(path), "-Profile", "python"])
+                self.assertNotIn("SOURCE_CODING_PAYLOAD",
+                                 decode_console_output(text.stdout))
 
 
 class TestGbkGrid(unittest.TestCase):
