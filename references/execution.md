@@ -1,100 +1,109 @@
-# 执行：怎么把脚本跑起来
+# Execution: how to get the script running
 
-"写对了"和"跑对了"是两件事。这一页讲第二种，重点是**中文参数怎么过命令行**。
+"Written correctly" and "runs correctly" are two different problems. This page covers
+the second, with emphasis on **how Chinese arguments survive the command line**.
 
-## 1. 五种方式
+## 1. Five ways to launch
 
-| 方式 | 命令行里有什么 | 文件上下文 | 适用 |
+| Way | What the command line carries | File context | Use when |
 | --- | --- | --- | --- |
-| `-Command "<文本>"` | 脚本正文 | 无 | 一次性简单查询 |
-| `-File script.ps1` | 只有路径 | 有 | 默认选择 |
-| `-EncodedCommand <base64>` | UTF-16LE 的 base64 | 无 | 宿主拦截 `-File`、或必须内联时 |
-| `run_ps.py --command/--file/--stdin` | 由包装器决定 | **无** | agent / CI 里统一入口 |
-| `run_ps.py --invoke-file <path>` | 只有路径 | **有** | 需要真实 `$PSScriptRoot` 时 |
+| `-Command "<text>"` | the script body | none | one-off simple queries |
+| `-File script.ps1` | the path only | yes | the default choice |
+| `-EncodedCommand <base64>` | base64 of UTF-16LE | none | the host blocks `-File`, or inline is mandatory |
+| `run_ps.py --command/--file/--stdin` | decided by the wrapper | **none** | one entry point for agents and CI |
+| `run_ps.py --invoke-file <path>` | the path only | **yes** | when a real `$PSScriptRoot` matters |
 
-### 中文到底在哪一层丢
+### Where Chinese actually gets lost
 
-"命令行按 ANSI 代码页解码"这句话太粗，会让人修错地方。实测下来是三层，
-只有第二层和第三层会丢字：
+"The command line is decoded with the ANSI code page" is too coarse — it sends people to
+fix the wrong layer. Measured, there are three layers, and only the second and third
+lose characters:
 
-| 层 | 机制 | 会不会丢中文字符 |
+| Layer | Mechanism | Loses Chinese? |
 | --- | --- | --- |
-| Windows 进程 API | `CreateProcessW` 收 UTF-16 命令行；用 argv 列表调用时由运行时拼好 | 不丢。实测 `-Command 'Write-Output "中文"'` 用 argv 调用，输出正确 |
-| 字节层 | GBK 的 `.bat` 里写死的命令、Shell 把参数重拼成字节串、把文件当命令行喂 | 会丢。这些位置的编码由代码页决定 |
-| 宿主解码层 | 捕获 stdout 后按哪个代码页解码 | 决定你"看到"的是不是乱码。5.1 按控制台输出代码页写 stdout，用 UTF-8 解就是乱码 |
+| Windows process API | `CreateProcessW` takes a UTF-16 command line; an argv-list call lets the runtime assemble it | No. Measured: `-Command 'Write-Output "中文"'` through argv prints correctly |
+| Byte layer | a command hard-coded inside a GBK `.bat`, a shell re-joining arguments into a byte string, feeding a file as the command line | Yes. The encoding at these sites is decided by the code page |
+| Host decode layer | which code page the captured stdout is decoded with | Decides whether what you *see* is mojibake. 5.1 writes stdout in the console output code page; decoding as UTF-8 shows garbage |
 
-所以真正的触发条件是"**某人把字符串变成了字节又没声明编码**"，不是
-`-Command` 这个名字。同一个 `-Command`，argv 调用不丢字，写进 GBK 的 bat
-再执行就会丢。判据：**能不走字节层就不走。**
+So the real trigger is "**something turned the string into bytes without declaring an
+encoding**", not the name `-Command`. The same `-Command` loses nothing through argv and
+loses everything when written into a GBK `.bat` and executed. Rule: **if you can avoid
+the byte layer, avoid it.**
 
-### 嵌套引号的第二重风险
+### Nested quotes are a second, separate risk
 
-引号是另一个独立问题：`-Command` 的文本先被调用方拼一次，再被 PowerShell
-的语法解析器解析一次，两次的引号规则不同。`-Command "Write-Output \"a 'b c'\""`
-这类写法是否成立取决于**调用方**怎么拼，而不是 PowerShell 怎么解析。
+Quotes are their own problem: the text of `-Command` is assembled once by the caller and
+then parsed again by PowerShell's grammar, and the two quoting rules differ. Whether
+`-Command "Write-Output \"a 'b c'\""` works depends on **how the caller assembled it**,
+not on how PowerShell parses it.
 
-`-File` 只有路径过一个边界，路径由 `CreateProcess` 按 Unicode 传递，不经
-任何代码页，也不参与语法解析。
+`-File` passes one value across one boundary — a path, handed over by `CreateProcess` as
+Unicode, touching no code page and no syntax parsing.
 
-### 为什么 `-EncodedCommand` 一定安全
+### Why `-EncodedCommand` is always safe
 
-它把脚本文本编码成 **UTF-16LE**，再 base64。整条命令行是纯 ASCII，不含
-中文也不含引号，因此没有任何一层需要"猜编码"。PowerShell 收到后先 base64
-解码得到 UTF-16LE 字节，再按 UTF-16 还原字符串——无损。
+It encodes the script text as **UTF-16LE** and then base64. The entire command line is
+pure ASCII, containing neither Chinese nor quotes, so no layer has to guess an encoding.
+PowerShell base64-decodes to UTF-16LE bytes and reconstructs the string losslessly.
 
-代价：命令行长度。Windows 单条命令行上限 32767 字符，base64 会把体积放大到
-约 2.7 倍（UTF-16LE 两字节 + base64 4/3）。超出时 PowerShell 直接报
-`[WinError 206] 文件名或扩展名太长`，脚本根本没启动。
+The cost is length. A Windows command line is capped at 32767 characters and base64
+inflates the payload to roughly 2.7× (two bytes per UTF-16LE unit, 4/3 for base64).
+Beyond the cap PowerShell raises `[WinError 206] The filename or extension is too long`
+and the script never starts.
 
-`scripts/run_ps.py` 的阈值是 `MAX_COMMAND_LINE_CHARS = 30000`，超过就写
-临时 `.ps1`（UTF-8 with BOM）再用 `-File` 跑。**这个降级会改变文件上下文**，
-所以它会在 stderr 上明说，见第 2 节。
+`scripts/run_ps.py` uses `MAX_COMMAND_LINE_CHARS = 30000`; past that it writes a temp
+`.ps1` (UTF-8 with BOM) and runs it with `-File`. **That fallback changes the file
+context**, so the wrapper says so on stderr — see §2.
 
-## 2. `run_ps.py`：两种模式，别混
+## 2. `run_ps.py`: two modes, do not mix them
 
-### 2.1 文本模式（`--command` / `--file` / `--stdin` / 位置参数）
+### 2.1 Text mode (`--command` / `--file` / `--stdin` / positional)
 
-脚本**正文**走 `-EncodedCommand`。它不是 `-File`，同一个脚本在这里和在
-`-File` 下的行为不一样，差别就在文件上下文（本机实测）：
+The script **body** travels through `-EncodedCommand`. That is not `-File`, so the same
+script behaves differently here and under `-File`, and the difference is the file
+context (measured here):
 
 ```
 powershell -File .\probe.ps1     ROOT/CMD/MINE = C:\...\中文目录
-run_ps.py --file .\probe.ps1     ROOT/CMD/MINE = ""（空）
+run_ps.py --file .\probe.ps1     ROOT/CMD/MINE = "" (empty)
 ```
 
-`$PSScriptRoot` 为空，`$PSCommandPath` 为空，`$MyInvocation.MyCommand.Path`
-为空，于是 `.\helper.ps1`、`"$PSScriptRoot\x.ps1"` 这类相对引用全部失效。
-文本模式适合"跑几句看结果"，不适合跑一个依赖自己位置的脚本。
+`$PSScriptRoot` is empty, `$PSCommandPath` is empty, `$MyInvocation.MyCommand.Path` is
+empty, so relative references like `.\helper.ps1` or `"$PSScriptRoot\x.ps1"` all fail.
+Text mode suits "run a few lines and see", not a script that depends on where it lives.
 
-脚本超过命令行上限时会被写成临时文件再 `-File`，这时 `$PSScriptRoot` 变成
-**临时目录**——同一个脚本因长度不同而换上下文。这个降级会在 stderr 上打
-三行 `run_ps.py: note:`，明确告诉你去用 `--invoke-file`。不要忽略它。
+When a script exceeds the command-line limit it is written to a temp file and run with
+`-File`, at which point `$PSScriptRoot` becomes **the temp directory** — the same script
+switches context because of its length. That fallback prints three
+`run_ps.py: note:` lines on stderr telling you to use `--invoke-file`. Do not ignore
+them.
 
-### 2.2 原始文件模式（`--invoke-file <path>`）
+### 2.2 Real-file mode (`--invoke-file <path>`)
 
-路径原样交给子进程的 `-File`，文件**不被读取、不被解码、不被复制、不被改写**：
+The path goes to the child's `-File` unchanged; the file is **not read, decoded, copied
+or rewritten**:
 
 ```bash
 python scripts/run_ps.py --invoke-file .\script.ps1
 python scripts/run_ps.py --invoke-file .\script.ps1 --script-args -Value 11
 ```
 
-本机实测，同一份脚本：
+Measured here, same script:
 
 ```
 ROOT=[C:\...\中文目录]
 CMD=[C:\...\中文目录\脚本.ps1]
 MINE=[C:\...\中文目录\脚本.ps1]
 PARAM=11
-HELPER=from-helper      # . "$PSScriptRoot\helper.ps1" 生效
+HELPER=from-helper      # . "$PSScriptRoot\helper.ps1" works
 ```
 
-中文目录、中文文件名、`param()`、`[CmdletBinding()]`、相对 dot-source 全部
-按原生行为工作。`--script-args` 之后的参数原样转发给脚本，仍然走 argv 列表，
-没有 shell。
+Chinese directories, Chinese filenames, `param()`, `[CmdletBinding()]` and relative
+dot-sourcing all behave natively. Arguments after `--script-args` are forwarded to the
+script as given, still through an argv list, with no shell involved.
 
-它**不**注入 `-ExecutionPolicy Bypass`。策略拦下脚本时你拿到的是策略报错和
-非零退出码，不是"悄悄绕过"：
+It does **not** inject `-ExecutionPolicy Bypass`. When policy blocks the script you get
+the policy error and a non-zero exit code, not a silent bypass:
 
 ```bash
 python scripts/run_ps.py --invoke-file .\script.ps1 --execution-policy Restricted
@@ -102,132 +111,139 @@ python scripts/run_ps.py --invoke-file .\script.ps1 --execution-policy Restricte
 # exit 1
 ```
 
-不兼容的组合直接报错（退出码 3），不会静默忽略：`--invoke-file` 与
-`--console-encoding`、`--input-encoding`、`--command`、`--file`、`--stdin`、
-位置参数互斥。前两个都要求改写文件内容，而这个模式承诺不改写。
+Incompatible combinations fail loudly (exit 3) instead of being ignored: `--invoke-file`
+is mutually exclusive with `--console-encoding`, `--input-encoding`, `--command`,
+`--file`, `--stdin` and positional arguments. The first two rewrite file content, and
+this mode promises not to.
 
-### 2.3 通用开关
+### 2.3 Common switches
 
 ```bash
-# 位置参数就是脚本正文
+# a positional argument is the script body
 python scripts/run_ps.py 'Write-Output "hello"'
 
-# 显式长选项
+# explicit long options
 python scripts/run_ps.py --command 'Get-ChildItem -LiteralPath "D:\work\项目"'
 python scripts/run_ps.py --file .\script.ps1
 python scripts/run_ps.py - < script.ps1
 echo 'Get-Date' | python scripts/run_ps.py --stdin
 
-# 指定宿主
+# choose the host
 python scripts/run_ps.py --shell pwsh --command '$PSVersionTable.PSEdition'
 python scripts/run_ps.py --shell powershell 'chcp'
 ```
 
-默认行为：**什么都不注入**。不加 `-ExecutionPolicy Bypass`，不改
-`[Console]::OutputEncoding`，不改 `$OutputEncoding`。需要时显式加：
+Default behaviour: **inject nothing**. No `-ExecutionPolicy Bypass`, no change to
+`[Console]::OutputEncoding`, no change to `$OutputEncoding`. Ask explicitly:
 
 ```bash
 python scripts/run_ps.py --execution-policy Bypass --command '...'
 python scripts/run_ps.py --console-encoding utf8 --command '...'
 ```
 
-输入编码默认 `utf-8-sig`（能吃掉 BOM）。源码不是 UTF-8 时：
+Input encoding defaults to `utf-8-sig` (which swallows a BOM). For non-UTF-8 source:
 
 ```bash
 python scripts/run_ps.py --input-encoding gbk --file legacy.ps1
 ```
 
-超时默认 300 秒，`--timeout 0` 表示不限：
+Timeout defaults to 300 seconds; `--timeout 0` means no limit:
 
 ```bash
 python scripts/run_ps.py --timeout 30 --command '...'
 ```
 
-### 用了 `--console-encoding` 时脚本会被包一层
+### `--console-encoding` wraps your script
 
-`--console-encoding` 要在你的脚本之前插入几句设置。但 `param(...)` 和
-`[CmdletBinding()]` 只允许出现在脚本或脚本块的**第一条语句**，直接前置会让
-PowerShell 报 `param : The term 'param' is not recognized`，然后**照常把
-剩下的语句跑完并退出 0**——一个静默失效。
+`--console-encoding` has to insert statements before your script runs. But `param(...)`
+and `[CmdletBinding()]` are only legal as the **first statement** of a script or script
+block, so prefixing directly makes PowerShell raise
+`param : The term 'param' is not recognized` — and then **finish the remaining
+statements and exit 0**, a silent failure.
 
-所以带上这个参数时，脚本会被包成：
+So with that flag the script is wrapped as:
 
 ```powershell
 <prelude>; & {
-<你的脚本>
+<your script>
 }
 ```
 
-两个可见影响：报错行号会整体偏移一行以上；脚本体在一个子作用域里执行
-（`$script:` 仍指向外层脚本作用域，`exit` 仍退出整个进程）。不带
-`--console-encoding` 时不会加这层包装，脚本原样执行。
+Two visible effects: reported line numbers shift by one or more, and the body runs in a
+child scope (`$script:` still targets the outer script scope, `exit` still ends the whole
+process). Without `--console-encoding` the wrapper is not added and the script runs as
+written.
 
-### stderr 里可能出现 `#< CLIXML`
+### `#< CLIXML` may appear on stderr
 
-PowerShell 在输出流被重定向时，会把 `Write-Progress` 之类的进度记录序列化成
-CLIXML 写进 stderr。这不是错误，也不是 `run_ps.py` 加的——它是子进程真实的
-stderr 字节。第一次运行（模块首次加载）最容易碰到。
+When its output streams are redirected, PowerShell serialises progress records such as
+`Write-Progress` as CLIXML onto stderr. It is not an error and `run_ps.py` did not add
+it — those are the child's real stderr bytes. It shows up most on a first run, while
+modules load.
 
-需要干净 stderr 时，在自己的脚本开头写：
+For clean stderr, write this at the top of your own script:
 
 ```powershell
 $ProgressPreference = 'SilentlyContinue'
 ```
 
-`run_ps.py` 不替你设这个，因为它会改变脚本自己的可见行为。
+`run_ps.py` does not set it for you, because that would change the script's own visible
+behaviour.
 
-## 3. 退出码
+## 3. Exit codes
 
-`run_ps.py` 的退出码是**契约**，不要改：
+The exit codes of `run_ps.py` are a **contract**; do not change them:
 
-| 码 | 含义 |
+| Code | Meaning |
 | --- | --- |
-| 子进程的码 | 脚本自己的退出码，原样透传 |
-| 3 | 包装器本地失败：用法错误、参数互斥、文件读不到、输入解不成声明的编码 |
-| 124 | 超时 |
-| 127 | `--shell` 指定的宿主找不到 |
+| the child's own | passed through untouched |
+| 3 | wrapper-local failure: usage error, mutually exclusive arguments, unreadable file, input that does not decode with the declared encoding |
+| 124 | timeout |
+| 127 | the host named by `--shell` was not found |
 
-用法错误走 3 而不是 argparse 默认的 2，因为 2 会和"子进程退出 2"撞车。
-这四条都有测试覆盖（`tests/python/test_run_ps.py`）。0.x 版本曾经对失败的
-子进程返回 0，是这次重写专门修掉的。
+Usage errors return 3 rather than argparse's default 2, because 2 would collide with "the
+child exited 2". All four are covered by `tests/python/test_run_ps.py`. Version 0.x used
+to return 0 for a failed child; the rewrite fixed that specifically.
 
-## 4. `-File` 的两个陷阱
+## 4. Two traps of `-File`
 
-### 陷阱一：`process` 块可能整个不执行
+### Trap 1: the `process` block may not run at all
 
-用 `-File` 启动且宿主重定向了 stdin 时，Windows PowerShell 5.1 会跳过
-`process` 块，但参数照样绑定成功。表现是脚本"跑了、没报错、什么也没做"。
+Launched with `-File` and with stdin redirected by the host, Windows PowerShell 5.1
+skips the `process` block while binding parameters successfully. The symptom is a script
+that "ran, reported nothing, did nothing".
 
-写带 `[Parameter(ValueFromPipeline)]` 的工具脚本时，见
-`references/powershell-51.md` 的兜底写法。
+For tool scripts with `[Parameter(ValueFromPipeline)]`, see the fallback pattern in
+`references/powershell-51.md`.
 
-### 陷阱二：`exit` 不终止进程
+### Trap 2: `exit` does not end the process
 
-`& child.ps1` 里的 `exit 7` 只设置 `$LASTEXITCODE`，父进程继续。要在测试
-或包装脚本里拿到真实退出码，必须显式 `exit $LASTEXITCODE`。
+`exit 7` inside `& child.ps1` only sets `$LASTEXITCODE`; the parent keeps running. To
+surface a real exit code from a test or a wrapper, write `exit $LASTEXITCODE` explicitly.
 
-## 5. 执行策略的现实
+## 5. The reality of execution policy
 
-agent 宿主通常以 `-NoProfile -NonInteractive` 启动，但**不加**
-`-ExecutionPolicy`。脚本能否运行取决于当前进程生效的策略，用
-`Get-WinScriptEnvironment.ps1` 的 `EXECUTIONPOLICY` 查看。
+Agent hosts usually start with `-NoProfile -NonInteractive` but **without**
+`-ExecutionPolicy`. Whether a script runs depends on the policy in effect for the
+process; read it from `EXECUTIONPOLICY` in `Get-WinScriptEnvironment.ps1`.
 
-本规范的主张：**工具不替用户放宽策略**。
+The position of this skill: **a tool does not relax policy on the user's behalf.**
 
-- 工具自己的默认值不带 `Bypass`，理由见 `references/security.md`。
-- 需要放宽时由调用者显式传参，并且这一行应该出现在调用点附近，能被
-  code review 看到。
-- 不要把 `Set-ExecutionPolicy` 写进任何脚本：它改的是机器状态，不是这一次
-  调用。
+- Tools carry no `Bypass` in their defaults; the reasoning is in `references/security.md`.
+- When relaxation is needed, the caller passes it explicitly, and that line should sit
+  near the call site where review can see it.
+- Never write `Set-ExecutionPolicy` into a script: it changes machine state, not this one
+  invocation.
 
-## 6. 选择流程
+## 6. Which mode to pick
 
-1. 脚本已经是一份文件，且它需要自己的位置 → `run_ps.py --invoke-file`
-   （或直接 `-File`）。
-2. 脚本只有几句、但含中文 → 落盘成 UTF-8 with BOM 的 `.ps1`，再 `-File`。
-3. 宿主拦截了 `-File`，或必须内联 → 位置参数 / `--command`；此时接受
-   "没有文件上下文"这个前提。
-4. 需要跨宿主一致（5.1 与 7 都测）→ 同一条 `run_ps.py` 命令，只换
-   `--shell`。
-5. 需要"跑完告诉我哪些文件有问题" → 用工具的结构化输出与退出码，不要
-   解析人类可读文本里的中文。
+1. The script is already a file and needs its own location → `run_ps.py --invoke-file`
+   (or plain `-File`).
+2. The script is a few lines but contains Chinese → save it as a UTF-8-with-BOM `.ps1`
+   and use `-File`.
+3. The host blocks `-File`, or inline is mandatory → positional / `--command`, accepting
+   that there is no file context.
+4. The same run must cover both hosts (5.1 and 7) → one `run_ps.py` command, changing
+   only `--shell`.
+5. You need "tell me which files are wrong" → use the structured output and exit codes,
+   never parse Chinese out of human-readable text.

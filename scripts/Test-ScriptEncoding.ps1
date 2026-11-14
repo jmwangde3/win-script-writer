@@ -2160,7 +2160,7 @@ end {
         )
         $document = [ordered]@{
             Tool       = 'Test-ScriptEncoding.ps1'
-            Version    = '1.0.4'
+            Version    = '1.1.0'
             Runtime    = $PSVersionTable.PSEdition
             PSVersion  = $PSVersionTable.PSVersion.ToString()
             Profile    = $Profile

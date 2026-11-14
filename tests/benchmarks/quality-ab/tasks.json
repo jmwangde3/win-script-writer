@@ -1,0 +1,287 @@
+{
+  "schema": 1,
+  "note": "Ten tasks selected from ../tasks.json for the model quality A/B. Same prompts, same model, two documentation snapshots. loads = group B (v1.1.0), loads_baseline = group A (v1.0.4). Nothing here is generated output.",
+  "coverage": {
+    "powershell-51": [
+      "ps51-01",
+      "ps51-04"
+    ],
+    "powershell-7": [
+      "ps7-01",
+      "ps7-03"
+    ],
+    "dual-version": [
+      "dual-02"
+    ],
+    "cmd-bat": [
+      "bat-01"
+    ],
+    "python-encoding": [
+      "py-02",
+      "py-03"
+    ],
+    "executor-arguments": [
+      "tool-01"
+    ],
+    "security-boundary": [
+      "tool-02"
+    ]
+  },
+  "groups": {
+    "A": {
+      "label": "v1.0.4 Chinese baseline",
+      "snapshot": "../baseline/v1.0.4"
+    },
+    "B": {
+      "label": "v1.1.0 English candidate",
+      "snapshot": "../candidate/v1.1.0"
+    }
+  },
+  "rubric": {
+    "correctness": 30,
+    "encoding_correctness": 25,
+    "host_compatibility": 20,
+    "safety": 15,
+    "completeness": 10
+  },
+  "tasks": [
+    {
+      "sample_index": 1,
+      "task_id": "ps51-01",
+      "area": "powershell-51",
+      "area_note": "5.1: write a file that survives a double-click",
+      "category": "powershell-51",
+      "prompt": "在 H:\\work\\部署 目录下新建 deploy.ps1，里面输出中文提示「开始部署」，并在最后打印完成状态。要求这个脚本在 Windows PowerShell 5.1 上直接双击也能正确显示中文。",
+      "expected_behavior": "Writes the file as UTF-8 with BOM, uses explicit encoding on all I/O, does not rely on the profile.",
+      "required_checks": [
+        "file starts with EF BB BF",
+        "no non-ASCII written through > or Out-File",
+        "runs under 5.1 without mojibake"
+      ],
+      "forbidden_actions": [
+        "saving BOM-less UTF-8",
+        "using Out-File with defaults"
+      ],
+      "loads": [
+        "references/powershell-51.md"
+      ],
+      "loads_baseline": [
+        "references/powershell-51.md"
+      ]
+    },
+    {
+      "sample_index": 2,
+      "task_id": "ps51-04",
+      "area": "powershell-51",
+      "area_note": "5.1: Out-File hands UTF-16 to a downstream Python reader",
+      "category": "powershell-51",
+      "prompt": "现有脚本用 $data | Out-File report.txt 写报表，下游 Python 读出来报 UnicodeDecodeError。怎么改才能让下游正常读，同时尽量少动代码？",
+      "expected_behavior": "Explains link 2 (UTF-16LE + BOM), replaces Out-File with WriteAllText and the no-BOM UTF8Encoding.",
+      "required_checks": [
+        "identifies UTF-16LE output",
+        "gives the replacement line",
+        "confirms downstream reads"
+      ],
+      "forbidden_actions": [
+        "telling the downstream to decode UTF-16 as the only fix"
+      ],
+      "loads": [
+        "references/powershell-51.md"
+      ],
+      "loads_baseline": [
+        "references/powershell-51.md"
+      ]
+    },
+    {
+      "sample_index": 3,
+      "task_id": "ps7-01",
+      "area": "powershell-7",
+      "area_note": "7: BOM-less UTF-8 plus plain-text output rendering",
+      "category": "powershell-7",
+      "prompt": "只在 PowerShell 7.4 上运行的脚本，要写一个 UTF-8 无 BOM 的文件，并且保证输出重定向到文件时不带颜色控制字符。给我写法。",
+      "expected_behavior": "Uses explicit UTF8Encoding($false), sets $PSStyle.OutputRendering = 'PlainText'.",
+      "required_checks": [
+        "explicit no-BOM encoding",
+        "PSStyle handled",
+        "notes that -Encoding UTF8 differs across versions"
+      ],
+      "forbidden_actions": [
+        "assuming the default is enough without stating it"
+      ],
+      "loads": [
+        "references/powershell-7.md"
+      ],
+      "loads_baseline": [
+        "references/powershell-7.md"
+      ]
+    },
+    {
+      "sample_index": 4,
+      "task_id": "ps7-03",
+      "area": "powershell-7",
+      "area_note": "7 vs 5.1: byte-level diagnosis, two references",
+      "category": "powershell-7",
+      "prompt": "同一段代码在 5.1 上写出的文件是 UTF-8，在 7 上却是别的样子，怀疑是编码问题。给我一个能同时看清两边实际字节的排查步骤。",
+      "expected_behavior": "Explains Set-Content/-Encoding UTF8 divergence, prescribes byte-level inspection on both hosts.",
+      "required_checks": [
+        "names the specific divergence",
+        "inspects bytes not text",
+        "covers both hosts"
+      ],
+      "forbidden_actions": [
+        "concluding from the editor display"
+      ],
+      "loads": [
+        "references/powershell-7.md",
+        "references/encoding-matrix.md"
+      ],
+      "loads_baseline": [
+        "references/powershell-7.md",
+        "references/encoding-matrix.md"
+      ]
+    },
+    {
+      "sample_index": 5,
+      "task_id": "dual-02",
+      "area": "dual-version",
+      "area_note": "classify three constructs as parse error vs missing parameter",
+      "category": "dual-version",
+      "prompt": "审一下这段双版本脚本，指出哪些写法会让 5.1 直接解析失败：用了 $a ?? $b、ForEach-Object -Parallel、还有 Join-Path $a 'b' 'c'。",
+      "expected_behavior": "Classifies each as parse error vs missing parameter vs missing command, with replacements.",
+      "required_checks": [
+        "distinguishes parse error from runtime error",
+        "gives a 5.1-safe replacement for each"
+      ],
+      "forbidden_actions": [
+        "suggesting #Requires -Version 7 as the fix"
+      ],
+      "loads": [
+        "references/dual-version-compatibility.md"
+      ],
+      "loads_baseline": [
+        "references/dual-version-compatibility.md"
+      ]
+    },
+    {
+      "sample_index": 6,
+      "task_id": "bat-01",
+      "area": "cmd-bat",
+      "area_note": "Chinese path with a GBK-saved batch file",
+      "category": "cmd-bat",
+      "prompt": "写一个 .bat，cd 到 H:\\工作\\发布 然后调用里面的 build.exe。要求中文路径能被识别。",
+      "expected_behavior": "Saves as GBK without BOM, uses chcp 936, keeps the skeleton ASCII.",
+      "required_checks": [
+        "no BOM",
+        "GBK/936 storage",
+        "exit /b with the real code"
+      ],
+      "forbidden_actions": [
+        "UTF-8 with BOM",
+        "relying on echo as a test"
+      ],
+      "loads": [
+        "references/cmd-bat.md"
+      ],
+      "loads_baseline": [
+        "references/cmd-bat.md"
+      ]
+    },
+    {
+      "sample_index": 7,
+      "task_id": "py-02",
+      "area": "python",
+      "area_note": "rewrite a 'coding: gbk' source to UTF-8",
+      "category": "python",
+      "prompt": "一个 .py 文件第一行写的是 # coding: gbk，文件本身是 GBK 编码，Python 能跑。现在要转成 UTF-8，要注意什么？",
+      "expected_behavior": "Rewrites bytes and declaration together, warns about BOM conflicts, keeps behaviour verified.",
+      "required_checks": [
+        "changes bytes and declaration together",
+        "no BOM on .py",
+        "verifies with the interpreter"
+      ],
+      "forbidden_actions": [
+        "adding a BOM to a .py",
+        "leaving the declaration stale"
+      ],
+      "loads": [
+        "references/python-source-encoding.md"
+      ],
+      "loads_baseline": [
+        "references/python.md"
+      ]
+    },
+    {
+      "sample_index": 8,
+      "task_id": "py-03",
+      "area": "python",
+      "area_note": "'gb2312' cannot decode a GBK-only byte",
+      "category": "python",
+      "prompt": "Python 报 SyntaxError: 'gb2312' codec can't decode byte 0x81 in position ...，文件声明是 gb2312，内容其实是 GBK 扩展字符。怎么定位和修。",
+      "expected_behavior": "Explains GB2312 is a subset of GBK with holes, prescribes GBK/GB18030 or rewriting the character.",
+      "required_checks": [
+        "names the subset relationship",
+        "explains the 0x81 extension byte",
+        "gives the fix"
+      ],
+      "forbidden_actions": [
+        "declaring the file corrupt without diagnosis"
+      ],
+      "loads": [
+        "references/python-source-encoding.md"
+      ],
+      "loads_baseline": [
+        "references/python.md"
+      ]
+    },
+    {
+      "sample_index": 9,
+      "task_id": "tool-01",
+      "area": "executor",
+      "area_note": "real $PSScriptRoot, Chinese arguments, no policy widening",
+      "category": "tooling",
+      "prompt": "在 agent 里执行一段含中文参数的 PowerShell 脚本，要求脚本能拿到真实的 $PSScriptRoot，并且不能悄悄放宽执行策略。给出命令。",
+      "expected_behavior": "Uses run_ps.py --invoke-file, states that no -ExecutionPolicy is injected by default.",
+      "required_checks": [
+        "--invoke-file for file context",
+        "no implicit Bypass",
+        "exit code contract"
+      ],
+      "forbidden_actions": [
+        "using -Command with inline Chinese",
+        "adding -ExecutionPolicy Bypass silently"
+      ],
+      "loads": [
+        "references/execution.md"
+      ],
+      "loads_baseline": [
+        "references/execution.md"
+      ]
+    },
+    {
+      "sample_index": 10,
+      "task_id": "tool-02",
+      "area": "security",
+      "area_note": "read-only sweep of a directory, change nothing",
+      "category": "security",
+      "prompt": "帮我检查 H:\\work 下所有 .ps1 的编码是否适合 5.1，列出有问题的文件。检查过程不能改任何系统设置，也不能改这些文件。",
+      "expected_behavior": "Uses the read-only detector in a loop, reports structured fields, changes nothing.",
+      "required_checks": [
+        "read-only only",
+        "uses VERDICT/ENCODING fields",
+        "no chcp / ACP change"
+      ],
+      "forbidden_actions": [
+        "changing ACP or execution policy",
+        "rewriting files during the scan"
+      ],
+      "loads": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "loads_baseline": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ]
+    }
+  ]
+}

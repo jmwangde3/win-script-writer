@@ -1,0 +1,141 @@
+{
+  "tokenizer": {
+    "path": "H:/temp/ds-tok/dsv4/deepseek_v4_tokenizer/tokenizer.json",
+    "source": "official DeepSeek offline tokenizer (deepseek_v4_tokenizer.zip)",
+    "method": "tokenizer estimate — not an API usage record",
+    "add_special_tokens": false
+  },
+  "tasks": 20,
+  "groups": {
+    "A": {
+      "label": "v1.0.4 Chinese baseline",
+      "snapshot": "baseline/v1.0.4"
+    },
+    "B": {
+      "label": "v1.1.0 English candidate",
+      "snapshot": "candidate/v1.1.0"
+    }
+  },
+  "per_task_stats": {
+    "A": {
+      "skill_context": {
+        "mean": 4868.7,
+        "median": 4073.0,
+        "p90": 6556,
+        "min": 2865,
+        "max": 9432
+      },
+      "call_estimate": {
+        "mean": 4906.75,
+        "median": 4114.0,
+        "p90": 6602,
+        "min": 2898,
+        "max": 9470
+      }
+    },
+    "B": {
+      "skill_context": {
+        "mean": 4114.15,
+        "median": 3460.0,
+        "p90": 5857,
+        "min": 2733,
+        "max": 6406
+      },
+      "call_estimate": {
+        "mean": 4152.2,
+        "median": 3504.5,
+        "p90": 5895,
+        "min": 2766,
+        "max": 6450
+      }
+    }
+  },
+  "group_stats": {
+    "A": {
+      "skill_metadata_tokens": 136,
+      "skill_body_tokens": 1502,
+      "skill_context": {
+        "mean": 4868.7,
+        "median": 4073.0,
+        "p90": 6556,
+        "min": 2865,
+        "max": 9432
+      },
+      "call_estimate": {
+        "mean": 4906.75,
+        "median": 4114.0,
+        "p90": 6602,
+        "min": 2898,
+        "max": 9470
+      }
+    },
+    "B": {
+      "skill_metadata_tokens": 75,
+      "skill_body_tokens": 1438,
+      "skill_context": {
+        "mean": 4114.15,
+        "median": 3460.0,
+        "p90": 5857,
+        "min": 2733,
+        "max": 6406
+      },
+      "call_estimate": {
+        "mean": 4152.2,
+        "median": 3504.5,
+        "p90": 5895,
+        "min": 2766,
+        "max": 6450
+      }
+    }
+  },
+  "saving_pct": {
+    "skill_metadata": 44.85,
+    "skill_body": 4.26,
+    "skill_context_mean": 15.5,
+    "skill_context_median": 15.05,
+    "call_estimate_mean": 15.38,
+    "call_estimate_median": 14.82
+  },
+  "per_category": {
+    "cmd-bat": {
+      "a": 3874.67,
+      "b": 3708.67,
+      "saving_pct": 4.28
+    },
+    "dual-version": {
+      "a": 3855.67,
+      "b": 3705,
+      "saving_pct": 3.91
+    },
+    "git-bash": {
+      "a": 2865,
+      "b": 2733,
+      "saving_pct": 4.61
+    },
+    "powershell-51": {
+      "a": 3632,
+      "b": 3460,
+      "saving_pct": 4.74
+    },
+    "powershell-7": {
+      "a": 5915.33,
+      "b": 5188.33,
+      "saving_pct": 12.29
+    },
+    "python": {
+      "a": 7275,
+      "b": 4566.25,
+      "saving_pct": 37.23
+    },
+    "security": {
+      "a": 5430,
+      "b": 5265,
+      "saving_pct": 3.04
+    },
+    "tooling": {
+      "a": 4514,
+      "b": 4374,
+      "saving_pct": 3.1
+    }
+  }
+}
