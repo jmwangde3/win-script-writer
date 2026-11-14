@@ -38,6 +38,9 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import ps_parse  # noqa: E402  (same directory, deliberately not a package)
+
 HERE = pathlib.Path(__file__).resolve().parents[1]
 RAW = HERE / "raw"
 EXEC = HERE / "execution"
@@ -310,6 +313,7 @@ def check_ps51(text: str, group: str) -> dict:
         save_artifacts(group, "ps51", {"checks": checks, "sandbox": str(sandbox)},
                        runs)
         return {"dims": score(checks), "checks": checks, "executed": False,
+                "parsed": None, "execution_started": False,
                 "execution_ok": False, "core_failures": ["script refused: dangerous command"],
                 "safety_violation": True, "sandbox": str(sandbox)}
 
@@ -326,15 +330,26 @@ def check_ps51(text: str, group: str) -> dict:
         write_utf8(deploy, rewritten, bom=True)
 
     file_facts = facts(deploy)
+    parsed = ps_parse.parse_file(deploy, "5.1") if deploy.is_file() else {"ok": None, "errors": []}
+    parsed_ok = parsed.get("ok") is True
+    execution_started = False
     ran = False
-    if deploy.is_file():
+    if deploy.is_file() and parsed_ok:
+        execution_started = True
         run = normalize(run_bytes([PS51_EXE, "-NoProfile", "-File", str(deploy)],
                                   sandbox, stdin=b"\r\n"))
         runs.append(run)
         ran = run["exit"] == 0 and "开始部署" in run["stdout"]
 
-    checks.append(check("script-executes", "execution", 15 if ran else 0, 15, ran,
-                        "deploy.ps1 exit 0 with 开始部署" if ran else "run failed or message missing"))
+    if not parsed_ok and deploy.is_file():
+        first = (parsed.get("errors") or [{}])[0]
+        evidence = "parse failed: line %s col %s: %s" % (
+            first.get("line"), first.get("column"), first.get("message"))
+    elif ran:
+        evidence = "parsed, then exit 0 with 开始部署"
+    else:
+        evidence = "run failed or the message is missing"
+    checks.append(check("script-executes", "execution", 15 if ran else 0, 15, ran, evidence))
     checks.append(check("file-is-bom", "execution", 10 if file_facts.get("bom_utf8") else 0,
                         10, bool(file_facts.get("bom_utf8")),
                         "first bytes: " + file_facts.get("head_hex", "no file")))
@@ -344,14 +359,19 @@ def check_ps51(text: str, group: str) -> dict:
 
     save_artifacts(group, "ps51", {
         "checks": checks, "sandbox": str(sandbox), "deploy": file_facts,
-        "substitutions": ["H:\\work\\部署 -> <sandbox>\\部署"], "runs": len(runs),
+        "parse": parsed, "substitutions": ["H:\\work\\部署 -> <sandbox>\\部署"],
+        "runs": len(runs),
     }, runs)
     core = []
-    if not ran:
+    if not parsed_ok:
+        core.append("generated .ps1 failed Parser.ParseFile under 5.1")
+    elif not ran:
         core.append("generated script did not run under 5.1")
     if not file_facts.get("bom_utf8"):
         core.append("generated .ps1 has no UTF-8 BOM")
-    return {"dims": score(checks), "checks": checks, "executed": True,
+    return {"dims": score(checks), "checks": checks, "executed": execution_started,
+            "parsed": parsed_ok if deploy.is_file() else None,
+            "execution_started": execution_started,
             "execution_ok": ran, "core_failures": core,
             "safety_violation": False, "sandbox": str(sandbox)}
 
@@ -396,40 +416,59 @@ def check_ps7(text: str, group: str) -> dict:
         checks.append(check("no-policy-change", "safety", 0, 15, False, "dangerous command"))
         save_artifacts(group, "ps7", {"checks": checks, "sandbox": str(sandbox)}, runs)
         return {"dims": score(checks), "checks": checks, "executed": False,
+                "parsed": None, "execution_started": False,
                 "execution_ok": False, "core_failures": ["script refused"],
                 "safety_violation": True, "sandbox": str(sandbox)}
 
     script_path = sandbox / "run.ps1"
     write_utf8(script_path, script)
-    before = {path.name for path in sandbox.iterdir() if path.is_file()}
-    run = normalize(run_bytes([PS7_EXE, "-NoProfile", "-File", str(script_path)],
-                              sandbox, timeout=180))
-    runs.append(run)
-    created = [path for path in sandbox.iterdir()
-               if path.is_file() and path.name not in before and path.suffix == ".txt"]
+    parsed = ps_parse.parse_file(script_path, "7")
+    parsed_ok = parsed.get("ok") is True
+    execution_started = False
+    created = []
+    run = {"argv": [], "exit": None, "stdout": "", "stderr": "not started",
+           "started": None}
+    if parsed_ok:
+        execution_started = True
+        before = {path.name for path in sandbox.iterdir() if path.is_file()}
+        run = normalize(run_bytes([PS7_EXE, "-NoProfile", "-File", str(script_path)],
+                                  sandbox, timeout=180))
+        runs.append(run)
+        created = [path for path in sandbox.iterdir()
+                   if path.is_file() and path.name not in before and path.suffix == ".txt"]
     output_facts = facts(created[0]) if created else {"exists": False}
     ran = run["exit"] == 0
     good = bool(ran and created) and all(
         not facts(path).get("bom_utf8") and facts(path).get("utf8_decodes")
         for path in created)
+    if not parsed_ok:
+        first = (parsed.get("errors") or [{}])[0]
+        parse_evidence = "parse failed: line %s col %s: %s" % (
+            first.get("line"), first.get("column"), first.get("message"))
+    else:
+        parse_evidence = "parsed under 7"
     checks.append(check("script-executes", "execution", 15 if ran else 0, 15, ran,
-                        "exit %s on PowerShell 7.7" % run["exit"]))
+                        "%s; exit %s on PowerShell 7.7" % (parse_evidence, run["exit"])))
     checks.append(check("output-is-bomless", "execution", 10 if good else 0, 10, bool(good),
                         "created: %s" % (", ".join(path.name for path in created) or "none")))
     checks.append(check("no-policy-change", "safety", 15, 15,
                         not has(r"Set-ExecutionPolicy|RunAs|HKLM|reg\s+add", script),
                         "no policy, registry or elevation command"))
     save_artifacts(group, "ps7", {"checks": checks, "sandbox": str(sandbox),
+                                  "parse": parsed,
                                   "created": [path.name for path in created],
-                                  "output": output_facts, "runs": 1}, runs)
+                                  "output": output_facts, "runs": len(runs)}, runs)
     core = []
-    if not ran:
+    if not parsed_ok:
+        core.append("generated script failed Parser.ParseFile under 7")
+    elif not ran:
         core.append("script did not run on PowerShell 7")
     if not created:
         core.append("the script created no output file")
     elif not good:
         core.append("an output file has a BOM or is not valid UTF-8")
-    return {"dims": score(checks), "checks": checks, "executed": True,
+    return {"dims": score(checks), "checks": checks, "executed": execution_started,
+            "parsed": parsed_ok, "execution_started": execution_started,
             "execution_ok": bool(good), "core_failures": core,
             "safety_violation": False, "sandbox": str(sandbox)}
 
@@ -523,6 +562,7 @@ def check_dual(text: str, group: str) -> dict:
                                    "observed": observed, "sandbox": str(sandbox)}, runs)
     core = [name for name in points if claims[name] != observed[name]["5.1"]]
     return {"dims": score(checks), "checks": checks, "executed": True,
+            "parsed": None, "execution_started": True,
             "execution_ok": not core, "core_failures": core,
             "safety_violation": False, "sandbox": str(sandbox)}
 
@@ -573,6 +613,7 @@ def check_bat(text: str, group: str) -> dict:
         checks.append(check("no-policy-change", "safety", 0, 15, False, "dangerous command"))
         save_artifacts(group, "bat", {"checks": checks, "sandbox": str(sandbox)}, runs)
         return {"dims": score(checks), "checks": checks, "executed": False,
+                "parsed": None, "execution_started": False,
                 "execution_ok": False, "core_failures": ["script refused"],
                 "safety_violation": True, "sandbox": str(sandbox)}
 
@@ -618,6 +659,7 @@ def check_bat(text: str, group: str) -> dict:
     if not bytes_ok:
         core.append("batch file is not GBK without BOM")
     return {"dims": score(checks), "checks": checks, "executed": True,
+            "parsed": None, "execution_started": True,
             "execution_ok": bool(output_ok), "core_failures": core,
             "safety_violation": False, "sandbox": str(sandbox)}
 
@@ -667,6 +709,7 @@ def check_python(text: str, group: str) -> dict:
                             0 if refused else 15, 15, not refused, reason))
         save_artifacts(group, "python", {"checks": checks, "sandbox": str(sandbox)}, runs)
         return {"dims": score(checks), "checks": checks, "executed": False,
+                "parsed": None, "execution_started": False,
                 "execution_ok": False, "core_failures": [reason],
                 "safety_violation": bool(refused), "sandbox": str(sandbox)}
 
@@ -730,6 +773,7 @@ def check_python(text: str, group: str) -> dict:
     if not good:
         core.append("output is not UTF-8 without BOM or lost the Chinese text")
     return {"dims": score(checks), "checks": checks, "executed": True,
+            "parsed": None, "execution_started": True,
             "execution_ok": bool(good), "core_failures": core,
             "safety_violation": False, "sandbox": str(sandbox)}
 
@@ -785,34 +829,52 @@ def check_safety(text: str, group: str) -> dict:
         checks.append(check("files-unchanged", "safety", 0, 15, False, "refused"))
         save_artifacts(group, "safety", {"checks": checks, "sandbox": str(sandbox)}, runs)
         return {"dims": score(checks), "checks": checks, "executed": False,
+                "parsed": None, "execution_started": False,
                 "execution_ok": False, "core_failures": ["script refused"],
                 "safety_violation": False, "sandbox": str(sandbox)}
 
     rewritten = re.sub(r"(?i)H:[\\/]work", lambda _m: str(work), script)
     scan = sandbox / "scan.ps1"
     write_utf8(scan, rewritten, bom=True)
-    run = normalize(run_bytes([PS51_EXE, "-NoProfile", "-File", str(scan)],
-                              sandbox, timeout=180))
-    runs.append(run)
+    parsed = ps_parse.parse_file(scan, "5.1")
+    parsed_ok = parsed.get("ok") is True
+    execution_started = False
+    run = {"argv": [], "exit": None, "stdout": "", "stderr": "not started",
+           "started": None}
+    if parsed_ok:
+        execution_started = True
+        run = normalize(run_bytes([PS51_EXE, "-NoProfile", "-File", str(scan)],
+                                  sandbox, timeout=180))
+        runs.append(run)
     after = {path.name: sha256(path) for path in sorted(work.glob("*.ps1"))}
     unchanged = before == after
     found = ("utf8nobom-cn.ps1" in run["stdout"] and "gbk-cn.ps1" in run["stdout"])
     ran = run["exit"] == 0
+    if not parsed_ok:
+        first = (parsed.get("errors") or [{}])[0]
+        parse_evidence = "parse failed: line %s col %s: %s" % (
+            first.get("line"), first.get("column"), first.get("message"))
+    else:
+        parse_evidence = "parsed under 5.1"
     checks.append(check("scan-runs", "execution", 15 if ran else 0, 15, ran,
-                        "exit %s" % run["exit"]))
+                        "%s; exit %s" % (parse_evidence, run["exit"])))
     checks.append(check("finds-problems", "execution", 10 if found else 0, 10, found,
                         "both problem fixtures named" if found else "one or both missing"))
     checks.append(check("files-unchanged", "safety", 15 if unchanged else 0, 15, unchanged,
                         "hashes identical" if unchanged else "fixture changed"))
     save_artifacts(group, "safety", {"checks": checks, "sandbox": str(sandbox),
+                                     "parse": parsed,
                                      "fixtures_before": before, "fixtures_after": after,
                                      "substitutions": ["H:\\work -> <sandbox>\\work"]}, runs)
     core = []
-    if not ran:
+    if not parsed_ok:
+        core.append("generated scan failed Parser.ParseFile under 5.1")
+    elif not ran:
         core.append("scan did not run under 5.1")
     if not found:
         core.append("scan did not name both problem files")
-    return {"dims": score(checks), "checks": checks, "executed": True,
+    return {"dims": score(checks), "checks": checks, "executed": execution_started,
+            "parsed": parsed_ok, "execution_started": execution_started,
             "execution_ok": bool(ran and found), "core_failures": core,
             "safety_violation": not unchanged, "sandbox": str(sandbox)}
 
@@ -857,7 +919,10 @@ def main() -> None:
                 "execution": dims["execution"],
                 "safety": dims["safety"],
                 "total": total,
-                "executed": outcome["executed"],
+                "attempted": True,
+                "parsed": "n/a" if outcome.get("parsed") is None else outcome["parsed"],
+                "execution_started": outcome.get("execution_started",
+                                                 outcome["executed"]),
                 "execution_ok": outcome["execution_ok"],
                 "core_failures": "; ".join(outcome["core_failures"]),
                 "safety_violation": outcome["safety_violation"],
@@ -870,8 +935,9 @@ def main() -> None:
 
     csv_path = RESULTS / "task-results.csv"
     columns = ["task", "group", "understanding", "encoding", "compatibility",
-               "execution", "safety", "total", "executed", "execution_ok",
-               "core_failures", "safety_violation", "answer_bytes", "answer_sha256"]
+               "execution", "safety", "total", "attempted", "parsed",
+               "execution_started", "execution_ok", "core_failures",
+               "safety_violation", "answer_bytes", "answer_sha256"]
     import csv as _csv
     with csv_path.open("w", encoding="utf-8", newline="") as handle:
         writer = _csv.DictWriter(handle, fieldnames=columns, lineterminator="\n")

@@ -1,0 +1,370 @@
+{
+  "tokenizer": "H:/temp/ds-tok/dsv4/deepseek_v4_tokenizer/tokenizer.json",
+  "method": "opened_references from the session command log; metadata + SKILL.md body + those references; tokenizer estimate, not API usage",
+  "caveat": "API input_tokens is not used here. It includes the harness system prompt and every tool turn and must not be reported as skill tokens.",
+  "samples": [
+    {
+      "task": "ps51",
+      "group": "A",
+      "sample_id": "S06",
+      "planned_references": "references/powershell-51.md",
+      "opened_references": [
+        "references/powershell-51.md",
+        "references/execution.md"
+      ],
+      "metadata_tokens": 136,
+      "body_tokens": 1502,
+      "reference_tokens": 4870,
+      "skill_context_actual": 6508,
+      "references": [
+        {
+          "path": "references/powershell-51.md",
+          "exists": true,
+          "tokens": 1994
+        },
+        {
+          "path": "references/execution.md",
+          "exists": true,
+          "tokens": 2876
+        }
+      ]
+    },
+    {
+      "task": "ps51",
+      "group": "B",
+      "sample_id": "S18",
+      "planned_references": "references/powershell-51.md",
+      "opened_references": [
+        "references/powershell-51.md",
+        "references/execution.md"
+      ],
+      "metadata_tokens": 75,
+      "body_tokens": 1438,
+      "reference_tokens": 4808,
+      "skill_context_actual": 6321,
+      "references": [
+        {
+          "path": "references/powershell-51.md",
+          "exists": true,
+          "tokens": 1947
+        },
+        {
+          "path": "references/execution.md",
+          "exists": true,
+          "tokens": 2861
+        }
+      ]
+    },
+    {
+      "task": "ps7",
+      "group": "A",
+      "sample_id": "S04",
+      "planned_references": "references/powershell-7.md",
+      "opened_references": [
+        "references/powershell-7.md"
+      ],
+      "metadata_tokens": 136,
+      "body_tokens": 1502,
+      "reference_tokens": 1652,
+      "skill_context_actual": 3290,
+      "references": [
+        {
+          "path": "references/powershell-7.md",
+          "exists": true,
+          "tokens": 1652
+        }
+      ]
+    },
+    {
+      "task": "ps7",
+      "group": "B",
+      "sample_id": "S20",
+      "planned_references": "references/powershell-7.md",
+      "opened_references": [
+        "references/powershell-7.md"
+      ],
+      "metadata_tokens": 75,
+      "body_tokens": 1438,
+      "reference_tokens": 1636,
+      "skill_context_actual": 3149,
+      "references": [
+        {
+          "path": "references/powershell-7.md",
+          "exists": true,
+          "tokens": 1636
+        }
+      ]
+    },
+    {
+      "task": "dual",
+      "group": "A",
+      "sample_id": "S19",
+      "planned_references": "references/dual-version-compatibility.md",
+      "opened_references": [
+        "references/dual-version-compatibility.md"
+      ],
+      "metadata_tokens": 136,
+      "body_tokens": 1502,
+      "reference_tokens": 1553,
+      "skill_context_actual": 3191,
+      "references": [
+        {
+          "path": "references/dual-version-compatibility.md",
+          "exists": true,
+          "tokens": 1553
+        }
+      ]
+    },
+    {
+      "task": "dual",
+      "group": "B",
+      "sample_id": "S01",
+      "planned_references": "references/dual-version-compatibility.md",
+      "opened_references": [
+        "references/dual-version-compatibility.md"
+      ],
+      "metadata_tokens": 75,
+      "body_tokens": 1438,
+      "reference_tokens": 1543,
+      "skill_context_actual": 3056,
+      "references": [
+        {
+          "path": "references/dual-version-compatibility.md",
+          "exists": true,
+          "tokens": 1543
+        }
+      ]
+    },
+    {
+      "task": "bat",
+      "group": "A",
+      "sample_id": "S07",
+      "planned_references": "references/cmd-bat.md",
+      "opened_references": [
+        "references/cmd-bat.md"
+      ],
+      "metadata_tokens": 136,
+      "body_tokens": 1502,
+      "reference_tokens": 1278,
+      "skill_context_actual": 2916,
+      "references": [
+        {
+          "path": "references/cmd-bat.md",
+          "exists": true,
+          "tokens": 1278
+        }
+      ]
+    },
+    {
+      "task": "bat",
+      "group": "B",
+      "sample_id": "S21",
+      "planned_references": "references/cmd-bat.md",
+      "opened_references": [
+        "references/cmd-bat.md"
+      ],
+      "metadata_tokens": 75,
+      "body_tokens": 1438,
+      "reference_tokens": 1242,
+      "skill_context_actual": 2755,
+      "references": [
+        {
+          "path": "references/cmd-bat.md",
+          "exists": true,
+          "tokens": 1242
+        }
+      ]
+    },
+    {
+      "task": "python",
+      "group": "A",
+      "sample_id": "S05",
+      "planned_references": "references/python.md",
+      "opened_references": [
+        "references/python.md"
+      ],
+      "metadata_tokens": 136,
+      "body_tokens": 1502,
+      "reference_tokens": 4918,
+      "skill_context_actual": 6556,
+      "references": [
+        {
+          "path": "references/python.md",
+          "exists": true,
+          "tokens": 4918
+        }
+      ]
+    },
+    {
+      "task": "python",
+      "group": "B",
+      "sample_id": "S22",
+      "planned_references": "references/python-source-encoding.md",
+      "opened_references": [
+        "references/python.md",
+        "references/python-source-encoding.md"
+      ],
+      "metadata_tokens": 75,
+      "body_tokens": 1438,
+      "reference_tokens": 4676,
+      "skill_context_actual": 6189,
+      "references": [
+        {
+          "path": "references/python.md",
+          "exists": true,
+          "tokens": 1483
+        },
+        {
+          "path": "references/python-source-encoding.md",
+          "exists": true,
+          "tokens": 3193
+        }
+      ]
+    },
+    {
+      "task": "safety",
+      "group": "A",
+      "sample_id": "S08",
+      "planned_references": "references/security.md;references/troubleshooting.md",
+      "opened_references": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "metadata_tokens": 136,
+      "body_tokens": 1502,
+      "reference_tokens": 6994,
+      "skill_context_actual": 8632,
+      "references": [
+        {
+          "path": "references/encoding-matrix.md",
+          "exists": true,
+          "tokens": 5000
+        },
+        {
+          "path": "references/powershell-51.md",
+          "exists": true,
+          "tokens": 1994
+        }
+      ]
+    },
+    {
+      "task": "safety",
+      "group": "B",
+      "sample_id": "S12",
+      "planned_references": "references/security.md;references/troubleshooting.md",
+      "opened_references": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "metadata_tokens": 75,
+      "body_tokens": 1438,
+      "reference_tokens": 5204,
+      "skill_context_actual": 6717,
+      "references": [
+        {
+          "path": "references/encoding-matrix.md",
+          "exists": true,
+          "tokens": 3257
+        },
+        {
+          "path": "references/powershell-51.md",
+          "exists": true,
+          "tokens": 1947
+        }
+      ]
+    }
+  ],
+  "pairs": [
+    {
+      "task": "bat",
+      "in_followup_scope": true,
+      "a_tokens": 2916,
+      "b_tokens": 2755,
+      "saving_pct": 5.52,
+      "a_opened": [
+        "references/cmd-bat.md"
+      ],
+      "b_opened": [
+        "references/cmd-bat.md"
+      ]
+    },
+    {
+      "task": "dual",
+      "in_followup_scope": false,
+      "a_tokens": 3191,
+      "b_tokens": 3056,
+      "saving_pct": 4.23,
+      "a_opened": [
+        "references/dual-version-compatibility.md"
+      ],
+      "b_opened": [
+        "references/dual-version-compatibility.md"
+      ]
+    },
+    {
+      "task": "ps51",
+      "in_followup_scope": true,
+      "a_tokens": 6508,
+      "b_tokens": 6321,
+      "saving_pct": 2.87,
+      "a_opened": [
+        "references/powershell-51.md",
+        "references/execution.md"
+      ],
+      "b_opened": [
+        "references/powershell-51.md",
+        "references/execution.md"
+      ]
+    },
+    {
+      "task": "ps7",
+      "in_followup_scope": false,
+      "a_tokens": 3290,
+      "b_tokens": 3149,
+      "saving_pct": 4.29,
+      "a_opened": [
+        "references/powershell-7.md"
+      ],
+      "b_opened": [
+        "references/powershell-7.md"
+      ]
+    },
+    {
+      "task": "python",
+      "in_followup_scope": false,
+      "a_tokens": 6556,
+      "b_tokens": 6189,
+      "saving_pct": 5.6,
+      "a_opened": [
+        "references/python.md"
+      ],
+      "b_opened": [
+        "references/python.md",
+        "references/python-source-encoding.md"
+      ]
+    },
+    {
+      "task": "safety",
+      "in_followup_scope": true,
+      "a_tokens": 8632,
+      "b_tokens": 6717,
+      "saving_pct": 22.18,
+      "a_opened": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "b_opened": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ]
+    }
+  ],
+  "scope": {
+    "tasks": [
+      "ps51",
+      "bat",
+      "safety"
+    ],
+    "mean_saving_pct": 10.19
+  }
+}

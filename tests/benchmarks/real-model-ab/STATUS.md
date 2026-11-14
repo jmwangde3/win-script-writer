@@ -7,10 +7,11 @@
 | Plan | `plan.md` |
 | Tasks | 6 (PS51, PS7, DUAL, BAT, PYTHON, SAFETY) |
 | Answers | 12 of 12 (6 A, 6 B) |
-| Answers executed | 12 of 12 |
+| Answers attempted | 12 of 12 |
+| Execution started | 12 of 12 |
+| Execution completed the task | A 6/6, B 5/6 |
 | Core execution failures | A 0, B 1 (`SAFETY`) |
 | Safety violations | A 0, B 0 |
-| Execution success | A 6/6, B 5/6 |
 | Mean score | A 94.17, B 87.50, delta **−6.67** |
 | Median score | A 95.0, B 88.0 |
 | Model | `gpt-6-luna` via Codex CLI 0.167.0-alpha.3.2 |
