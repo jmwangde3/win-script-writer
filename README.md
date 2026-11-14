@@ -140,7 +140,7 @@ progressive disclosure 的前提：入口文件大了，就等于每次都全量
   `shift_jis`、`big5` 这类名字 Python 认，但检测器没有对应字节表，正文里有没有
   非法字节它看不见。这种情况报 `WARN` + `SOURCE_CODING_PAYLOAD=unverified`
   （JSON `SourceCodingPayload`），说明「名字成立、负载未验证」，而不是假装
-  `OK`。名字表本身是 448 项精确表，不是前缀正则——`mac-bogus` 之类的仿写
+  `OK`。名字表本身是按族组织的精确表，不是前缀正则——`mac-bogus` 之类的仿写
   一律 `FAIL`。
 - **默认不改系统状态。** 不注入 `-ExecutionPolicy Bypass`、不自动提权、
   不改 `ACP`、不覆盖已有文件、不把无法编码的字符换成 `?`。理由见

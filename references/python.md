@@ -194,7 +194,7 @@ BOM 判定**先于**名字查表：`windows-936` 单独报 `encoding problem: wi
 等）归类，于是 `mac-bogus`、`shift_jis_typo`、`big5-nope`、`ibm99999` 都被当成
 Python 认识的名字——解释器对这四个都抛 `SyntaxError`。v1.0.4 改**精确表**：按
 tokenizer 规则归一化（小写、`_`→`-`、`utf-8-*` 折叠成 `utf-8`、`latin-1` 族折叠成
-`latin-1`，其余保留原样）后查一张 448 项哈希表。`TestCodecAliasCoverage` 每轮
+`latin-1`，其余保留原样）后查按族组织的精确表。`TestCodecAliasCoverage` 每轮
 遍历 `encodings.aliases` 与 `encodings/` 模块名，逐个 `compile()` 再和检测器比对：
 3.13.9 上 471 个拼写 / 380 可作 / 91 被拒 / **0 分歧**。
 
