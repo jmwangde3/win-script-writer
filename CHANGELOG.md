@@ -3,7 +3,7 @@
 格式参照 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号按 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [1.0.3] - 未发布
+## [1.0.3] - 2026-11-14
 
 编码别名的准确性修复。检测器把 GBK、GB2312、HZ-GB-2312 和 GB18030 当成
 同一个 CP936，于是三种情况都答错了：Python 拒绝的文件被判通过，Python 能跑的
