@@ -106,10 +106,22 @@ The only large deltas are `python.md` and `encoding-matrix.md` — the two files
 **restructured**, not translated. Their combined content did not disappear: it reappears
 as the two new pages at the bottom of the table.
 
-So 5.7% — the first round, before the restructure, when translation and the rewritten
-description were the only changes in play — was the ceiling of *that* combination. The
-part attributable to translation alone is the 1.2% above, not 5.7%. Anything above the
-first-round figure had to come from moving content, which is the next section.
+**The 5.7% figure is withdrawn.** An earlier draft called it "the first round, before the
+restructure" and treated it as the ceiling of a translation-plus-rewritten-description
+combination. Git history does not support that reading: `047b2a8` is the only commit that
+changed the documentation language for v1.1.0, and it carries the translation, the
+description rewrite and the reference split in one change. No commit, snapshot or
+`raw.jsonl` row in this repository records a translation-only round, so 5.7% cannot be
+recomputed from the frozen text and proves nothing. What the repository does support is
+the decomposition above: **1.2% at file level** for the eight translated-but-unrestructured
+references, and the rest of the mean coming from moving content — which is the next
+section. Do not quote 5.7%.
+
+One other documentation change exists in history and it does not rescue the figure:
+`de6f0d0` on the unmerged `chore/skill-description-trim` branch trims the Chinese
+description and touches nothing else — one line of `SKILL.md`, first-hop budget
+19988 → 19789 tokens (−1.0%) by its own commit message. It is not part of v1.1.0, and it
+is far too small to produce 5.7%.
 
 ### 3.2 The one structural defect worth fixing
 
@@ -207,11 +219,13 @@ What was actually done, and why:
   unreachable. **The quality gate is therefore `CONDITIONAL`, not `PASS`**: the structural
   evidence is there, the human quality score is not, and inventing one would be worse than
   leaving it open.
-- **The blind review is now specified, not performed.** `../quality-ab/` holds a 10-task
-  model A/B plan with isolated sessions, anonymised samples and a sealed mapping, plus
-  `prepare.py` which builds the run bundle and the scoring sheet. Its status is
-  **PENDING**: this environment has no callable target model, so no answer was generated
-  and no score was assigned. `quality-ab/STATUS.md` is the file to change when it runs.
+- **The blind review is now specified, not performed.** `../quality-ab/` holds an 11-task
+  model A/B plan with isolated sessions, anonymised answers, a separate scoring packet and
+  a sealed mapping that only the executor holds. The builder, the scoring-packet builder
+  and the unsealing/report tool are all in that directory; the toolchain is `READY`.
+  Its status is **PENDING**: this environment has no callable target model, so 0 of the
+  22 answers exist and no score was assigned. The toolchain being ready is not a quality
+  result — `quality-ab/STATUS.md` is the file to change when the run happens.
 
 ## 6. Reproduction
 
@@ -224,11 +238,23 @@ python tests/benchmarks/compute.py --tokenizer /path/to/tokenizer.json
 `summary.json` the aggregates above. The two snapshots under `baseline/` and `candidate/`
 are frozen text; regenerate the candidate snapshot after any edit meant to change cost.
 
-The model quality A/B (`../quality-ab/`) is a separate run with its own prerequisites; its
-bundle is built with:
+The model quality A/B (`../quality-ab/`) is a separate run with its own prerequisites.
+The three steps are kept apart on purpose, because the scorer must never see the group:
 
 ```bash
+# 1. executor: build S01..S22, one directory per isolated session
 python tests/benchmarks/quality-ab/prepare.py --out D:/qa-run
+
+# 2. executor: after all 22 answers exist, build the anonymous packet for the scorer
+python tests/benchmarks/quality-ab/make_scoring_packet.py \
+    --run D:/qa-run --out D:/qa-packet
+
+# 3. executor: only after both reviewers submit, unblind and aggregate
+python tests/benchmarks/quality-ab/unseal.py \
+    --packet D:/qa-packet --key D:/qa-SCORER-KEY.json \
+    --scores D:/qa-packet/scores-reviewer-1.csv \
+    --scores D:/qa-packet/scores-reviewer-2.csv \
+    --out D:/qa-results.md
 ```
 
 It is `PENDING` — see `../quality-ab/STATUS.md`.

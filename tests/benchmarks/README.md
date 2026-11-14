@@ -1,10 +1,21 @@
 # Context benchmark (A/B)
 
-What v1.1.0 claims to save is **tokens the model actually reads**, not bytes on disk.
-Those two move in opposite directions when you translate Chinese to English: the same
-information needs 20–40% more UTF-8 bytes in English, while a Chinese character costs
-roughly three times the tokens of an English character. Byte counts cannot settle it, so
-this directory measures tokens.
+This directory estimates how the token cost of the skill documentation changes between
+v1.0.4 and v1.1.0. It is an **estimate under a named tokenizer and a pre-declared routing
+plan**, not a record of what a model read at run time. Four things that are easy to
+conflate are kept apart:
+
+| Term | What this benchmark does |
+| --- | --- |
+| tokenizer estimate | yes — the official DeepSeek V4 offline tokenizer |
+| API `usage` | no — no request is made, so no usage object exists |
+| pre-declared reference routing | yes — the `loads` lists in `tasks.json` |
+| real run-time file access | no — no agent runs, nothing is observed |
+
+Bytes are the wrong unit for this question: the same information needs 20–40% more UTF-8
+bytes in English, while a Chinese character costs roughly three times the tokens of an
+English character. Byte counts cannot settle it, so this directory counts tokens under one
+tokenizer.
 
 ## Method
 
@@ -136,7 +147,10 @@ each with its scope attached:
 ## Quality, which this directory does not measure
 
 Token cost is not answer quality, and nothing above says the English documents are better.
-`quality-ab/` holds the plan for that: 10 tasks, one pinned model, isolated sessions,
-anonymised samples with a sealed mapping, and a 100-point rubric (correctness 30, encoding
-25, host compatibility 20, safety 15, completeness 10). `quality-ab/STATUS.md` reads
-**PENDING** — no model was called, so no answer and no score exists.
+`quality-ab/` holds the plan for that: 11 tasks across the eight categories of
+`tasks.json`, one pinned model, isolated sessions, a randomised and anonymised scoring
+packet, a sealed mapping held only by the executor, and a 100-point rubric (correctness
+30, encoding 25, host compatibility 20, safety 15, completeness 10). The toolchain —
+`prepare.py`, `make_scoring_packet.py`, `unseal.py` — is `READY`. `quality-ab/STATUS.md`
+reads **PENDING**: no model was called, so 0 of the 22 answers and no score exist. A ready
+toolchain is not a quality result.
