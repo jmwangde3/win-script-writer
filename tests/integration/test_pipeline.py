@@ -732,11 +732,12 @@ class TestUnusableCodecReason(unittest.TestCase):
 
 
 class TestCodecCompatibilitySet(unittest.TestCase):
-    """The name table is a union over patch releases, and says so.
+    """The name table is a union over releases, and says so.
 
-    cp858 gained the spelling cp00858 in 3.14: 3.11.17, 3.13.9 and 3.14.8 were
-    each asked, and the first two answer "unknown encoding: cp00858" while the
-    last compiles it. A detector that copied one host's stdlib would either
+    cp858 gained the spelling cp00858 with gh-149801, which first shipped in
+    3.13.14 and 3.14.6 (3.15.0b2 on the 3.15 line): 3.11.17, 3.13.9 and 3.14.8
+    were each asked, and the first two answer "unknown encoding: cp00858" while
+    the last compiles it. A detector that copied one host's stdlib would either
     reject a file the newer patch runs or promise a file the older patch cannot
     compile. Neither is acceptable, so the answer is a WARN that names the set
     instead of the interpreter, with the payload left unverified -- on every

@@ -105,9 +105,9 @@ Python 3.15 起 UTF-8 模式成为默认（PEP 686）：`open()`、
 `sys.stdout` 的编码还取决于终端与宿主，也有人用 `-X utf8=0` 或 `PYTHONUTF8=0`
 把默认值退回去。
 
-本项目验证这条的方式是把 UTF-8 模式**强制打开**（`PYTHONUTF8=1`）跑同一套测试：
-CI 是 `test.yml` 的 `python-utf8-mode` 作业，本机是设变量后重跑。这是模拟 3.15 的
-行为，不是 3.15 本身。
+本项目验证这条的方式是把 UTF-8 模式**强制打开**（`PYTHONUTF8=1`，Python 3.13）跑同
+一套测试：CI 是 `python-utf8-mode` 作业，本机是设变量后重跑。这是模拟 3.15 的默认
+行为，不是 3.15 兼容测试——3.14 / 3.15 都不在正式验证矩阵里（见 `README.md`）。
 
 ## 6. 与 PowerShell 交接
 
@@ -119,15 +119,15 @@ CI 是 `test.yml` 的 `python-utf8-mode` 作业，本机是设变量后重跑。
 
 ## 7. 源码编码声明（PEP 263）
 
-`# coding: <名字>` 不是注释，是解释器的输入契约。这一节记录 CPython 3.13 的
-实际行为（每条都跑过），以及 `Test-ScriptEncoding.ps1` 据此给出的判定。
-结论表在 `references/encoding-matrix.md`，这里是支撑它的细节。
+`# coding: <名字>` 不是注释，是解释器的输入契约。这一节记录 CPython 3.11–3.15 预览
+的实际行为（每条都跑过），以及 `Test-ScriptEncoding.ps1` 据此给出的判定；结论表在
+`references/encoding-matrix.md`，这里是支撑它的细节。
 
 ### 7.1 「唯一」「歧义」「解不出」是三种结论，不是两种
 
-最早这里只有一条「声明和字节相符吗」，于是把 `# coding: gb2312` + 一个 `茅` 字
-（`C3 A9`）判成冲突。那两字节在 GB2312 里是「茅」，在 UTF-8 里是「é」，两边都能
-解——Python 按声明解出「茅」并 `rc=0`。「别的编码也能解」只是不唯一。
+最早这里只有一条「声明和字节相符吗」，于是把 `# coding: gb2312` + `茅`（`C3 A9`）
+判成冲突：那两字节在 GB2312 是「茅」、在 UTF-8 是「é」，Python 按声明解出「茅」并
+`rc=0`；「别的编码也能解」只是不唯一。
 
 现在的判定分三档：
 
@@ -137,9 +137,9 @@ CI 是 `test.yml` 的 `python-utf8-mode` 作业，本机是设变量后重跑。
 | 歧义 | 声明能解，另一族也能解，且那族是检测结论 | `WARN` + `AMBIGUOUS` |
 | 声明解不出 | 整段过不了声明的编码规则 | `FAIL` + `INVALID_BYTES` |
 
-关键区别：**只有声明本身解不出字节时才算错**。声明 `gb2312` 而字节恰好也是合法
-UTF-8 的，报 `AMBIGUOUS` 而不是 `FAIL`——Python 真的跑起来了，硬判等于用谨慎否决
-解释器。反过来 `E4 B8 AD` 声明 `gbk` 必须 `FAIL`：它确实解不出（见 7.4）。
+关键区别：**只有声明本身解不出字节时才算错**——`gb2312` 配合法 UTF-8 字节报
+`AMBIGUOUS`（Python 真跑起来了，硬判等于用谨慎否决解释器），而 `E4 B8 AD` 声明
+`gbk` 必须 `FAIL`（确实解不出，见 7.4）。
 
 ### 7.2 Latin-1 要一格一格算，不能一句「都能解」
 
@@ -163,8 +163,8 @@ latin-1 与 UTF-8 的混用不在本节保护范围内：`WARN` 说的是「Pyth
 ### 7.3 codec 名字的四种状态
 
 `Resolve-PythonCodingName` 以前用 `$null` 表示一切异常，把「Python 不认识」和
-「检测器没实现」压成同一件事（`cp1252` 与 `54936` 都报 `UNKNOWN`，而前者实测
-`rc=0`）。现在返回 `Support` 字段，四档：
+「检测器没实现」压成同一件事（`cp1252` 与 `54936` 都报 `UNKNOWN`，前者 `rc=0`）。
+现在返回 `Support` 字段，四档：
 
 | `Support` | 含义 | 例子 | 结论 |
 | --- | --- | --- | --- |
@@ -174,9 +174,9 @@ latin-1 与 UTF-8 的混用不在本节保护范围内：`WARN` 说的是「Pyth
 | `unknown` | `codecs.lookup` 不认 | `windows-936`、`cp54936`、`54936`、`hzgb2312`、`cn-gb` | `FAIL` + `UNKNOWN` |
 | `bom-conflict` | 声明与 BOM 互斥 | `gbk` + BOM、`utf8` + BOM、`windows-936` + BOM | `FAIL` + `BOM_CONFLICT` |
 
-BOM 判定**先于**名字查表：`windows-936` 单独报 `unknown encoding: windows-936`，
-带 BOM 报 `encoding problem: windows-936 with BOM`；都拒，但理由码不同，检测器按
-解释器顺序走（`py-coding-unknown-bom.py` 钉住这一点）。
+BOM 判定**先于**名字查表：`windows-936` 报 `unknown encoding: windows-936`，带 BOM
+报 `encoding problem: windows-936 with BOM`；都拒但理由码不同，检测器按解释器顺序
+走（`py-coding-unknown-bom.py` 钉住）。
 
 **「名字能解析」不等于「文件能跑」。** `python-only` 因此额外输出
 `SOURCE_CODING_PAYLOAD=unverified`（JSON `"SourceCodingPayload": "unverified"`），
@@ -188,9 +188,11 @@ BOM 判定**先于**名字查表：`windows-936` 单独报 `unknown encoding: wi
 归类，`mac-bogus`、`shift_jis_typo`、`big5-nope`、`ibm99999` 都被当成 Python 认识的
 名字——解释器对这四个都抛 `SyntaxError`。v1.0.4 改**精确表**：先按 tokenizer 规则
 归一化（小写、`_`→`-`、`utf-8-*` 折叠成 `utf-8`、`latin-1` 族折叠成 `latin-1`，
-其余原样）再查表，105 个族、394 条拼写（含 7 族 18 条转换器）。表是矩阵内各版本的
-**并集**：3.13.17 补的 `cp858` 别名在旧补丁上不存在，抄单机会拒掉新补丁写的文件
-——CI 报的。`TestCodecAliasCoverage` 遍历 `encodings.aliases` 与模块名逐个
+其余原样）再查表，105 个族、411 条拼写。表是采样到的各版本**并集**：
+`cp858` 的 4 条前导零别名（`cp00858` / `csibm00858` / `ibm00858` /
+`pc_multilingual_850_euro`）出自 CPython gh-149801，自 3.13.14 / 3.14.6 /
+3.15.0b2 起才有，抄单机会拒掉新补丁写的文件——CI 报的。
+`TestCodecAliasCoverage` 遍历 `encodings.aliases` 与模块名逐个
 `compile()` 再问检测器：3.13.9 上 471 个拼写 / 380 可作 / 91 被拒 / **0 分歧**。
 `ansi` 归 `mbcs`（本机 CP936），`ansi_x3.4-1968` 归 `ascii`：同一段 GBK 字节，解释器
 跑前者、拒后者。
@@ -201,15 +203,15 @@ BOM 判定**先于**名字查表：`windows-936` 单独报 `unknown encoding: wi
 数字是合法别名（`1252`、`936` 成立，`54936` 不成立）。
 
 并集的双向风险写进输出：命中 `python-only` 只说明「本项目验证过的某个 CPython 认识
-这个名字」，不说明运行这份文件的解释器认识它——`cp00858` 在 3.14.8 / 3.15.0rc3
-编译通过，在 3.11.17 / 3.13.9 上是 `unknown encoding`。所以文案不再说「CPython
-recognizes this codec」，`SOURCE_CODING_PAYLOAD=unverified` 保留，`WARN` 不上移。
+这个名字」，不说明当前解释器认识它——`cp00858` 在 3.14.8 / 3.15.0rc3 编译通过，
+3.11.17 / 3.13.9 上是 `unknown encoding`。文案因此不再说「CPython recognizes this
+codec」，`SOURCE_CODING_PAYLOAD=unverified` 保留，`WARN` 不上移。
 
-转换器是另一档：`base64` / `rot13` / `hex` / `zlib` / `uu` / `bz2` / `quopri` 共 7 族
-18 条拼写 `codecs.lookup()` 都能解析，解释器拒绝的原话是 `SyntaxError: 'base64' is
-not a text encoding`。它们进 `PythonCodecUnusable`，给 `FAIL` +
-`PY_SOURCE_CODING_UNUSABLE`，与 `UNKNOWN` 分开。`idna` / `punycode` 没进表：前者是
-文本 codec（ASCII 源码能编译），后者败在字节。
+转换器是另一档：`base64` / `rot13` 等 7 族 18 条拼写 `codecs.lookup()` 能解析，
+解释器却在**名字**上拒绝（`SyntaxError: 'base64' is not a text encoding`），进
+`PythonCodecUnusable` 给 `FAIL` + `PY_SOURCE_CODING_UNUSABLE`，与 `UNKNOWN` 分开
+——前者没有拼写要改。`idna` / `punycode` 没进表：前者是文本 codec（ASCII 源码能
+编译），后者败在字节。
 
 
 ### 7.4 GBK 网格：21791 格，和 CP936 差 2149 格

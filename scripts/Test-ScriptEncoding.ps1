@@ -352,11 +352,13 @@ begin {
     # The lookup key is what the tokenizer hands to codecs.lookup(), not the
     # spelling in the comment. See Get-PythonCodecKey.
     #
-    # The table is the union over the releases in the test matrix, not a copy
-    # of one host's stdlib: 3.13.17 added four cp858 aliases that 3.13.9 has
-    # never heard of, and a host on the older patch must not reject a file
-    # written on the newer one. Carrying a spelling an old host cannot resolve
-    # costs a WARN, never an OK -- the payload stays unverified either way.
+    # The table is the union over the releases this project sampled, not a copy
+    # of one host's stdlib: gh-149801 added four cp858 aliases (the IANA
+    # leading-zero names) and they ship from 3.13.14 / 3.14.6 / 3.15.0b2 on,
+    # so 3.13.9 has never heard of them, and a host on the older patch must not
+    # reject a file written on the newer one. Carrying a spelling that an old
+    # host cannot resolve costs a WARN, never an OK -- the payload stays
+    # unverified either way.
     # ------------------------------------------------------------------
 
         $script:PythonCodecVerifiable = [ordered]@{
@@ -505,7 +507,7 @@ begin {
             )
             'cp858' = @(
                 # cp00858 / csibm00858 / ibm00858 / pc_multilingual_850_euro
-                # are 3.13.17's spellings for this codec; 3.13.9 has neither.
+                # come from gh-149801; 3.13.9 does not have them, 3.13.14 does.
                 '858', 'cp00858', 'cp858', 'csibm00858', 'csibm858',
                 'ibm00858', 'ibm858', 'pc_multilingual_850_euro'
             )
@@ -1807,9 +1809,10 @@ begin {
                     # character only shows up at decode time.
                     #
                     # The table is a union over patch releases, which cuts the
-                    # other way: 3.14 taught cp858 the spelling cp00858 and 3.13
-                    # never heard of it, so on a 3.13 host this file may not
-                    # compile at all. Neither direction is settled here, which
+                    # other way: gh-149801 gave cp858 the spelling cp00858 and
+                    # it ships from 3.14.6 on, so a 3.13.9 host never heard of
+                    # it and this file may not compile there at all. Neither
+                    # direction is settled here, which
                     # is why the sentence names the set rather than the
                     # interpreter, keeps the payload unverified, and never
                     # upgrades to OK.

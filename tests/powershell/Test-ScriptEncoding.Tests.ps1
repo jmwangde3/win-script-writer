@@ -624,12 +624,13 @@ Describe 'Test-ScriptEncoding.ps1' {
             @{ Codec = 'ibm00858' }
             @{ Codec = 'pc_multilingual_850_euro' }
         ) {
-            # 3.13.17 added these four spellings for cp858 and 3.13.9 has none
-            # of them. A table built by copying one host's stdlib rejects a file
-            # written on the newer patch -- that is how CI found this, on a
-            # runner whose 3.13.17 reported 479 aliases against this host's 471.
-            # Accepting a spelling the local interpreter cannot resolve costs a
-            # WARN and an unverified payload, which is the honest answer.
+            # gh-149801 added these four spellings for cp858 and they ship from
+            # 3.13.14 on, so 3.13.9 has none of them. A table built by copying
+            # one host's stdlib rejects a file written on the newer patch --
+            # that is how CI found this, on a runner whose 3.13.17 reported 479
+            # aliases against this host's 471. Accepting a spelling the local
+            # interpreter cannot resolve costs a WARN and an unverified
+            # payload, which is the honest answer.
             $r = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec $Codec), '-Profile', 'python')
             $r.ExitCode | Should -Be 1
             Get-Field $r.StdOut 'SOURCE_CODING_SUPPORT' | Should -Be 'python-only'
@@ -645,11 +646,11 @@ Describe 'Test-ScriptEncoding.ps1' {
         ) {
             # The table is a union over the releases in the matrix, so a hit
             # means "some verified CPython resolves this", not "this host does":
-            # 3.14 taught cp858 the spelling cp00858 and 3.11/3.13.9 reject it
-            # with "unknown encoding". The old sentence said "CPython recognizes
-            # this codec" -- true of the set, false of the interpreter in front
-            # of the user. The verdict stays WARN and the payload stays
-            # unverified; only the claim gets narrower.
+            # 3.14.6 gave cp858 the spelling cp00858 (gh-149801) and 3.11/3.13.9
+            # reject it with "unknown encoding". The old sentence said "CPython
+            # recognizes this codec" -- true of the set, false of the
+            # interpreter in front of the user. The verdict stays WARN and the
+            # payload stays unverified; only the claim gets narrower.
             $r = Invoke-Tool @('-Path', (New-CodecNameProbe -Codec $Codec), '-Profile', 'python')
             $r.ExitCode | Should -Be 1
             Get-Field $r.StdOut 'VERDICT' | Should -Be 'WARN'
