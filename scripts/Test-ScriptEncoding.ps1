@@ -340,36 +340,439 @@ begin {
         return $null
     }
 
+
+    # ------------------------------------------------------------------
+    # Codec tables. Every spelling below was run through a real interpreter
+    # as a PEP 263 declaration; nothing here is inferred from how a name
+    # looks. v1.0.3 matched families with patterns such as '^mac[a-z]*$' and
+    # '^ibm[0-9]{3,5}$', which accepted mac-bogus, ibm99999, shift_jis_typo
+    # and big5-nope -- four names CPython rejects with
+    # "unknown encoding: <name>".
+    #
+    # The lookup key is what the tokenizer hands to codecs.lookup(), not the
+    # spelling in the comment. See Get-PythonCodecKey.
+    # ------------------------------------------------------------------
+
+        $script:PythonCodecVerifiable = [ordered]@{
+            'ascii' = @(
+                '646', 'ansi_x3.4_1968', 'ansi_x3.4_1986', 'ansi_x3_4_1968',
+                'ascii', 'cp367', 'csascii', 'ibm367', 'iso646_us',
+                'iso_646.irv_1991', 'iso_ir_6', 'us', 'us_ascii'
+            )
+            'gb18030' = @(
+                'gb18030', 'gb18030_2000'
+            )
+            'gb2312' = @(
+                'chinese', 'csiso58gb231280', 'euc_cn', 'euccn',
+                'eucgb2312_cn', 'gb2312', 'gb2312.1980', 'gb2312_1980',
+                'gb2312_80', 'iso_ir_58', 'x_mac_simp_chinese'
+            )
+            'gbk' = @(
+                '936', 'cp936', 'gbk', 'ms936'
+            )
+            'hz' = @(
+                'hz', 'hz_gb', 'hz_gb_2312', 'hzgb'
+            )
+            'iso8859-1' = @(
+                '8859', 'cp819', 'csisolatin1', 'ibm819', 'iso8859',
+                'iso8859_1', 'iso_ir_100', 'l1', 'latin', 'latin1'
+            )
+            'utf-16' = @(
+                'u16', 'utf16', 'utf_16', 'utf_16_be', 'utf_16_le',
+                'utf_16be', 'utf_16le', 'unicodebigunmarked',
+                'unicodelittleunmarked'
+            )
+            'utf-32' = @(
+                'u32', 'utf32', 'utf_32', 'utf_32_be', 'utf_32_le',
+                'utf_32be', 'utf_32le'
+            )
+            'utf-8' = @(
+                '<utf-8>', 'cp65001', 'u8', 'utf', 'utf8', 'utf8_ucs2',
+                'utf8_ucs4'
+            )
+        }
+
+        $script:PythonCodecUnusable = [ordered]@{
+        }
+
+        $script:PythonCodecOther = [ordered]@{
+            'big5' = @(
+                'big5', 'big5_tw', 'csbig5', 'x_mac_trad_chinese'
+            )
+            'big5hkscs' = @(
+                'big5_hkscs', 'big5hkscs', 'hkscs'
+            )
+            'charmap' = @(
+                'charmap'
+            )
+            'cp1006' = @(
+                'cp1006'
+            )
+            'cp1125' = @(
+                '1125', 'cp1125', 'cp866u', 'ibm1125', 'ruscii'
+            )
+            'cp1250' = @(
+                '1250', 'cp1250', 'windows_1250'
+            )
+            'cp1251' = @(
+                '1251', 'cp1251', 'windows_1251'
+            )
+            'cp1252' = @(
+                '1252', 'cp1252', 'windows_1252'
+            )
+            'cp1253' = @(
+                '1253', 'cp1253', 'windows_1253'
+            )
+            'cp1254' = @(
+                '1254', 'cp1254', 'windows_1254'
+            )
+            'cp1255' = @(
+                '1255', 'cp1255', 'windows_1255'
+            )
+            'cp1256' = @(
+                '1256', 'cp1256', 'windows_1256'
+            )
+            'cp1257' = @(
+                '1257', 'cp1257', 'windows_1257'
+            )
+            'cp1258' = @(
+                '1258', 'cp1258', 'windows_1258'
+            )
+            'cp437' = @(
+                '437', 'cp437', 'cspc8codepage437', 'ibm437'
+            )
+            'cp720' = @(
+                'cp720'
+            )
+            'cp737' = @(
+                'cp737'
+            )
+            'cp775' = @(
+                '775', 'cp775', 'cspc775baltic', 'ibm775'
+            )
+            'cp850' = @(
+                '850', 'cp850', 'cspc850multilingual', 'ibm850'
+            )
+            'cp852' = @(
+                '852', 'cp852', 'cspcp852', 'ibm852'
+            )
+            'cp855' = @(
+                '855', 'cp855', 'csibm855', 'ibm855'
+            )
+            'cp856' = @(
+                'cp856'
+            )
+            'cp857' = @(
+                '857', 'cp857', 'csibm857', 'ibm857'
+            )
+            'cp858' = @(
+                '858', 'cp858', 'csibm858', 'ibm858'
+            )
+            'cp860' = @(
+                '860', 'cp860', 'csibm860', 'ibm860'
+            )
+            'cp861' = @(
+                '861', 'cp861', 'cp_is', 'csibm861', 'ibm861'
+            )
+            'cp862' = @(
+                '862', 'cp862', 'cspc862latinhebrew', 'ibm862'
+            )
+            'cp863' = @(
+                '863', 'cp863', 'csibm863', 'ibm863'
+            )
+            'cp864' = @(
+                '864', 'cp864', 'csibm864', 'ibm864'
+            )
+            'cp865' = @(
+                '865', 'cp865', 'csibm865', 'ibm865'
+            )
+            'cp866' = @(
+                '866', 'cp866', 'csibm866', 'ibm866'
+            )
+            'cp869' = @(
+                '869', 'cp869', 'cp_gr', 'csibm869', 'ibm869'
+            )
+            'cp874' = @(
+                'cp874'
+            )
+            'cp932' = @(
+                '932', 'cp932', 'ms932', 'ms_kanji', 'mskanji',
+                'windows_31j'
+            )
+            'cp949' = @(
+                '949', 'cp949', 'ms949', 'uhc'
+            )
+            'cp950' = @(
+                '950', 'cp950', 'ms950'
+            )
+            'euc_jis_2004' = @(
+                'euc_jis2004', 'euc_jis_2004', 'eucjis2004', 'jisx0213'
+            )
+            'euc_jisx0213' = @(
+                'euc_jisx0213', 'eucjisx0213'
+            )
+            'euc_jp' = @(
+                'euc_jp', 'eucjp', 'u_jis', 'ujis'
+            )
+            'euc_kr' = @(
+                'euc_kr', 'euckr', 'korean', 'ks_c_5601', 'ks_c_5601_1987',
+                'ks_x_1001', 'ksc5601', 'ksx1001', 'x_mac_korean'
+            )
+            'hp-roman8' = @(
+                'cp1051', 'hp_roman8', 'ibm1051', 'r8', 'roman8'
+            )
+            'idna' = @(
+                'idna'
+            )
+            'iso-8859-1' = @(
+                '<iso-8859-1>'
+            )
+            'iso2022_jp' = @(
+                'csiso2022jp', 'iso2022_jp', 'iso2022jp', 'iso_2022_jp'
+            )
+            'iso2022_jp_1' = @(
+                'iso2022_jp_1', 'iso2022jp_1', 'iso_2022_jp_1'
+            )
+            'iso2022_jp_2' = @(
+                'iso2022_jp_2', 'iso2022jp_2', 'iso_2022_jp_2'
+            )
+            'iso2022_jp_2004' = @(
+                'iso2022_jp_2004', 'iso2022jp_2004', 'iso_2022_jp_2004'
+            )
+            'iso2022_jp_3' = @(
+                'iso2022_jp_3', 'iso2022jp_3', 'iso_2022_jp_3'
+            )
+            'iso2022_jp_ext' = @(
+                'iso2022_jp_ext', 'iso2022jp_ext', 'iso_2022_jp_ext'
+            )
+            'iso2022_kr' = @(
+                'csiso2022kr', 'iso2022_kr', 'iso2022kr', 'iso_2022_kr'
+            )
+            'iso8859-10' = @(
+                'csisolatin6', 'iso8859_10', 'iso_8859_10',
+                'iso_8859_10_1992', 'iso_ir_157', 'l6', 'latin6'
+            )
+            'iso8859-11' = @(
+                'iso8859_11', 'iso_8859_11', 'iso_8859_11_2001', 'thai'
+            )
+            'iso8859-13' = @(
+                'iso8859_13', 'iso_8859_13', 'l7', 'latin7'
+            )
+            'iso8859-14' = @(
+                'iso8859_14', 'iso_8859_14', 'iso_8859_14_1998',
+                'iso_celtic', 'iso_ir_199', 'l8', 'latin8'
+            )
+            'iso8859-15' = @(
+                'iso8859_15', 'iso_8859_15', 'l9', 'latin9'
+            )
+            'iso8859-16' = @(
+                'iso8859_16', 'iso_8859_16', 'iso_8859_16_2001',
+                'iso_ir_226', 'l10', 'latin10'
+            )
+            'iso8859-2' = @(
+                'csisolatin2', 'iso8859_2', 'iso_8859_2', 'iso_8859_2_1987',
+                'iso_ir_101', 'l2', 'latin2'
+            )
+            'iso8859-3' = @(
+                'csisolatin3', 'iso8859_3', 'iso_8859_3', 'iso_8859_3_1988',
+                'iso_ir_109', 'l3', 'latin3'
+            )
+            'iso8859-4' = @(
+                'csisolatin4', 'iso8859_4', 'iso_8859_4', 'iso_8859_4_1988',
+                'iso_ir_110', 'l4', 'latin4'
+            )
+            'iso8859-5' = @(
+                'csisolatincyrillic', 'cyrillic', 'iso8859_5', 'iso_8859_5',
+                'iso_8859_5_1988', 'iso_ir_144'
+            )
+            'iso8859-6' = @(
+                'arabic', 'asmo_708', 'csisolatinarabic', 'ecma_114',
+                'iso8859_6', 'iso_8859_6', 'iso_8859_6_1987', 'iso_ir_127'
+            )
+            'iso8859-7' = @(
+                'csisolatingreek', 'ecma_118', 'elot_928', 'greek',
+                'greek8', 'iso8859_7', 'iso_8859_7', 'iso_8859_7_1987',
+                'iso_ir_126'
+            )
+            'iso8859-8' = @(
+                'csisolatinhebrew', 'hebrew', 'iso8859_8', 'iso_8859_8',
+                'iso_8859_8_1988', 'iso_ir_138'
+            )
+            'iso8859-9' = @(
+                'csisolatin5', 'iso8859_9', 'iso_8859_9', 'iso_8859_9_1989',
+                'iso_ir_148', 'l5', 'latin5'
+            )
+            'johab' = @(
+                'cp1361', 'johab', 'ms1361'
+            )
+            'koi8-r' = @(
+                'cskoi8r', 'koi8_r'
+            )
+            'koi8-t' = @(
+                'koi8_t'
+            )
+            'koi8-u' = @(
+                'koi8_u'
+            )
+            'kz1048' = @(
+                'kz1048', 'kz_1048', 'rk1048', 'strk1048_2002'
+            )
+            'mac-arabic' = @(
+                'mac_arabic'
+            )
+            'mac-croatian' = @(
+                'mac_croatian'
+            )
+            'mac-cyrillic' = @(
+                'mac_cyrillic', 'maccyrillic'
+            )
+            'mac-farsi' = @(
+                'mac_farsi'
+            )
+            'mac-greek' = @(
+                'mac_greek', 'macgreek'
+            )
+            'mac-iceland' = @(
+                'mac_iceland', 'maciceland'
+            )
+            'mac-latin2' = @(
+                'mac_centeuro', 'mac_latin2', 'maccentraleurope',
+                'maclatin2'
+            )
+            'mac-roman' = @(
+                'mac_roman', 'macintosh', 'macroman'
+            )
+            'mac-romanian' = @(
+                'mac_romanian'
+            )
+            'mac-turkish' = @(
+                'mac_turkish', 'macturkish'
+            )
+            'mbcs' = @(
+                'ansi', 'dbcs', 'mbcs'
+            )
+            'oem' = @(
+                'oem'
+            )
+            'palmos' = @(
+                'palmos'
+            )
+            'ptcp154' = @(
+                'cp154', 'csptcp154', 'cyrillic_asian', 'pt154', 'ptcp154'
+            )
+            'raw-unicode-escape' = @(
+                'raw_unicode_escape'
+            )
+            'shift_jis' = @(
+                'csshiftjis', 's_jis', 'shift_jis', 'shiftjis', 'sjis',
+                'x_mac_japanese'
+            )
+            'shift_jis_2004' = @(
+                's_jis_2004', 'shift_jis_2004', 'shiftjis2004', 'sjis_2004'
+            )
+            'shift_jisx0213' = @(
+                's_jisx0213', 'shift_jisx0213', 'shiftjisx0213', 'sjisx0213'
+            )
+            'tis-620' = @(
+                'iso_ir_166', 'tis620', 'tis_620', 'tis_620_0',
+                'tis_620_2529_0', 'tis_620_2529_1'
+            )
+            'unicode-escape' = @(
+                'unicode_escape'
+            )
+            'utf-7' = @(
+                'u7', 'unicode_1_1_utf_7', 'utf7', 'utf_7'
+            )
+        }
+
+    # key -> canonical codec name. Built once; a lookup is a hash probe, not a
+    # scan over ninety groups.
+    $script:PythonCodecIndex = @{}
+    foreach ($codec in $script:PythonCodecVerifiable.Keys) {
+        foreach ($spelling in $script:PythonCodecVerifiable[$codec]) {
+            $script:PythonCodecIndex[$spelling] = $codec
+        }
+    }
+    foreach ($codec in $script:PythonCodecOther.Keys) {
+        foreach ($spelling in $script:PythonCodecOther[$codec]) {
+            $script:PythonCodecIndex[$spelling] = $codec
+        }
+    }
+
     function Get-PythonNormalName {
         <#
-            CPython's get_normal_name(): lower case, '_' folded to '-', the name
-            cut at the first '.', and the utf-8 and iso-8859-1 families collapsed
-            to one form each.
+            The family half of CPython's get_normal_name() in
+            Parser/tokenizer/helpers.c.
 
-            This exists for two rules. A UTF-8 BOM is only allowed when the
-            normalised name is exactly "utf-8", and the comparison is made on
-            this form rather than on the raw text: "# coding: utf8" plus a BOM
-            is a SyntaxError while "# coding: utf-8" plus the same BOM runs, and
-            "utf-8-sig" is accepted because it normalises to the "utf-8" prefix.
-            Resolve-PythonCodingName then uses the same form to accept spellings
-            such as "utf-8-unix" and "iso-latin-1", which codecs.lookup() does
-            not resolve but the tokenizer still decodes with.
+            That function reads the first twelve characters, lowercases them and
+            folds '_' to '-', but only to answer one question: is this the utf-8
+            family or the iso-8859-1 family? If it is, the whole spelling is
+            replaced by the family name. If it is not, the function returns the
+            original string untouched -- no truncation, no case folding. That
+            detail is load-bearing: "ansi-x3.4-1968" is longer than twelve
+            characters and its first twelve characters resolve to nothing, but
+            the interpreter still accepts it, because lookup happens on the full
+            spelling.
+
+            Two rules depend on this. A UTF-8 BOM is only allowed when the family
+            is utf-8, and the comparison is made here rather than on the raw
+            text: "# coding: utf8" plus a BOM is a SyntaxError while
+            "# coding: utf-8" plus the same BOM runs.
+
+            v1.0.3 also cut the name at the first '.', which the C code does not
+            do. That made "# coding: utf-8.unix" look like a utf-8 declaration;
+            the interpreter rejects it, because lookup sees "utf_8.unix".
         #>
         param([string]$Raw)
 
-        $name = $Raw.ToLowerInvariant()
-        $dot = $name.IndexOf('.')
-        if ($dot -ge 0) { $name = $name.Substring(0, $dot) }
-        $name = $name.Replace('_', '-')
+        $head = $Raw.ToLowerInvariant().Replace('_', '-')
+        if ($head.Length -gt 12) { $head = $head.Substring(0, 12) }
 
-        if ($name -eq 'utf-8' -or $name.StartsWith('utf-8-')) { return 'utf-8' }
+        if ($head -eq 'utf-8' -or $head.StartsWith('utf-8-')) { return 'utf-8' }
         # CPython folds the latin-1 family to the ISO number, which is why the
         # SyntaxError for "# coding: latin-1" plus a BOM reads "encoding problem:
         # iso-8859-1 with BOM" while "# coding: latin1" keeps its own spelling.
-        if ($name -eq 'latin-1' -or $name -eq 'iso-8859-1' -or $name -eq 'iso-latin-1' -or
-            $name.StartsWith('latin-1-') -or $name.StartsWith('iso-8859-1-') -or
-            $name.StartsWith('iso-latin-1-')) { return 'iso-8859-1' }
-        return $name
+        if ($head -eq 'latin-1' -or $head -eq 'iso-8859-1' -or $head -eq 'iso-latin-1' -or
+            $head.StartsWith('latin-1-') -or $head.StartsWith('iso-8859-1-') -or
+            $head.StartsWith('iso-latin-1-')) { return 'iso-8859-1' }
+        return $Raw
+    }
+
+    function Get-PythonCodecKey {
+        <#
+            encodings.normalize_encoding, which is the only thing codecs.lookup
+            uses to find an alias. ASCII alphanumerics and '.' are kept, every
+            other run collapses into a single '_', non-ASCII characters are
+            dropped, and the result is lowercased.
+
+            This is why "latin2" resolves and "latin-2" does not: the first
+            normalises to an existing alias, the second normalises to latin_2,
+            which no module provides. A detector that trims separators instead
+            of normalising them cannot tell those two apart.
+        #>
+        param([string]$Raw)
+
+        $builder = New-Object System.Text.StringBuilder
+        $pendingSeparator = $false
+        foreach ($ch in $Raw.ToCharArray()) {
+            $code = [int]$ch
+            $isAsciiAlnum = (($code -ge 0x30 -and $code -le 0x39) -or
+                ($code -ge 0x41 -and $code -le 0x5A) -or
+                ($code -ge 0x61 -and $code -le 0x7A))
+            if ($isAsciiAlnum -or $ch -eq '.') {
+                if ($pendingSeparator -and $builder.Length -gt 0) { [void]$builder.Append('_') }
+                [void]$builder.Append([char]::ToLowerInvariant($ch))
+                $pendingSeparator = $false
+                continue
+            }
+            # Non-ASCII letters are alphanumeric too, and CPython still drops
+            # them -- but it also clears the separator flag, so a CJK letter
+            # between two hyphens reads as "a_b" and not "a__b". Mirroring
+            # that keeps the keys equal.
+            if ([char]::IsLetterOrDigit($ch)) { $pendingSeparator = $false }
+            else { $pendingSeparator = $true }
+        }
+        return $builder.ToString()
     }
 
     function Resolve-PythonCodingName {
@@ -378,23 +781,22 @@ begin {
             two:
 
               supported    this tool has a byte level verifier for the codec
-              python-only  CPython resolves the name and the file runs, but this
-                           tool cannot check the bytes, so it says so instead of
-                           pretending the name is invalid
+              python-only  CPython resolves the name, but this tool has no
+                           verifier for those bytes, so it says so instead of
+                           pretending the name is invalid or the payload is fine
               unknown      no CPython 3 release in this project's test matrix
                            resolves the name, so the file never compiles
 
             Folding the last two together is what v1.0.2 did, and it failed
             every cp1252, shift_jis and big5 file the interpreter runs happily.
-            Folding them the other way would pass a file Python refuses, so the
-            two lists are kept apart and both are evidence based.
+            Folding them the other way would report a file Python refuses as
+            merely unverified, so the two lists stay apart and both are
+            evidence based.
 
-            Every entry below was checked with codecs.lookup() on CPython 3.13;
-            the families are not inferred from the spelling. The negatives
-            matter as much as the positives: "windows-936", "cp54936", "54936",
-            "hzgb2312" and "cn-gb" all read like aliases and none of them
-            resolve. A Windows code page number is not a codec name, and the
-            separators in hz-gb-2312 are not optional.
+            The answer now comes from three tables keyed by the normalised
+            lookup name, not from prefix patterns. A pattern like '^mac[a-z]*$'
+            cannot distinguish mac-roman from mac-bogus; a table can, because
+            the table was built by asking the interpreter about both.
 
             The four Chinese families stay apart because they are four byte
             layouts, not four spellings of code page 936: GB2312 is a subset of
@@ -403,152 +805,37 @@ begin {
         #>
         param([string]$Raw)
 
-        $name = $Raw.ToLowerInvariant()
-
-        # The tokenizer normalises the name before it looks it up, so every
-        # spelling in the utf-8- and iso-latin-1- families behaves like the base
-        # codec even though codecs.lookup() rejects the long form: "# coding:
-        # utf-8-unix" runs, "# coding: iso-latin-1" runs. Reusing the same
-        # normalisation here is what keeps the two from disagreeing.
-        $normal = Get-PythonNormalName -Raw $name
-        if ($normal -eq 'utf-8') { return [pscustomobject]@{ Name = 'utf-8'; Support = 'supported' } }
-        if ($normal -eq 'iso-8859-1') { return [pscustomobject]@{ Name = 'latin-1'; Support = 'supported' } }
-
-        # Verified negatives. Each of these was run through a real interpreter:
-        # "# coding: <name>" plus an ASCII body, and CPython raised
-        # "encoding problem: <name>". They have to sit in front of the family
-        # rules because several of them look exactly like a valid spelling --
-        # that is the point of the list. The transforms at the end resolve in
-        # codecs.lookup() but are not text codecs, so the tokenizer refuses them
-        # rather than guessing.
-        foreach ($pattern in @(
-                '^windows[-_.]?936$',
-                '^cp[-_.]?54936$',
-                '^54936$',
-                '^hzgb2312$',
-                '^cn[-_.]?gb$',
-                # The separator is required: "gb2312" is valid, "gb-2312" is not.
-                '^gb[-_.]2312$',
-                '^gb18030[-_.]2022$',
-                '^iso[-_.]?8859[-_.]17$',
-                # Only the underscored form resolves; "utf8-sig" does not.
-                '^utf8[-_.]sig$',
-                '^utf[-_.]?9$',
-                # Code page 424 is an alias with no module behind it.
-                '^(cp|ibm|csibm)?[-_.]?424$',
-                '^ebcdic[-_.]cp[-_.]he$',
-                '^cs[-_.]?hp[-_.]?roman8$',
-                # "latin2" runs, "latin-2" and "latin_2" do not. Every value of
-                # N behaves the same way; latin-1 never reaches this list.
-                '^latin[-_.][0-9]+$',
-                '^unicode(big|little)unmarked$',
-                '^(base64|base_64|bz2|hex|quopri|rot13|rot_13|uu|zip|zlib)([-_.]codec)?$',
-                '^quoted[-_.]?printable$'
-            )) {
-            if ($name -match $pattern) { return [pscustomobject]@{ Name = ''; Support = 'unknown' } }
+        # The tokenizer rewrites these two families before any lookup, so the
+        # spelling never reaches the table: "utf-8-unix" and "iso-latin-1" both
+        # run even though codecs.lookup() rejects the long form.
+        $family = Get-PythonNormalName -Raw $Raw
+        if ($family -eq 'utf-8') {
+            return [pscustomobject]@{ Name = 'utf-8'; Support = 'supported'; Codec = 'utf-8' }
+        }
+        if ($family -eq 'iso-8859-1') {
+            return [pscustomobject]@{ Name = 'latin-1'; Support = 'supported'; Codec = 'iso8859-1' }
         }
 
-        switch -Regex ($name) {
-            # utf-8-sig is UTF-8 with an optional BOM, so the byte verifier is
-            # the same one; only the BOM rule in Get-PythonSourceCoding cares
-            # that the name was spelled that way.
-            '^(utf[-_]?8|u8|utf|utf[-_]?8[-_]sig)$' { return [pscustomobject]@{ Name = 'utf-8'; Support = 'supported' } }
-            '^(ascii|us[-_]?ascii|646)$' { return [pscustomobject]@{ Name = 'ascii'; Support = 'supported' } }
-            '^(latin[-_]?1|iso[-_]?8859[-_]?1|8859|cp819|l1)$' { return [pscustomobject]@{ Name = 'latin-1'; Support = 'supported' } }
-            '^(gbk|cp[-_]?936|ms[-_]?936|936)$' { return [pscustomobject]@{ Name = 'gbk'; Support = 'supported' } }
-            '^(gb2312|euc[-_]?cn|euccn|gb2312[-_.]80|gb2312[-_.]1980|iso[-_]ir[-_]?58|chinese)$' { return [pscustomobject]@{ Name = 'gb2312'; Support = 'supported' } }
-            # hzgb2312 is one word Python does not know; the separators matter.
-            '^(hz|hzgb|hz[-_.]gb|hz[-_]gb[-_]2312)$' { return [pscustomobject]@{ Name = 'hz'; Support = 'supported' } }
-            '^(gb18030|gb18030[-_]2000)$' { return [pscustomobject]@{ Name = 'gb18030'; Support = 'supported' } }
+        $key = Get-PythonCodecKey -Raw $Raw
+        $codec = $script:PythonCodecIndex[$key]
+        if (-not $codec) {
+            return [pscustomobject]@{ Name = ''; Support = 'unknown'; Codec = '' }
+        }
+
+        switch ($codec) {
+            'utf-8' { return [pscustomobject]@{ Name = 'utf-8'; Support = 'supported'; Codec = 'utf-8' } }
+            'ascii' { return [pscustomobject]@{ Name = 'ascii'; Support = 'supported'; Codec = 'ascii' } }
+            'iso8859-1' { return [pscustomobject]@{ Name = 'latin-1'; Support = 'supported'; Codec = 'iso8859-1' } }
+            'gbk' { return [pscustomobject]@{ Name = 'gbk'; Support = 'supported'; Codec = 'gbk' } }
+            'gb2312' { return [pscustomobject]@{ Name = 'gb2312'; Support = 'supported'; Codec = 'gb2312' } }
+            'hz' { return [pscustomobject]@{ Name = 'hz'; Support = 'supported'; Codec = 'hz' } }
+            'gb18030' { return [pscustomobject]@{ Name = 'gb18030'; Support = 'supported'; Codec = 'gb18030' } }
             # Not source encodings: CPython raises "encoding problem: <name>"
             # for a codec that is not ASCII compatible, BOM or no BOM.
-            '^(utf[-_]?16|utf[-_]?16[-_]?le|utf[-_]?16[-_]?be|utf16|u16)$' { return [pscustomobject]@{ Name = 'utf-16'; Support = 'supported' } }
-            '^(utf[-_]?32|utf[-_]?32[-_]?le|utf[-_]?32[-_]?be|utf32|u32)$' { return [pscustomobject]@{ Name = 'utf-32'; Support = 'supported' } }
+            'utf-16' { return [pscustomobject]@{ Name = 'utf-16'; Support = 'supported'; Codec = 'utf-16' } }
+            'utf-32' { return [pscustomobject]@{ Name = 'utf-32'; Support = 'supported'; Codec = 'utf-32' } }
         }
-
-        # Codec families CPython ships and this tool does not verify. The list is
-        # the ASCII compatible half of encodings/aliases.py written as families
-        # rather than as three hundred spellings. cp936 and cp819 are absent on
-        # purpose: they are aliases for gbk and latin-1 and were handled above.
-        #
-        # A name that matches here gets WARN, never FAIL. Missing a spelling that
-        # CPython does resolve would turn a working file into a failure -- that
-        # is the mistake this list exists to prevent, so the integration suite
-        # runs every claimed name through the interpreter instead of trusting
-        # the regexes.
-        switch -Regex ($name) {
-            '^cp[-_.]?(037|154|273|367|437|500|720|737|775|819|850|852|855|856|857|858|860|861|862|863|864|865|866|866u|869|874|875|932|949|950|1006|1026|1051|1125|1140|125[0-8]|1361|65001|gr|is)$' { }
-            '^ms[-_.]?(932|949|950|1361|kanji)$' { }
-            '^windows[-_.]?(125[0-8]|31j)$' { }
-            '^ibm[0-9]{3,5}$' { }
-            '^csibm[0-9]{3,5}$' { }
-            '^iso[-_.]?8859([-_.](1[0-6]|[2-9]))?([-_.][0-9]{4})?$' { }
-            '^iso[-_.]?ir[-_.]?[0-9]{1,3}$' { }
-            '^iso[-_.]?646([-_.][a-z0-9]+)*$' { }
-            '^iso[-_.]?celtic$' { }
-            '^csisolatin[a-z0-9_]*$' { }
-            '^csiso[0-9a-z_]*$' { }
-            '^cspc[a-z0-9_]*$' { }
-            '^csascii$' { }
-            '^cs[-_.]?shift[-_.]?jis$' { }
-            '^ansi([-_.]x3[-_.]4[-_.][0-9]{4})?$' { }
-            '^mbcs$' { }
-            '^us$' { }
-            '^dbcs$' { }
-            # "latin" and "latin2" run; the separated forms are rejected above.
-            '^latin([0-9]{1,2})?$' { }
-            '^l([2-9]|10)$' { }
-            '^r8$' { }
-            '^ecma[-_.]?[0-9]{2,3}$' { }
-            '^ebcdic[-_.a-z]*$' { }
-            '^hp[-_.]?roman8$' { }
-            '^roman8$' { }
-            '^(cs)?ptcp154$' { }
-            '^pt[-_.]?154$' { }
-            '^asmo[-_.]?708$' { }
-            '^kz[-_.]?1048$' { }
-            '^rk1048$' { }
-            '^strk1048[-_.]?2002$' { }
-            '^ruscii$' { }
-            '^mac[-_.]?[a-z0-9]*$' { }
-            '^x[-_.]mac[-_.].+$' { }
-            '^euc[-_.]?[a-z0-9_]+$' { }
-            '^jisx[0-9]+$' { }
-            '^u?[-_]?jis$' { }
-            '^iso[-_.]?2022[-_.]?[a-z0-9_]+$' { }
-            '^(shift|s)[-_.]?jis[a-z0-9_]*$' { }
-            '^sjis[a-z0-9_]*$' { }
-            '^windows[-_.]?31j$' { }
-            '^(big5|csbig5|hkscs)[-_.a-z0-9]*$' { }
-            '^korean$' { }
-            '^uhc$' { }
-            '^ks[-_.]?c[-_.]?5601([-_.][0-9]+)?$' { }
-            '^ks[-_.]?x[-_.]?1001$' { }
-            '^ksc5601$' { }
-            '^ksx1001$' { }
-            '^tis[-_.]?620[a-z0-9_]*$' { }
-            '^thai$' { }
-            '^koi8[-_.]?[ru]$' { }
-            '^cskoi8r$' { }
-            '^johab$' { }
-            '^utf[-_.]?7$' { }
-            '^u7$' { }
-            '^utf[-_.]?8[-_.]ucs[24]$' { }
-            '^unicode[-_.]1[-_.]1[-_.]utf[-_.]7$' { }
-            '^arabic$' { }
-            '^greek8?$' { }
-            '^elot[-_.]?928$' { }
-            '^hebrew$' { }
-            '^cyrillic([-_.]asian)?$' { }
-            '^unicode[-_.]escape$' { }
-            '^raw[-_.]unicode[-_.]escape$' { }
-            # A bare code page number is a codec alias in CPython ("# coding:
-            # 1252" runs). 54936 was already rejected above; it is the one number
-            # that reads like an alias and is not one.
-            '^[0-9]{3,5}$' { }
-            default { return [pscustomobject]@{ Name = ''; Support = 'unknown' } }
-        }
-        return [pscustomobject]@{ Name = ''; Support = 'python-only' }
+        return [pscustomobject]@{ Name = ''; Support = 'python-only'; Codec = $codec }
     }
 
     function Test-Gb2312Cell {
@@ -888,15 +1175,17 @@ begin {
         param([byte[]]$Bytes)
 
         $coding = [ordered]@{
-            Parsed      = $false
-            Raw         = ''
-            Canonical   = ''
-            Support     = ''
-            Line        = 0
-            Problem     = ''
-            ProblemKind = ''
-            OpenAtEof   = $false
-            Repertoire  = @()
+            Parsed       = $false
+            Raw          = ''
+            Canonical    = ''
+            Support      = ''
+            Codec        = ''
+            PayloadState = ''
+            Line         = 0
+            Problem      = ''
+            ProblemKind  = ''
+            OpenAtEof    = $false
+            Repertoire   = @()
         }
 
         # A UTF-8 BOM sits before the first line. It is not part of the comment,
@@ -936,6 +1225,7 @@ begin {
 
         $resolved = Resolve-PythonCodingName -Raw $coding.Raw
         $coding.Support = $resolved.Support
+        $coding.Codec = $resolved.Codec
 
         if ($resolved.Name) { $coding.Canonical = $resolved.Name }
         else { $coding.Canonical = (Get-PythonNormalName -Raw $coding.Raw) }
@@ -961,9 +1251,18 @@ begin {
         }
 
         if ($resolved.Support -eq 'python-only') {
-            # CPython resolves the name and decodes the file with it. This tool
-            # has no verifier for those bytes, so it says exactly that. The
-            # empty repertoire keeps the agreement check from claiming anything.
+            # CPython resolves the name and will decode the file with it, but
+            # that is a statement about the name, not about these bytes. This
+            # tool has no table for shift_jis, big5 or cp1252, so it cannot say
+            # whether the payload survives the codec -- and a truncated
+            # multi-byte character is exactly the kind of damage that only
+            # shows up at decode time.
+            #
+            # PayloadState carries that distinction outward. The empty
+            # repertoire keeps the agreement check from claiming anything, and
+            # the verdict stays a warning rather than a pass. Saying "the file
+            # runs" here would be a promise this tool cannot keep.
+            $coding.PayloadState = 'unverified'
             return $coding
         }
 
@@ -1047,6 +1346,7 @@ begin {
             SourceCodingProblem = ''
             SourceCodingKind    = ''
             SourceCodingSupport = ''
+            SourceCodingPayload = ''
             SourceCodingOpen    = $false
             SourceCodingRepertoire = @()
         }
@@ -1063,6 +1363,7 @@ begin {
                 $result.SourceCodingProblem = $coding.Problem
                 $result.SourceCodingKind = $coding.ProblemKind
                 $result.SourceCodingSupport = $coding.Support
+                $result.SourceCodingPayload = $coding.PayloadState
                 $result.SourceCodingOpen = [bool]$coding.OpenAtEof
                 $result.SourceCodingRepertoire = @($coding.Repertoire)
             }
@@ -1279,6 +1580,7 @@ begin {
             [string]$SourceCodingProblem = '',
             [string]$SourceCodingKind = '',
             [string]$SourceCodingSupport = '',
+            [string]$SourceCodingPayload = '',
             [bool]$SourceCodingOpen = $false,
             [string[]]$SourceCodingRepertoire = @()
         )
@@ -1416,11 +1718,14 @@ begin {
                     [void]$reasons.Add(('PY_SOURCE_CODING_UNKNOWN: ' + $SourceCodingProblem))
                 }
                 elseif ($SourceCodingSupport -eq 'python-only' -and -not $SourceCodingKind) {
-                    # CPython resolves the name and runs the file. This tool has
-                    # no verifier for the bytes, so it says so instead of calling
-                    # the name invalid -- which is what v1.0.2 did.
+                    # The name resolves, so calling it invalid -- which is what
+                    # v1.0.2 did -- fails a file the interpreter may well run.
+                    # But resolving a name says nothing about these bytes, and a
+                    # truncated multi-byte character only shows up at decode
+                    # time. So: warning, payload explicitly unverified, and no
+                    # promise that the file runs.
                     $verdict = 'WARN'
-                    [void]$reasons.Add(('PY_SOURCE_CODING_UNVERIFIED: line {0} declares {1}. CPython resolves that name and the file runs, but this detector has no byte level verifier for it, so the bytes were not checked. It is still not UTF-8, so editors, git and every other tool read it as mojibake' -f $SourceCodingLine, $SourceCoding))
+                    [void]$reasons.Add(('PY_SOURCE_CODING_UNVERIFIED: line {0} declares {1}. CPython recognizes this codec, but the detector does not validate the file payload{2}. The source may still fail during decoding. It is also not UTF-8, so editors, git and every other tool read it as mojibake' -f $SourceCodingLine, $SourceCoding, $(if ($SourceCodingPayload) { ' (' + $SourceCodingPayload + ')' } else { '' })))
                 }
                 else {
                     switch ($SourceCodingKind) {
@@ -1449,7 +1754,7 @@ begin {
                             # Kept for completeness: the branch above answers
                             # this case before the switch is reached.
                             $verdict = 'WARN'
-                            [void]$reasons.Add(('PY_SOURCE_CODING_UNVERIFIED: line {0} declares {1}. CPython resolves that name and the file runs, but this detector has no byte level verifier for it, so the bytes were not checked. It is still not UTF-8, so editors, git and every other tool read it as mojibake' -f $SourceCodingLine, $SourceCoding))
+                            [void]$reasons.Add(('PY_SOURCE_CODING_UNVERIFIED: line {0} declares {1}. CPython recognizes this codec, but the detector does not validate the file payload{2}. The source may still fail during decoding. It is also not UTF-8, so editors, git and every other tool read it as mojibake' -f $SourceCodingLine, $SourceCoding, $(if ($SourceCodingPayload) { ' (' + $SourceCodingPayload + ')' } else { '' })))
                         }
                         default {
                             if ($SourceCoding -and -not (Test-PythonCodingAgrees -Detected $Encoding -Repertoire $SourceCodingRepertoire)) {
@@ -1646,6 +1951,7 @@ begin {
             -SourceCoding $measured.SourceCoding -SourceCodingName $measured.SourceCodingName `
             -SourceCodingLine $measured.SourceCodingLine -SourceCodingProblem $measured.SourceCodingProblem `
             -SourceCodingKind $measured.SourceCodingKind -SourceCodingSupport $measured.SourceCodingSupport `
+            -SourceCodingPayload $measured.SourceCodingPayload `
             -SourceCodingOpen $measured.SourceCodingOpen -SourceCodingRepertoire $measured.SourceCodingRepertoire
 
         $expectedMatch = $null
@@ -1684,6 +1990,10 @@ begin {
             SourceCodingProblem = $measured.SourceCodingProblem
             SourceCodingKind    = $measured.SourceCodingKind
             SourceCodingSupport = $measured.SourceCodingSupport
+            # Always present so strict mode can read it; empty means the
+            # question does not apply. The text writer prints it only when set,
+            # and the JSON projection drops the empty form.
+            SourceCodingPayload = $measured.SourceCodingPayload
             Expected       = $ExpectedEncoding
             ExpectedMatch  = $expectedMatch
             Verdict        = $judgement.Verdict
@@ -1740,15 +2050,31 @@ end {
     elseif ($warnCount -gt 0) { $worst = 'WARN' }
 
     if ($Output -eq 'json') {
+        # SourceCodingPayload is dropped from the document when it is empty, so
+        # the key means "the detector could not verify these bytes" and its
+        # absence means "that question did not come up". Keeping an empty
+        # string would make a consumer test the value for truthiness and get
+        # the same answer, but the two states read the same and someone will
+        # eventually treat "" as a pass.
+        $projected = @(
+            foreach ($f in $findings) {
+                $copy = [ordered]@{}
+                foreach ($key in $f.Keys) {
+                    if ($key -eq 'SourceCodingPayload' -and -not $f[$key]) { continue }
+                    $copy[$key] = $f[$key]
+                }
+                $copy
+            }
+        )
         $document = [ordered]@{
             Tool       = 'Test-ScriptEncoding.ps1'
-            Version    = '1.0.3'
+            Version    = '1.0.4'
             Runtime    = $PSVersionTable.PSEdition
             PSVersion  = $PSVersionTable.PSVersion.ToString()
             Profile    = $Profile
             Expected   = $ExpectedEncoding
             FailOnWarn = [bool]$FailOnWarning
-            Files      = @($findings)
+            Files      = $projected
             Summary    = [ordered]@{
                 Files    = $findings.Count
                 Ok       = $okCount
@@ -1783,6 +2109,7 @@ end {
                 Write-Output ('SOURCE_CODING_LINE=' + $f.SourceCodingLine)
                 if ($f.SourceCodingName) { Write-Output ('SOURCE_CODING_NAME=' + $f.SourceCodingName) }
                 if ($f.SourceCodingSupport) { Write-Output ('SOURCE_CODING_SUPPORT=' + $f.SourceCodingSupport) }
+                if ($f.SourceCodingPayload) { Write-Output ('SOURCE_CODING_PAYLOAD=' + $f.SourceCodingPayload) }
             }
             if ($f.SourceCodingProblem) {
                 Write-Output ('SOURCE_CODING_PROBLEM=' + $f.SourceCodingProblem)
