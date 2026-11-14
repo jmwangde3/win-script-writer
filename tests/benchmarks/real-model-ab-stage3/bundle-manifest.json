@@ -1,0 +1,194 @@
+{
+  "schema": 1,
+  "run_id": "20261115-001546",
+  "seed": 1172937115353153123,
+  "model": {
+    "id": "gpt-6-luna",
+    "version": "not exposed by Codex CLI",
+    "client": "codex-cli 0.167.0-alpha.3.2",
+    "reasoning_effort": "CLI default (medium)",
+    "temperature": "not exposed",
+    "top_p": "not exposed",
+    "sampling_seed": "not exposed"
+  },
+  "samples": [
+    {
+      "sample_id": "S01",
+      "task": "ps51",
+      "task_id": "ps51-01",
+      "group": "A",
+      "planned_references": [
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/powershell-51.md"
+      ],
+      "declared_loads_baseline": [
+        "references/powershell-51.md"
+      ],
+      "prompt_sha256": "862a0b459532fac63281e32ade63199fa25f47e74345696a6aec0b8b84c94c7a"
+    },
+    {
+      "sample_id": "S02",
+      "task": "bat",
+      "task_id": "bat-01",
+      "group": "A",
+      "planned_references": [
+        "references/cmd-bat.md"
+      ],
+      "declared_loads": [
+        "references/cmd-bat.md"
+      ],
+      "declared_loads_baseline": [
+        "references/cmd-bat.md"
+      ],
+      "prompt_sha256": "e281f75006933018d8bb9baa9d4b54b4aabb0f23ba9a30b85cc4cb214721b3cb"
+    },
+    {
+      "sample_id": "S03",
+      "task": "bat",
+      "task_id": "bat-01",
+      "group": "B",
+      "planned_references": [
+        "references/cmd-bat.md"
+      ],
+      "declared_loads": [
+        "references/cmd-bat.md"
+      ],
+      "declared_loads_baseline": [
+        "references/cmd-bat.md"
+      ],
+      "prompt_sha256": "e281f75006933018d8bb9baa9d4b54b4aabb0f23ba9a30b85cc4cb214721b3cb"
+    },
+    {
+      "sample_id": "S04",
+      "task": "safety",
+      "task_id": "tool-02",
+      "group": "B",
+      "planned_references": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "declared_loads_baseline": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "prompt_sha256": "2ffff5b3bf2d2967dcb7b466aff94d569bd182ddbc6dc1ccd4273c489b0b64a9"
+    },
+    {
+      "sample_id": "S05",
+      "task": "ps51",
+      "task_id": "ps51-01",
+      "group": "B",
+      "planned_references": [
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/powershell-51.md"
+      ],
+      "declared_loads_baseline": [
+        "references/powershell-51.md"
+      ],
+      "prompt_sha256": "862a0b459532fac63281e32ade63199fa25f47e74345696a6aec0b8b84c94c7a"
+    },
+    {
+      "sample_id": "S06",
+      "task": "safety",
+      "task_id": "tool-02",
+      "group": "A",
+      "planned_references": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "declared_loads_baseline": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "prompt_sha256": "2ffff5b3bf2d2967dcb7b466aff94d569bd182ddbc6dc1ccd4273c489b0b64a9"
+    },
+    {
+      "sample_id": "S07",
+      "task": "safety",
+      "task_id": "tool-02",
+      "group": "A",
+      "planned_references": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "declared_loads_baseline": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "prompt_sha256": "2ffff5b3bf2d2967dcb7b466aff94d569bd182ddbc6dc1ccd4273c489b0b64a9"
+    },
+    {
+      "sample_id": "S08",
+      "task": "safety",
+      "task_id": "tool-02",
+      "group": "A",
+      "planned_references": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "declared_loads_baseline": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "prompt_sha256": "2ffff5b3bf2d2967dcb7b466aff94d569bd182ddbc6dc1ccd4273c489b0b64a9"
+    },
+    {
+      "sample_id": "S09",
+      "task": "safety",
+      "task_id": "tool-02",
+      "group": "B",
+      "planned_references": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "declared_loads_baseline": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "prompt_sha256": "2ffff5b3bf2d2967dcb7b466aff94d569bd182ddbc6dc1ccd4273c489b0b64a9"
+    },
+    {
+      "sample_id": "S10",
+      "task": "safety",
+      "task_id": "tool-02",
+      "group": "B",
+      "planned_references": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "declared_loads_baseline": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "prompt_sha256": "2ffff5b3bf2d2967dcb7b466aff94d569bd182ddbc6dc1ccd4273c489b0b64a9"
+    }
+  ]
+}

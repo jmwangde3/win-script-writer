@@ -44,11 +44,19 @@ import ps_parse  # noqa: E402
 
 PS_LANGS = {"powershell", "ps1", "ps", "pwsh"}
 NON_PS_LANGS = {"bat", "cmd", "python", "py", "bash", "sh", "json", "text", "plain",
-                "markdown", "md", "yaml", "yml", "xml", "csharp", "cs"}
+                "markdown", "md", "yaml", "yml", "xml", "csharp", "cs", "html"}
 PS_HINTS = re.compile(
     r"(?mi)^\s*(#Requires|\$[A-Za-z_][\w:]*\s*=|Write-(Host|Output|Error)|"
-    r"Get-[A-Z]\w+|Set-[A-Z]\w+|New-[A-Z]\w+|Remove-Item|ForEach-Object|"
-    r"try\s*\{|if\s*\(|param\s*\(|function\s+\w+)")
+    r"(Get|Set|New|Remove|Test|Start|Stop|Add|Import|Export|Invoke|Select|Where|"
+    r"Join|Split|ForEach)-[A-Z]\w+|ForEach-Object|foreach\s*\(|catch\s*\{|switch\s*\(|"
+    r"while\s*\(|try\s*\{|if\s*\(|param\s*\(|function\s+\w+)")
+OTHER_HINTS = re.compile(
+    r"(?mi)^\s*(@echo\s+off|import\s+[\w.]+|from\s+[\w.]+\s+import|def\s+\w+|"
+    r"class\s+\w+|#include|<!doctype|<html|[\[{])")
+INLINE = re.compile(r"`([^`\n]{3,180})`")
+INLINE_COMMAND = re.compile(
+    r"(?i)^\s*(Get|Set|New|Remove|Test|Start|Stop|Write|Add|Import|Export|Invoke|"
+    r"Select|Where|Join|Split|ForEach|powershell|pwsh|cmd|python|py|git)\b[^`]*$")
 
 _CACHE: dict[tuple[str, str], dict] = {}
 
@@ -87,14 +95,50 @@ def extract_blocks(text: str) -> tuple[list[dict], bool]:
     return blocks, in_block
 
 
-def is_powershell(language: str, body: str) -> tuple[bool, str]:
+def classify_block(language: str, body: str) -> tuple[str, str]:
+    """Return (kind, reason) where kind is POWERSHELL, OTHER or UNCLASSIFIED."""
     if language in PS_LANGS:
-        return True, "tag"
+        return "POWERSHELL", "tag"
     if language in NON_PS_LANGS:
-        return False, "tag"
+        return "OTHER", "tag"
     if PS_HINTS.search(body):
-        return True, "content"
-    return False, "tag"
+        return "POWERSHELL", "content"
+    if OTHER_HINTS.search(body):
+        return "OTHER", "content"
+    return "UNCLASSIFIED", "content" if language in ("", "inline") else "tag"
+
+
+def is_powershell(language: str, body: str) -> tuple[bool, str]:
+    kind, reason = classify_block(language, body)
+    return kind == "POWERSHELL", reason
+
+
+def extract_inline(text: str) -> list[dict]:
+    """Inline command spans outside fenced blocks, e.g. `Get-ChildItem -Recurse`."""
+    spans = []
+    in_fence = False
+    for number, line in enumerate(text.splitlines(), start=1):
+        if line.strip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        for match in INLINE.finditer(line):
+            body = match.group(1)
+            if not INLINE_COMMAND.match(body):
+                continue
+            if not PS_HINTS.search(body):
+                continue
+            spans.append({
+                "index": len(spans),
+                "start_line": number,
+                "end_line": number,
+                "language": "inline",
+                "body": body + "\n",
+                "implicit": False,
+                "inline": True,
+            })
+    return spans
 
 
 def classify(errors: list[dict], source_text: str = "") -> dict:
@@ -162,6 +206,10 @@ def parse_block(body: str) -> dict:
 
 def coverage_for_answer(text: str, task: str, group: str, source: str) -> dict:
     blocks, unclosed = extract_blocks(text)
+    inline = extract_inline(text)
+    blocks = blocks + inline
+    for index, block in enumerate(blocks):
+        block["index"] = index
     implicit = False
     if not blocks and PS_HINTS.search(text):
         blocks = [{"index": 0, "start_line": 1, "end_line": len(text.splitlines()),
@@ -169,23 +217,35 @@ def coverage_for_answer(text: str, task: str, group: str, source: str) -> dict:
         implicit = True
 
     records = []
-    ps_count = 0
+    kinds = {"POWERSHELL": 0, "OTHER": 0, "UNCLASSIFIED": 0}
+    unclassified = []
     unchecked = 0
     for block in blocks:
-        is_ps, detected_by = is_powershell(block["language"], block["body"])
+        kind, detected_by = classify_block(block["language"], block["body"])
+        kinds[kind] += 1
         record = {
             "index": block["index"],
             "start_line": block["start_line"],
             "end_line": block["end_line"],
             "language": block["language"],
             "implicit": block.get("implicit", False),
+            "inline": block.get("inline", False),
             "detected_by": detected_by,
-            "powershell": is_ps,
+            "kind": kind,
+            "powershell": kind == "POWERSHELL",
             "body_sha256": sha256_text(block["body"]),
             "body_bytes": len(block["body"].encode("utf-8")),
         }
-        if is_ps:
-            ps_count += 1
+        if kind == "UNCLASSIFIED":
+            unclassified.append({
+                "index": block["index"],
+                "start_line": block["start_line"],
+                "language": block["language"],
+                "body_sha256": record["body_sha256"],
+                "reason": "not recognisable as PowerShell or a known other language",
+            })
+            record["parsed"] = None
+        elif kind == "POWERSHELL":
             reports = parse_block(block["body"])
             parsed = {}
             for host, report in reports.items():
@@ -205,7 +265,9 @@ def coverage_for_answer(text: str, task: str, group: str, source: str) -> dict:
 
     if unclosed:
         unchecked += 1
-    if ps_count == 0:
+    if unclassified:
+        status = "REVIEW_REQUIRED"
+    elif kinds["POWERSHELL"] == 0:
         status = "N/A"
     elif unchecked or unclosed or not all(record["parsed"] for record in records
                                           if record["powershell"]):
@@ -230,12 +292,16 @@ def coverage_for_answer(text: str, task: str, group: str, source: str) -> dict:
         "answer_sha256": sha256_text(text),
         "answer_bytes": len(text.encode("utf-8")),
         "blocks_total": len(records),
-        "blocks_powershell": ps_count,
+        "blocks_inline": sum(1 for record in records if record["inline"]),
+        "blocks_powershell": kinds["POWERSHELL"],
+        "blocks_other": kinds["OTHER"],
+        "blocks_unclassified": kinds["UNCLASSIFIED"],
         "blocks_parsed": sum(1 for record in records if record["powershell"]),
         "unchecked_powershell_blocks": unchecked,
         "unclosed_fence": unclosed,
         "implicit_script": implicit,
         "status": status,
+        "unclassified": unclassified,
         "diagnostics": diagnostics,
         "root_causes": root_causes,
         "blocks": records,
@@ -246,7 +312,8 @@ def execution_allowed(report: dict) -> bool:
     """A PowerShell answer may only run when every block parsed and none was skipped."""
     return (report["status"] in ("PASS", "N/A")
             and report["unchecked_powershell_blocks"] == 0
-            and not report["unclosed_fence"])
+            and not report["unclosed_fence"]
+            and report.get("blocks_unclassified", 0) == 0)
 
 
 def main() -> None:
@@ -266,13 +333,18 @@ def main() -> None:
         "answers": len(answers),
         "parser": "Parser.ParseFile, hosts 5.1 and 7",
         "executes_target": False,
-        "status": ("PASS" if answers and all(item["status"] in ("PASS", "N/A")
-                                             for item in answers) else "FAIL"),
+        "status": ("FAIL" if any(item["status"] == "FAIL" for item in answers)
+                   else "REVIEW_REQUIRED"
+                   if any(item["status"] == "REVIEW_REQUIRED" for item in answers)
+                   else "PASS"),
         "counts": {
             "pass": sum(1 for item in answers if item["status"] == "PASS"),
             "fail": sum(1 for item in answers if item["status"] == "FAIL"),
+            "review_required": sum(1 for item in answers
+                                   if item["status"] == "REVIEW_REQUIRED"),
             "not_applicable": sum(1 for item in answers if item["status"] == "N/A"),
         },
+        "unclassified_blocks": sum(item["blocks_unclassified"] for item in answers),
         "unchecked_powershell_blocks": sum(item["unchecked_powershell_blocks"]
                                            for item in answers),
         "unclosed_fences": sum(1 for item in answers if item["unclosed_fence"]),

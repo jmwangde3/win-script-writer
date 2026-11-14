@@ -78,6 +78,31 @@ class ExtractionTests(unittest.TestCase):
         is_ps, _reason = coverage.is_powershell("", "这是一段说明文字，没有代码。\n")
         self.assertFalse(is_ps)
 
+    def test_common_cmdlet_without_tag_is_powershell(self):
+        self.assertTrue(coverage.is_powershell("", "Test-Path 'C:\\x'\n")[0])
+        self.assertTrue(coverage.is_powershell("", "Set-Location C:\\x\n")[0])
+
+    def test_structure_without_tag_is_powershell(self):
+        self.assertTrue(coverage.is_powershell("", "foreach ($x in 1..2) { $x }\n")[0])
+        self.assertTrue(coverage.is_powershell(
+            "", "try { Get-Item x } catch { Write-Error $_ }\n")[0])
+
+    def test_unknown_block_is_unclassified(self):
+        kind, _reason = coverage.classify_block("", "一段无法判断用途的内容\n")
+        self.assertEqual(kind, "UNCLASSIFIED")
+
+    def test_bat_and_python_are_other(self):
+        self.assertEqual(coverage.classify_block("bat", "@echo off\n")[0], "OTHER")
+        self.assertEqual(coverage.classify_block("python", "print('x')\n")[0], "OTHER")
+
+    def test_inline_command_is_extracted(self):
+        spans = coverage.extract_inline("运行 `Get-ChildItem -Recurse` 查看。\n")
+        self.assertEqual(len(spans), 1)
+        self.assertEqual(spans[0]["language"], "inline")
+
+    def test_inline_identifier_is_not_a_command(self):
+        self.assertEqual(coverage.extract_inline("文件是 `deploy.ps1`。\n"), [])
+
 
 class ClassificationTests(unittest.TestCase):
     def test_structural_followups_are_cascades(self):
