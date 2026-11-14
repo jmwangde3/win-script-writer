@@ -181,9 +181,6 @@ BOM 判定**先于**名字查表：`windows-936` 单独报 `encoding problem: wi
 带 BOM 报 `... with BOM`；都拒，但理由码不同，检测器按解释器顺序走
 （`py-coding-unknown-bom.py` 钉住这一点）。
 
-`UNVERIFIED` 是诚实的欠缺：没有 `shift_jis` 的双字节表就不能声称验过它，猜一个
-`OK` 更差。代价是检测器不引 Python 运行时——那会让纯 PowerShell 工具依赖解释器。
-
 **「名字能解析」不等于「文件能跑」。** `python-only` 因此额外输出
 `SOURCE_CODING_PAYLOAD=unverified`（JSON `"SourceCodingPayload": "unverified"`），
 其它档位不输出该键——不是空串，否则判真假会被读成「已验证」。`cp1252` 正文含
@@ -194,11 +191,12 @@ BOM 判定**先于**名字查表：`windows-936` 单独报 `encoding problem: wi
 等）归类，于是 `mac-bogus`、`shift_jis_typo`、`big5-nope`、`ibm99999` 都被当成
 Python 认识的名字——解释器对这四个都抛 `SyntaxError`。v1.0.4 改**精确表**：按
 tokenizer 规则归一化（小写、`_`→`-`、`utf-8-*` 折叠成 `utf-8`、`latin-1` 族折叠成
-`latin-1`，其余保留原样）后查按族组织的精确表（98 个族、389 条拼写）。
-`TestCodecAliasCoverage` 遍历 `encodings.aliases` 与 `encodings/` 模块名，
-逐个 `compile()` 再问检测器：3.13.9 上 471 个拼写 / 380 可作 / 91 被拒 /
-**0 分歧**。`ansi` 归 `mbcs`（本机即 CP936），`ansi_x3.4-1968` 归 `ascii`：
-同一段 GBK 字节，解释器跑前者、拒后者，`TestPythonOnlyPayload` 钉住分叉。
+`latin-1`，其余保留原样）后查表，98 个族、393 条拼写。表是矩阵内各版本的**并集**：
+3.13.17 给 `cp858` 补了 4 个别名，按旧补丁抄表就会拒绝新补丁写的文件——CI 报的。
+`TestCodecAliasCoverage` 遍历 `encodings.aliases` 与模块名，逐个 `compile()` 再问
+检测器：3.13.9 上 471 个拼写 / 380 可作 / 91 被拒 / **0 分歧**。`ansi` 归 `mbcs`
+（本机即 CP936），`ansi_x3.4-1968` 归 `ascii`：同一段 GBK 字节，解释器跑前者、
+拒后者，`TestPythonOnlyPayload` 钉住分叉。
 
 三类边界全部实测：
 
