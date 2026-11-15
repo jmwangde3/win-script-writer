@@ -1,80 +1,83 @@
 # cmd.exe / .bat / .cmd
 
-cmd.exe 比 PowerShell 更狠：它按**当前活动代码页**逐字节解析批处理文件本
-身，而且**不认 BOM**。这意味着同一份含中文的 `.bat`，四种存法会有四种不同
-的失败方式。
+`cmd.exe` is harsher than PowerShell: it parses the batch file itself byte by byte
+using the **currently active code page**, and it **ignores BOMs**. One `.bat` with
+Chinese in it therefore has four different failure modes for four ways of saving it.
 
-## 1. 四种存法的实测结果
+## 1. Four ways to save, measured
 
-测试条件：`.bat` 里 `if exist "<含中文的绝对路径>"` 加一句
-`echo 中文 > out.txt`，直接用 `cmd.exe /c` 运行，活动代码页保持系统默认
-936。判定用**整行精确匹配**——早期版本用子串匹配被 echo 回显骗过，见第 6 节。
+Test setup: a `.bat` containing `if exist "<absolute path with Chinese>"` plus
+`echo 中文 > out.txt`, executed with `cmd.exe /c`, active code page left at the system
+default 936. Verdicts use **exact whole-line matching** — an earlier version matched
+substrings and was fooled by echo, see §6.
 
-| 存法 | 中文路径判定 | `@echo off` 是否生效 | `out.txt` 落盘字节 |
+| Saved as | Chinese path resolves | `@echo off` takes effect | Bytes written to `out.txt` |
 | --- | --- | --- | --- |
-| UTF-8 无 BOM | **PATH_FAIL** | 是 | `E4 B8 AD E6 96 87` |
-| UTF-8 with BOM | **PATH_FAIL** | **否**，首行变成 `<EF BB BF>@echo off` | `E4 B8 AD E6 96 87` |
-| GBK(936) 无 BOM | **PATH_OK** | 是 | `D6 D0 CE C4` |
-| UTF-8 无 BOM + 首行 `chcp 65001 >nul` | **PATH_OK** | 是 | `E4 B8 AD E6 96 87` |
+| UTF-8 without BOM | **PATH_FAIL** | yes | `E4 B8 AD E6 96 87` |
+| UTF-8 with BOM | **PATH_FAIL** | **no**, line 1 becomes `<EF BB BF>@echo off` | `E4 B8 AD E6 96 87` |
+| GBK (936) without BOM | **PATH_OK** | yes | `D6 D0 CE C4` |
+| UTF-8 without BOM + first line `chcp 65001 >nul` | **PATH_OK** | yes | `E4 B8 AD E6 96 87` |
 
-三个要点：
+Three things worth keeping:
 
-1. **三种失败/成功下 `exit=0` 都是 0。** cmd 不会因为路径找不到而返回非零，
-   除非你显式 `exit /b`。所以"脚本跑完了没报错"完全没有信息量。
-2. **BOM 是唯一连 `@echo off` 都会破坏的情况**：`<EF BB BF>@echo off` 不是
-   合法命令，echo 保持打开，屏幕上出现满屏命令回显，之后每一行都被重新
-   解释。
-3. **`echo` 写出的是文件里的原始字节，不是按控制台代码页重编码后的字节。**
-   所以 UTF-8 存法写出的也是 UTF-8 字节——这解释了为什么"cmd 显示乱码但
-   文件其实是 UTF-8"。
+1. **`exit=0` in every case, success or failure.** cmd does not return non-zero when
+   a path is missing unless you write `exit /b` yourself. "The script finished without
+   an error" therefore carries no information.
+2. **A BOM is the only case that also breaks `@echo off`**: `<EF BB BF>@echo off` is
+   not a valid command, so echo stays on, the screen fills with command echo, and
+   every following line is reinterpreted.
+3. **`echo` writes the raw bytes in the file, not bytes re-encoded to the console code
+   page.** That is why a UTF-8-saved file stays UTF-8 even when the console shows
+   mojibake.
 
-## 2. 结论：新脚本不要写 .bat
+## 2. Conclusion: do not write new `.bat` files
 
-优先顺序：Bash（若可用）→ PowerShell → 最后才是 `.bat`。
-`.bat` 只在"必须双击运行 / 计划任务 / 极老系统"时才选。
+Preference order: Bash (if available) → PowerShell → `.bat` last. Choose `.bat` only
+for double-click execution, a scheduled task, or a genuinely ancient system.
 
-已有 `.bat` 的改造方向：
+How to fix an existing `.bat`:
 
 ```bat
 @echo off
 chcp 936 >nul
-rem 骨架保持纯 ASCII：命令、变量名、标签、注释全部英文
-rem 中文内容放进外部 UTF-8 数据文件，交给 PowerShell 或 Python 读
+rem keep the skeleton pure ASCII: commands, variables, labels, comments in English
+rem put Chinese content in an external UTF-8 data file read by PowerShell or Python
 powershell.exe -NoProfile -File "%~dp0work.ps1"
 exit /b %ERRORLEVEL%
 ```
 
-要点：`.bat` 只做启动器，不做数据处理。
+The point: `.bat` launches, it does not process data.
 
-## 3. 如果必须内联中文
+## 3. If Chinese must be inline
 
-存成 **ANSI/GBK(936) 无 BOM**。这是唯一同时满足"路径正确"和"`@echo off`
-生效"的存法。
+Save as **ANSI/GBK (936) without BOM**. That is the only spelling that satisfies both
+"paths resolve" and "`@echo off` works".
 
-必须用 UTF-8 时（例如与仓库其他文件统一），首行加 `chcp 65001 >nul`，且
-文件本身**不能有 BOM**。本机实测可用，但要知道代价：
+If UTF-8 is mandatory (to match the rest of a repository), put `chcp 65001 >nul` on
+line 1 and keep the file **free of BOM**. It works on this host; know the cost:
 
-- 老版本 Windows 10 在 65001 下 `for /f`、管道、重定向有历史缺陷，换机器
-  必须重测。
-- `chcp` 会改变整个控制台的活动代码页，子进程继承。
-- 某些第三方程序在 65001 下仍按 ANSI 解释参数。
+- Older Windows 10 builds had defects in `for /f`, pipes and redirection under 65001;
+  re-test on any other machine.
+- `chcp` changes the active code page of the whole console, and children inherit it.
+- Some third-party programs still interpret arguments as ANSI under 65001.
 
-## 4. 代码页边界清单
+## 4. Code page boundary list
 
-以下每一处都会重新按活动代码页解码：
+Each of these decodes again under the active code page:
 
-| 位置 | 说明 |
+| Site | What happens |
 | --- | --- |
-| `for /f %%i in (file)` | 按当前 CP 解码文件每一行 |
-| `findstr 中文 file` | 模式串与文件都按当前 CP 比对 |
-| `type file` / `more file` | 输出按当前 CP 解释 |
-| `程序A \| 程序B` | 管道两侧各自解码/编码，中间字节不经转换 |
-| `set /p x=<file` | 读第一行，按当前 CP |
-| `>> log.txt` 里的中文 | 写入原始字节 |
+| `for /f %%i in (file)` | decodes every line of the file with the current CP |
+| `findstr 中文 file` | pattern and file are both matched under the current CP |
+| `type file` / `more file` | output interpreted under the current CP |
+| `program-a \| program-b` | each side encodes and decodes its own way; bytes in between are not converted |
+| `set /p x=<file` | reads the first line under the current CP |
+| Chinese inside `>> log.txt` | written as raw bytes |
 
-判据：**只要数据跨过一次进程或文件边界，就要问一次"这里按哪个代码页"。**
+Rule: **every time data crosses a process or file boundary, ask which code page
+applies at that boundary.**
 
-## 5. 退出码
+## 5. Exit codes
 
 ```bat
 @echo off
@@ -83,18 +86,19 @@ if errorlevel 1 exit /b 1
 exit /b 0
 ```
 
-不写 `exit /b` 时，`.bat` 的退出码是**最后一条命令**的退出码，很容易变成
-0。CI 里这等于没有检查。
+Without `exit /b`, a `.bat` returns the exit code of its **last command**, which is
+easily 0. In CI that is the same as no check at all.
 
-## 6. 一个真实的踩坑（留作教训）
+## 6. One real mistake, kept as a lesson
 
-第一次测四种存法时，判定逻辑写成"stdout 里是否包含 `PATH_OK`"。UTF-8 with
-BOM 那一组看起来通过了，因为 `@echo off` 被 BOM 破坏后，cmd 把
-`if exist "..." (echo PATH_OK) else (echo PATH_FAIL)` **整行回显**出来，
-里面同时含两个标记，子串匹配必然命中。
+The first version of the four-way test asked "does stdout contain `PATH_OK`". The
+UTF-8-with-BOM case appeared to pass, because once the BOM broke `@echo off`, cmd
+echoed the whole directive
+`if exist "..." (echo PATH_OK) else (echo PATH_FAIL)` — which contains both markers,
+so a substring match always hits.
 
-改成整行精确匹配后立刻暴露为 `PATH_FAIL`。
+Switching to exact whole-line matching exposed it as `PATH_FAIL` immediately.
 
-教训：**测试判定不能用被测对象的输出当唯一证据**，尤其当输出本身可能被
-污染时。现在的 `tests/` 里所有断言都基于结构化字段（`VERDICT=`、
-`ENCODING=`）或精确行匹配。
+Lesson: **never let the output under test be the only evidence about the test**,
+especially when that output can itself be polluted. Every assertion in `tests/` now
+reads a structured field (`VERDICT=`, `ENCODING=`) or matches an exact line.

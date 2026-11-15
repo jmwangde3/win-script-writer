@@ -1,0 +1,170 @@
+{
+  "generated": "2026-11-15",
+  "estimate": true,
+  "api_usage_used": false,
+  "tokenizer": "DeepSeek V4 offline tokenizer",
+  "tokenizer_sha256": "89085f12ef79460ac5f66d1119325ddfc694b4ab209d80bbd81d35f081dc9614",
+  "method": "metadata + SKILL.md body + opened_references; tokenizer estimate",
+  "samples": [
+    {
+      "sample_id": "S01",
+      "task": "ps51",
+      "group": "A",
+      "opened_references": [
+        "references/powershell-51.md",
+        "references/execution.md"
+      ],
+      "metadata_tokens": 136,
+      "body_tokens": 1502,
+      "reference_tokens": 4870,
+      "skill_context": 6508
+    },
+    {
+      "sample_id": "S02",
+      "task": "bat",
+      "group": "A",
+      "opened_references": [
+        "references/cmd-bat.md"
+      ],
+      "metadata_tokens": 136,
+      "body_tokens": 1502,
+      "reference_tokens": 1278,
+      "skill_context": 2916
+    },
+    {
+      "sample_id": "S03",
+      "task": "bat",
+      "group": "B",
+      "opened_references": [
+        "references/cmd-bat.md"
+      ],
+      "metadata_tokens": 75,
+      "body_tokens": 1438,
+      "reference_tokens": 1242,
+      "skill_context": 2755
+    },
+    {
+      "sample_id": "S04",
+      "task": "safety",
+      "group": "B",
+      "opened_references": [
+        "references/powershell-51.md",
+        "references/encoding-matrix.md"
+      ],
+      "metadata_tokens": 75,
+      "body_tokens": 1438,
+      "reference_tokens": 5204,
+      "skill_context": 6717
+    },
+    {
+      "sample_id": "S05",
+      "task": "ps51",
+      "group": "B",
+      "opened_references": [
+        "references/powershell-51.md",
+        "references/execution.md"
+      ],
+      "metadata_tokens": 75,
+      "body_tokens": 1438,
+      "reference_tokens": 4808,
+      "skill_context": 6321
+    },
+    {
+      "sample_id": "S06",
+      "task": "safety",
+      "group": "A",
+      "opened_references": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "metadata_tokens": 136,
+      "body_tokens": 1502,
+      "reference_tokens": 6994,
+      "skill_context": 8632
+    },
+    {
+      "sample_id": "S07",
+      "task": "safety",
+      "group": "A",
+      "opened_references": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "metadata_tokens": 136,
+      "body_tokens": 1502,
+      "reference_tokens": 6994,
+      "skill_context": 8632
+    },
+    {
+      "sample_id": "S08",
+      "task": "safety",
+      "group": "A",
+      "opened_references": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "metadata_tokens": 136,
+      "body_tokens": 1502,
+      "reference_tokens": 6994,
+      "skill_context": 8632
+    },
+    {
+      "sample_id": "S09",
+      "task": "safety",
+      "group": "B",
+      "opened_references": [
+        "references/powershell-51.md",
+        "references/encoding-matrix.md"
+      ],
+      "metadata_tokens": 75,
+      "body_tokens": 1438,
+      "reference_tokens": 5204,
+      "skill_context": 6717
+    },
+    {
+      "sample_id": "S10",
+      "task": "safety",
+      "group": "B",
+      "opened_references": [
+        "references/powershell-51.md",
+        "references/encoding-matrix.md"
+      ],
+      "metadata_tokens": 75,
+      "body_tokens": 1438,
+      "reference_tokens": 5204,
+      "skill_context": 6717
+    }
+  ],
+  "tasks": [
+    {
+      "task": "ps51",
+      "A_samples": 1,
+      "B_samples": 1,
+      "A_mean_tokens": 6508.0,
+      "B_mean_tokens": 6321.0,
+      "saving_percent": 2.87
+    },
+    {
+      "task": "bat",
+      "A_samples": 1,
+      "B_samples": 1,
+      "A_mean_tokens": 2916.0,
+      "B_mean_tokens": 2755.0,
+      "saving_percent": 5.52
+    },
+    {
+      "task": "safety",
+      "A_samples": 3,
+      "B_samples": 3,
+      "A_mean_tokens": 8632.0,
+      "B_mean_tokens": 6717.0,
+      "saving_percent": 22.18
+    }
+  ],
+  "overall": {
+    "A_total": 35320,
+    "B_total": 29227,
+    "weighted_saving": 17.25,
+    "arithmetic_mean": 10.19
+  }
+}

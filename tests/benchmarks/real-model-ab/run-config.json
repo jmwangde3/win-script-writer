@@ -1,0 +1,321 @@
+{
+  "schema": 1,
+  "run_id": "real-model-ab-2026-11-14",
+  "started_at": "2026-11-14T22:03:04+08:00",
+  "finished_at": "2026-11-14T22:15:26+08:00",
+  "model": {
+    "id": "gpt-6-luna",
+    "version": "not exposed by Codex CLI; the models cache reports the slug and display name only",
+    "reasoning_effort": "CLI default (medium), not overridden",
+    "temperature": "not exposed",
+    "top_p": "not exposed",
+    "max_output_tokens": "not exposed",
+    "sampling_seed": "not exposed"
+  },
+  "client": {
+    "name": "codex-cli",
+    "version": "0.167.0-alpha.3.2",
+    "auth": "ChatGPT session, credentials copied into an isolated CODEX_HOME",
+    "invocation": "codex exec --ephemeral --json --skip-git-repo-check --ignore-user-config",
+    "sandbox": "danger-full-access",
+    "sandbox_note": "workspace-write rejected every command on this host; read isolation is prompt-enforced and audited from the JSONL command log"
+  },
+  "environment": {
+    "os": "Windows 11 Pro build 26200",
+    "locale": "zh-CN",
+    "system_ansi_code_page": 65001,
+    "windows_powershell": "5.1.26100.9711",
+    "powershell": "7.7.0",
+    "python": "3.13.9",
+    "csc": "4.0.30319",
+    "execution_policy": "RemoteSigned (LocalMachine), no per-run widening"
+  },
+  "tasks": [
+    {
+      "id": "ps51",
+      "source_task": "ps51-01",
+      "prompt": "prompts/ps51.md"
+    },
+    {
+      "id": "ps7",
+      "source_task": "ps7-01",
+      "prompt": "prompts/ps7.md"
+    },
+    {
+      "id": "dual",
+      "source_task": "dual-02",
+      "prompt": "prompts/dual.md"
+    },
+    {
+      "id": "bat",
+      "source_task": "bat-01",
+      "prompt": "prompts/bat.md"
+    },
+    {
+      "id": "python",
+      "source_task": "py-02",
+      "prompt": "prompts/python.md"
+    },
+    {
+      "id": "safety",
+      "source_task": "tool-02",
+      "prompt": "prompts/safety.md"
+    }
+  ],
+  "rubric": {
+    "understanding": 15,
+    "encoding": 25,
+    "compatibility": 20,
+    "execution": 25,
+    "safety": 15
+  },
+  "samples": [
+    {
+      "task": "ps51",
+      "group": "A",
+      "sample_id": "S06",
+      "origin": "reused from the partially completed 22-sample blind run",
+      "session_id": "01a1da61-de20-7fb0-9c87-31263ca66433",
+      "started_at": "2026-11-14T22:06:49+08:00",
+      "finished_at": "2026-11-14T22:07:40+08:00",
+      "tokens": {
+        "input": 127501,
+        "output": 2120,
+        "total": 129621,
+        "cached": 113792
+      },
+      "planned_references": "references/powershell-51.md",
+      "opened_references": "SKILL.md;references/powershell-51.md;references/execution.md",
+      "load_evidence": "codex-json-command-log",
+      "answer_sha256": "1be8e8cbb5e509c8efe25242f0700b23af7cbc27bed45f6689ef7631c3199b8b"
+    },
+    {
+      "task": "ps51",
+      "group": "B",
+      "sample_id": "S18",
+      "origin": "generated for this 6-task run",
+      "session_id": "01a1da67-8e51-7d02-bb23-ed13787499dd",
+      "started_at": "2026-11-14T22:13:02+08:00",
+      "finished_at": "2026-11-14T22:13:33+08:00",
+      "tokens": {
+        "input": 74092,
+        "output": 1188,
+        "total": 75280,
+        "cached": 63232
+      },
+      "planned_references": "references/powershell-51.md",
+      "opened_references": "SKILL.md;references/powershell-51.md;references/execution.md",
+      "load_evidence": "codex-json-command-log",
+      "answer_sha256": "a82d7f7e6b463a3e5cb23e35ea86b19b8cd957177817c296cd3df7a6566e1c22"
+    },
+    {
+      "task": "ps7",
+      "group": "A",
+      "sample_id": "S04",
+      "origin": "reused from the partially completed 22-sample blind run",
+      "session_id": "01a1da60-d30f-7d30-9e3b-4a039a7a652d",
+      "started_at": "2026-11-14T22:05:40+08:00",
+      "finished_at": "2026-11-14T22:06:09+08:00",
+      "tokens": {
+        "input": 96578,
+        "output": 894,
+        "total": 97472,
+        "cached": 83456
+      },
+      "planned_references": "references/powershell-7.md",
+      "opened_references": "SKILL.md;references/powershell-7.md",
+      "load_evidence": "codex-json-command-log",
+      "answer_sha256": "0691f8632a9211fb621a8b9ae0875cd7a74109225d997fd73c87d3bbb308c190"
+    },
+    {
+      "task": "ps7",
+      "group": "B",
+      "sample_id": "S20",
+      "origin": "generated for this 6-task run",
+      "session_id": "01a1da68-7af7-7760-a426-f19eb7ac54dd",
+      "started_at": "2026-11-14T22:14:02+08:00",
+      "finished_at": "2026-11-14T22:14:34+08:00",
+      "tokens": {
+        "input": 67781,
+        "output": 1199,
+        "total": 68980,
+        "cached": 62336
+      },
+      "planned_references": "references/powershell-7.md",
+      "opened_references": "SKILL.md;references/powershell-7.md",
+      "load_evidence": "codex-json-command-log",
+      "answer_sha256": "04e6b27c5de3584def53a2a4991da9dbaf93a3129348212bc650501ec998ee4a"
+    },
+    {
+      "task": "dual",
+      "group": "A",
+      "sample_id": "S19",
+      "origin": "generated for this 6-task run",
+      "session_id": "01a1da68-095c-7d10-873d-756fb20c6fc4",
+      "started_at": "2026-11-14T22:13:33+08:00",
+      "finished_at": "2026-11-14T22:14:02+08:00",
+      "tokens": {
+        "input": 75129,
+        "output": 963,
+        "total": 76092,
+        "cached": 65280
+      },
+      "planned_references": "references/dual-version-compatibility.md",
+      "opened_references": "SKILL.md;references/dual-version-compatibility.md",
+      "load_evidence": "codex-json-command-log",
+      "answer_sha256": "8c70271ab96213318be4875e861a5e8529515616b5b4394051ae4e89298da808"
+    },
+    {
+      "task": "dual",
+      "group": "B",
+      "sample_id": "S01",
+      "origin": "reused from the partially completed 22-sample blind run",
+      "session_id": "01a1da5e-702f-7ea0-8423-3fa2c48cef2d",
+      "started_at": "2026-11-14T22:03:04+08:00",
+      "finished_at": "2026-11-14T22:03:37+08:00",
+      "tokens": {
+        "input": 71180,
+        "output": 1113,
+        "total": 72293,
+        "cached": 62720
+      },
+      "planned_references": "references/dual-version-compatibility.md",
+      "opened_references": "SKILL.md;references/dual-version-compatibility.md",
+      "load_evidence": "codex-json-command-log",
+      "answer_sha256": "16578a0ab40e3e80b6bb7febb639aa74d0b7df1ccfd2b962126d2416a68bac88"
+    },
+    {
+      "task": "bat",
+      "group": "A",
+      "sample_id": "S07",
+      "origin": "reused from the partially completed 22-sample blind run",
+      "session_id": "01a1da62-a74b-7582-b457-bb4f66e9379d",
+      "started_at": "2026-11-14T22:07:40+08:00",
+      "finished_at": "2026-11-14T22:08:03+08:00",
+      "tokens": {
+        "input": 78180,
+        "output": 656,
+        "total": 78836,
+        "cached": 64128
+      },
+      "planned_references": "references/cmd-bat.md",
+      "opened_references": "SKILL.md;references/cmd-bat.md",
+      "load_evidence": "codex-json-command-log",
+      "answer_sha256": "c3fb1405a26b99daac5fcdc4bbfb83d126dee060b39bf6483ebc3421bb1a77b6"
+    },
+    {
+      "task": "bat",
+      "group": "B",
+      "sample_id": "S21",
+      "origin": "generated for this 6-task run",
+      "session_id": "01a1da68-f7c8-7122-91b2-bec48cd93cc7",
+      "started_at": "2026-11-14T22:14:34+08:00",
+      "finished_at": "2026-11-14T22:14:54+08:00",
+      "tokens": {
+        "input": 69989,
+        "output": 473,
+        "total": 70462,
+        "cached": 62464
+      },
+      "planned_references": "references/cmd-bat.md",
+      "opened_references": "SKILL.md;references/cmd-bat.md",
+      "load_evidence": "codex-json-command-log",
+      "answer_sha256": "c5eb7e4388f01b89b61d24368521fdd736cb441cb6af5167c4bfec2fc0e3a438"
+    },
+    {
+      "task": "python",
+      "group": "A",
+      "sample_id": "S05",
+      "origin": "reused from the partially completed 22-sample blind run",
+      "session_id": "01a1da61-42a9-7bc0-a677-b646668166b2",
+      "started_at": "2026-11-14T22:06:09+08:00",
+      "finished_at": "2026-11-14T22:06:49+08:00",
+      "tokens": {
+        "input": 82509,
+        "output": 1478,
+        "total": 83987,
+        "cached": 68608
+      },
+      "planned_references": "references/python.md",
+      "opened_references": "SKILL.md;references/python.md",
+      "load_evidence": "codex-json-command-log",
+      "answer_sha256": "796a948ab6ff580e9f9519b45aa68da0e316e3210440c4823952efa1d80a030b"
+    },
+    {
+      "task": "python",
+      "group": "B",
+      "sample_id": "S22",
+      "origin": "generated for this 6-task run",
+      "session_id": "01a1da69-439c-7753-b959-8a6beaa5e387",
+      "started_at": "2026-11-14T22:14:54+08:00",
+      "finished_at": "2026-11-14T22:15:26+08:00",
+      "tokens": {
+        "input": 77335,
+        "output": 1136,
+        "total": 78471,
+        "cached": 65792
+      },
+      "planned_references": "references/python-source-encoding.md",
+      "opened_references": "SKILL.md;references/python.md;references/python-source-encoding.md",
+      "load_evidence": "codex-json-command-log",
+      "answer_sha256": "ca19bf01732e482d7e2e69d8fae36a9f245655fe596c2677afd1e81f713de3cf"
+    },
+    {
+      "task": "safety",
+      "group": "A",
+      "sample_id": "S08",
+      "origin": "reused from the partially completed 22-sample blind run",
+      "session_id": "01a1da62-fffc-7cd2-a4d2-e05647c4e261",
+      "started_at": "2026-11-14T22:08:03+08:00",
+      "finished_at": "2026-11-14T22:09:02+08:00",
+      "tokens": {
+        "input": 135720,
+        "output": 2537,
+        "total": 138257,
+        "cached": 118016
+      },
+      "planned_references": "references/security.md;references/troubleshooting.md",
+      "opened_references": "SKILL.md;references/encoding-matrix.md;references/powershell-51.md",
+      "load_evidence": "codex-json-command-log",
+      "answer_sha256": "643c9c4a91bf179317c0e45db98dcef07b416c861f9f0b49cb8745765132fdb7"
+    },
+    {
+      "task": "safety",
+      "group": "B",
+      "sample_id": "S12",
+      "origin": "generated for this 6-task run",
+      "session_id": "01a1da66-d7a4-7af0-9baf-e404c63e1812",
+      "started_at": "2026-11-14T22:12:15+08:00",
+      "finished_at": "2026-11-14T22:13:02+08:00",
+      "tokens": {
+        "input": 75726,
+        "output": 1966,
+        "total": 77692,
+        "cached": 63744
+      },
+      "planned_references": "references/security.md;references/troubleshooting.md",
+      "opened_references": "SKILL.md;references/encoding-matrix.md;references/powershell-51.md",
+      "load_evidence": "codex-json-command-log",
+      "answer_sha256": "98162aa5ad0a5aba2b4a6042907027d7ffce74bf4a94fe19d57643f1a71e6d8a"
+    }
+  ],
+  "prompt_integrity": {
+    "ps51": "862a0b459532fac63281e32ade63199fa25f47e74345696a6aec0b8b84c94c7a",
+    "ps7": "213ad2710b8e631a5da95b5ae1ba49f4b140eda2c2a4ab8f76c4ee27c7533740",
+    "dual": "fbb56a98d367284fbb2a9f928a22c310a0a1ac95a12748b64ddc8d88bada5979",
+    "bat": "e281f75006933018d8bb9baa9d4b54b4aabb0f23ba9a30b85cc4cb214721b3cb",
+    "python": "537ff840a13a45b224cedc740341d5684027df1c9aab62072a20157817f0c251",
+    "safety": "2ffff5b3bf2d2967dcb7b466aff94d569bd182ddbc6dc1ccd4273c489b0b64a9"
+  },
+  "execution": {
+    "sandbox": "one temporary directory per (task, group) under the system temp dir",
+    "path_substitutions": {
+      "ps51": "H:\\work\\部署 -> <sandbox>\\部署",
+      "bat": "H:\\工作\\发布 -> <sandbox>\\工作\\发布",
+      "safety": "H:\\work -> <sandbox>\\work"
+    },
+    "bat": "line endings normalised to CRLF; console code page 936 set in a wrapper because the host ACP is 65001",
+    "build_exe": "compiled C# stub that prints BUILD_OK and returns 7",
+    "danger_guard": "a script containing a destructive or policy-changing command is not executed"
+  }
+}

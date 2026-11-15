@@ -1,0 +1,145 @@
+{
+  "schema": 1,
+  "run_id": "20261115-100407",
+  "seed": 9018677351251686173,
+  "model": {
+    "id": "gpt-6-luna",
+    "version": "not exposed by Codex CLI",
+    "client": "codex-cli 0.167.0-alpha.3.2",
+    "reasoning_effort": "CLI default (medium)"
+  },
+  "samples": [
+    {
+      "sample_id": "S01",
+      "task": "bat",
+      "task_id": "bat-codepage-01",
+      "group": "B",
+      "planned_references": [
+        "references/cmd-bat.md",
+        "references/encoding-matrix.md"
+      ],
+      "prompt_sha256": "7df16bd5bac51e973fde06271f57ff0547729dedff3aeff3cab126d315c52437"
+    },
+    {
+      "sample_id": "S02",
+      "task": "ps51",
+      "task_id": "ps51-autowrite-01",
+      "group": "A",
+      "planned_references": [
+        "references/powershell-51.md",
+        "references/encoding-matrix.md"
+      ],
+      "prompt_sha256": "cfd0c8ded42dfe28e0bc3090a9ba03e71ad49e5818c5afa55110ee00c00dbdb7"
+    },
+    {
+      "sample_id": "S03",
+      "task": "bat",
+      "task_id": "bat-codepage-01",
+      "group": "A",
+      "planned_references": [
+        "references/cmd-bat.md",
+        "references/encoding-matrix.md"
+      ],
+      "prompt_sha256": "7df16bd5bac51e973fde06271f57ff0547729dedff3aeff3cab126d315c52437"
+    },
+    {
+      "sample_id": "S04",
+      "task": "ps51",
+      "task_id": "ps51-autowrite-01",
+      "group": "B",
+      "planned_references": [
+        "references/powershell-51.md",
+        "references/encoding-matrix.md"
+      ],
+      "prompt_sha256": "cfd0c8ded42dfe28e0bc3090a9ba03e71ad49e5818c5afa55110ee00c00dbdb7"
+    },
+    {
+      "sample_id": "S05",
+      "task": "ps51",
+      "task_id": "ps51-autowrite-01",
+      "group": "B",
+      "planned_references": [
+        "references/powershell-51.md",
+        "references/encoding-matrix.md"
+      ],
+      "prompt_sha256": "cfd0c8ded42dfe28e0bc3090a9ba03e71ad49e5818c5afa55110ee00c00dbdb7"
+    },
+    {
+      "sample_id": "S06",
+      "task": "bat",
+      "task_id": "bat-codepage-01",
+      "group": "B",
+      "planned_references": [
+        "references/cmd-bat.md",
+        "references/encoding-matrix.md"
+      ],
+      "prompt_sha256": "7df16bd5bac51e973fde06271f57ff0547729dedff3aeff3cab126d315c52437"
+    },
+    {
+      "sample_id": "S07",
+      "task": "ps51",
+      "task_id": "ps51-autowrite-01",
+      "group": "A",
+      "planned_references": [
+        "references/powershell-51.md",
+        "references/encoding-matrix.md"
+      ],
+      "prompt_sha256": "cfd0c8ded42dfe28e0bc3090a9ba03e71ad49e5818c5afa55110ee00c00dbdb7"
+    },
+    {
+      "sample_id": "S08",
+      "task": "bat",
+      "task_id": "bat-codepage-01",
+      "group": "A",
+      "planned_references": [
+        "references/cmd-bat.md",
+        "references/encoding-matrix.md"
+      ],
+      "prompt_sha256": "7df16bd5bac51e973fde06271f57ff0547729dedff3aeff3cab126d315c52437"
+    },
+    {
+      "sample_id": "S09",
+      "task": "ps51",
+      "task_id": "ps51-autowrite-01",
+      "group": "A",
+      "planned_references": [
+        "references/powershell-51.md",
+        "references/encoding-matrix.md"
+      ],
+      "prompt_sha256": "cfd0c8ded42dfe28e0bc3090a9ba03e71ad49e5818c5afa55110ee00c00dbdb7"
+    },
+    {
+      "sample_id": "S10",
+      "task": "bat",
+      "task_id": "bat-codepage-01",
+      "group": "B",
+      "planned_references": [
+        "references/cmd-bat.md",
+        "references/encoding-matrix.md"
+      ],
+      "prompt_sha256": "7df16bd5bac51e973fde06271f57ff0547729dedff3aeff3cab126d315c52437"
+    },
+    {
+      "sample_id": "S11",
+      "task": "ps51",
+      "task_id": "ps51-autowrite-01",
+      "group": "B",
+      "planned_references": [
+        "references/powershell-51.md",
+        "references/encoding-matrix.md"
+      ],
+      "prompt_sha256": "cfd0c8ded42dfe28e0bc3090a9ba03e71ad49e5818c5afa55110ee00c00dbdb7"
+    },
+    {
+      "sample_id": "S12",
+      "task": "bat",
+      "task_id": "bat-codepage-01",
+      "group": "A",
+      "planned_references": [
+        "references/cmd-bat.md",
+        "references/encoding-matrix.md"
+      ],
+      "prompt_sha256": "7df16bd5bac51e973fde06271f57ff0547729dedff3aeff3cab126d315c52437"
+    }
+  ]
+}

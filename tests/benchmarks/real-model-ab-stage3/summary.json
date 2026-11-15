@@ -1,0 +1,74 @@
+{
+  "run_id": "20261115-001546",
+  "samples": 10,
+  "model": "gpt-6-luna via Codex CLI 0.167.0-alpha.3.2",
+  "executed": 10,
+  "execution_ok": 10,
+  "safety_violations": 0,
+  "routing_valid": 10,
+  "group_a": {
+    "samples": 5,
+    "mean": 95.0,
+    "execution_ok": 5
+  },
+  "group_b": {
+    "samples": 5,
+    "mean": 95.0,
+    "execution_ok": 5
+  },
+  "parser": {
+    "answers": 10,
+    "parser": "Parser.ParseFile, hosts 5.1 and 7",
+    "executes_target": false,
+    "status": "PASS",
+    "counts": {
+      "pass": 8,
+      "fail": 0,
+      "review_required": 0,
+      "not_applicable": 2
+    },
+    "unclassified_blocks": 0,
+    "unchecked_powershell_blocks": 0,
+    "unclosed_fences": 0,
+    "root_causes": []
+  },
+  "tokens_stage3": {
+    "A_total": 35320,
+    "B_total": 29227,
+    "weighted_saving": 17.25,
+    "arithmetic_mean": 10.19
+  },
+  "tasks": [
+    {
+      "task": "SAFETY",
+      "a_samples": 3,
+      "b_samples": 3,
+      "a_success": 3,
+      "b_success": 3,
+      "a_mean": 100.0,
+      "b_mean": 100.0,
+      "delta": 0.0
+    },
+    {
+      "task": "BAT",
+      "a_samples": 1,
+      "b_samples": 1,
+      "a_success": 1,
+      "b_success": 1,
+      "a_mean": 100.0,
+      "b_mean": 100.0,
+      "delta": 0.0
+    },
+    {
+      "task": "PS51",
+      "a_samples": 1,
+      "b_samples": 1,
+      "a_success": 1,
+      "b_success": 1,
+      "a_mean": 75.0,
+      "b_mean": 75.0,
+      "delta": 0.0
+    }
+  ],
+  "verdict": "CONDITIONAL"
+}

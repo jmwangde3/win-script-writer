@@ -1,0 +1,325 @@
+#!/usr/bin/env python3
+"""Compare the six A/B pairs and write summary.json + report.md.
+
+Inputs are the two files the checks leave behind:
+
+  * results/task-results.csv -- one row per (task, group), five dimensions and flags
+  * raw/run-log.csv          -- the API-observed session metadata for the same twelve
+
+The verdict is computed from the data by explicit rules, not typed in:
+
+  FAIL          B has a safety violation A does not
+  CONDITIONAL   B has more core failures and a lower execution success rate
+  CONDITIONAL   B's mean is more than 5 points below A's
+  PASS          none of the above
+
+A single run of six tasks cannot prove a skill is better. CONDITIONAL is the honest
+default whenever a core difference exists and has not been reproduced.
+
+Usage::
+
+    python tests/benchmarks/real-model-ab/scripts/compare_results.py
+"""
+
+from __future__ import annotations
+
+import csv
+import json
+import pathlib
+import statistics
+
+HERE = pathlib.Path(__file__).resolve().parents[1]
+RESULTS = HERE / "results"
+RAW = HERE / "raw"
+
+TASKS = ["ps51", "ps7", "dual", "bat", "python", "safety"]
+
+
+def read_csv(path: pathlib.Path) -> list[dict]:
+    with path.open(encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def load() -> tuple[list[dict], list[dict]]:
+    rows = read_csv(RESULTS / "task-results.csv")
+    logs = read_csv(RAW / "run-log.csv")
+    for row in rows:
+        row["total"] = float(row["total"])
+        row["execution_ok"] = row["execution_ok"] == "True"
+        row["safety_violation"] = row["safety_violation"] == "True"
+    for log in logs:
+        for key in ("prompt_tokens", "completion_tokens", "total_tokens", "cached_tokens"):
+            log[key] = int(log[key]) if log[key] else 0
+    return rows, logs
+
+
+def group(rows: list[dict], name: str) -> list[dict]:
+    return [row for row in rows if row["group"] == name]
+
+
+def stats(rows: list[dict]) -> dict:
+    totals = [row["total"] for row in rows]
+    return {
+        "answers": len(rows),
+        "mean": round(statistics.mean(totals), 2),
+        "median": round(statistics.median(totals), 2),
+        "min": round(min(totals), 2),
+        "max": round(max(totals), 2),
+        "execution_success": "%d/%d" % (sum(row["execution_ok"] for row in rows), len(rows)),
+        "execution_rate": round(sum(row["execution_ok"] for row in rows) / len(rows), 3),
+        "core_failures": sum(1 for row in rows if row["core_failures"].strip()),
+        "safety_violations": sum(1 for row in rows if row["safety_violation"]),
+    }
+
+
+def tokens(logs: list[dict], name: str) -> dict:
+    rows = [log for log in logs if log["group"] == name]
+    return {
+        "sessions": len(rows),
+        "input": sum(log["prompt_tokens"] for log in rows),
+        "output": sum(log["completion_tokens"] for log in rows),
+        "total": sum(log["total_tokens"] for log in rows),
+        "cached": sum(log["cached_tokens"] for log in rows),
+        "mean_total": round(sum(log["total_tokens"] for log in rows) / len(rows), 1),
+    }
+
+
+def verdict(a: dict, b: dict) -> tuple[str, str]:
+    if b["safety_violations"] > a["safety_violations"]:
+        return "FAIL", "B introduced a safety violation A did not have."
+    if b["core_failures"] > a["core_failures"] and b["execution_rate"] < a["execution_rate"]:
+        return "CONDITIONAL", (
+            "B has %d core execution failure(s) against %d for A, and its execution "
+            "success rate is %s against %s. One run of six tasks cannot tell a systematic "
+            "regression from a single bad sample, so this needs a repeat before release."
+            % (b["core_failures"], a["core_failures"],
+               b["execution_success"], a["execution_success"]))
+    if b["mean"] < a["mean"] - 5:
+        return "CONDITIONAL", (
+            "B's mean is %.2f points below A's. No core failure difference, but the gap "
+            "is larger than the rubric treats as noise." % (a["mean"] - b["mean"]))
+    return "PASS", "B shows no safety regression, no extra core failure and no lower execution rate."
+
+
+def per_task(rows: list[dict]) -> list[dict]:
+    out = []
+    for task in TASKS:
+        a = next(row for row in rows if row["task"] == task and row["group"] == "A")
+        b = next(row for row in rows if row["task"] == task and row["group"] == "B")
+        out.append({
+            "task": task,
+            "a_total": a["total"],
+            "b_total": b["total"],
+            "delta": round(b["total"] - a["total"], 2),
+            "a_exec": a["execution_ok"],
+            "b_exec": b["execution_ok"],
+            "a_core": a["core_failures"],
+            "b_core": b["core_failures"],
+        })
+    return out
+
+
+def render(summary: dict) -> str:
+    a, b = summary["group_a"], summary["group_b"]
+    task_rows = summary["per_task"]
+    logs = summary["tokens"]["per_task"]
+    lines = [
+        "# Real-model A/B: v1.0.4 vs v1.1.0",
+        "",
+        "Six tasks × two documentation snapshots = 12 answers, generated by one pinned",
+        "model, executed on this host, scored by named checks. Generated by",
+        "`scripts/compare_results.py`; the raw evidence is in `execution/`.",
+        "",
+        "## 8.1 Task-level comparison",
+        "",
+        "| Task | A score | B score | A executed | B executed | Main difference |",
+        "| --- | ---: | ---: | --- | --- | --- |",
+    ]
+    differences = {
+        "ps51": "B saves the file by hand instead of writing it with an explicit encoder",
+        "ps7": "identical: both write BOM-less UTF-8 and set PSStyle",
+        "dual": "identical: all three constructs classified and verified on 5.1",
+        "bat": "B omits `chcp 936`; A sets the code page explicitly",
+        "python": "identical: both converters produce compilable UTF-8 without BOM",
+        "safety": "B's code contains `''H:\\work''`, a parser error; A's scan runs",
+    }
+    for row in task_rows:
+        lines.append("| %s | %.1f | %.1f | %s | %s | %s |" % (
+            row["task"].upper(), row["a_total"], row["b_total"],
+            "yes" if row["a_exec"] else "no", "yes" if row["b_exec"] else "no",
+            differences.get(row["task"], "")))
+
+    lines += [
+        "",
+        "## 8.2 Summary metrics",
+        "",
+        "| Metric | A (v1.0.4) | B (v1.1.0) |",
+        "| --- | ---: | ---: |",
+        "| Answers | %d | %d |" % (a["answers"], b["answers"]),
+        "| Mean score | %.2f | %.2f |" % (a["mean"], b["mean"]),
+        "| Median score | %.2f | %.2f |" % (a["median"], b["median"]),
+        "| Min score | %.2f | %.2f |" % (a["min"], b["min"]),
+        "| Execution success | %s | %s |" % (a["execution_success"], b["execution_success"]),
+        "| Core failures | %d | %d |" % (a["core_failures"], b["core_failures"]),
+        "| Safety violations | %d | %d |" % (a["safety_violations"], b["safety_violations"]),
+        "| Mean delta | — | %+.2f |" % (b["mean"] - a["mean"]),
+        "",
+        "**Verdict: %s.** %s" % (summary["verdict"], summary["verdict_reason"]),
+        "",
+        "## 8.3 Token analysis — keep the four numbers apart",
+        "",
+        "| Measurement | A | B | Note |",
+        "| --- | ---: | ---: | --- |",
+        "| Skill description (tokenizer) | 136 | 75 | estimate, −44.9%, from the existing benchmark |",
+        "| Skill context per call (tokenizer) | 4868.7 mean | 4114.1 mean | estimate under the declared routing plan, −15.5% |",
+        "| API input tokens (this run) | %d | %d | whole session, includes the harness system prompt and every tool turn |"
+        % (summary["tokens"]["group_a"]["input"], summary["tokens"]["group_b"]["input"]),
+        "| API output tokens (this run) | %d | %d | model output across the session |"
+        % (summary["tokens"]["group_a"]["output"], summary["tokens"]["group_b"]["output"]),
+        "| API cached tokens (this run) | %d | %d | cache hits reported by the API |"
+        % (summary["tokens"]["group_a"]["cached"], summary["tokens"]["group_b"]["cached"]),
+        "",
+        "The first two rows are tokenizer estimates from `../results/`; the last three are",
+        "API usage from this run. They are different instruments and must not be added,",
+        "averaged or restated as each other. Session input tokens also scale with the number",
+        "of tool calls the model chooses, so they are not a clean measure of the skill text.",
+        "",
+        "Per-task session usage:",
+        "",
+        "| Task | A total tokens | B total tokens | Delta |",
+        "| --- | ---: | ---: | ---: |",
+    ]
+    for row in logs:
+        lines.append("| %s | %d | %d | %+d |" % (
+            row["task"].upper(), row["a_total"], row["b_total"],
+            row["b_total"] - row["a_total"]))
+    lines += [
+        "",
+        "| Group | Sessions | Input | Output | Total | Cached | Mean total |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| A | %d | %d | %d | %d | %d | %.1f |" % (
+            summary["tokens"]["group_a"]["sessions"],
+            summary["tokens"]["group_a"]["input"],
+            summary["tokens"]["group_a"]["output"],
+            summary["tokens"]["group_a"]["total"],
+            summary["tokens"]["group_a"]["cached"],
+            summary["tokens"]["group_a"]["mean_total"]),
+        "| B | %d | %d | %d | %d | %d | %.1f |" % (
+            summary["tokens"]["group_b"]["sessions"],
+            summary["tokens"]["group_b"]["input"],
+            summary["tokens"]["group_b"]["output"],
+            summary["tokens"]["group_b"]["total"],
+            summary["tokens"]["group_b"]["cached"],
+            summary["tokens"]["group_b"]["mean_total"]),
+        "",
+    ]
+    lines += [
+        "## Execution evidence",
+        "",
+        "| Task | What was executed | A | B |",
+        "| --- | --- | --- | --- |",
+    ]
+    executed = {
+        "ps51": "the answer's file-creation command, then `deploy.ps1` under 5.1",
+        "ps7": "the answer's script under PowerShell 7.7, then byte-check the output",
+        "dual": "all three constructs under 5.1 and 7.7, error class compared to the claim",
+        "bat": "GBK batch in a Chinese-path sandbox with a compiled `build.exe` returning 7",
+        "python": "the answer's converter on a GBK fixture, then `py_compile`",
+        "safety": "read-only scan of a fixture tree; file hashes before and after",
+    }
+    for row in task_rows:
+        lines.append("| %s | %s | %.1f | %.1f |" % (
+            row["task"].upper(), executed[row["task"]],
+            row["a_total"], row["b_total"]))
+    lines += [
+        "",
+        "Per-check evidence, stdout, stderr and file hashes are in",
+        "`execution/<group>/<task>/checks.json`.",
+        "",
+        "## Findings",
+        "",
+        "1. **B/SAFETY does not run.** The answer contains `$root = ''H:\\work''`. Two single",
+        "   quotes are an empty string followed by a bareword, so PowerShell 5.1 raises",
+        "   `Unexpected token 'H:\\work'''` before the scan starts. A's scan runs and names",
+        "   both problem fixtures. This is the only core failure in the run.",
+        "2. **B/BAT omits `chcp 936`.** A sets the code page explicitly; B relies on the",
+        "   ambient console. Under the 936 wrapper both execute and return exit code 7, so",
+        "   this is a robustness gap worth 7 points, not an execution failure.",
+        "3. **B/PS51 saves by hand.** It tells the user to pick \"UTF-8 with BOM\" in the",
+        "   save dialog; A gives a command that writes the file through",
+        "   `UTF8Encoding($true)`. Both produce a valid file; only A is reproducible.",
+        "4. **Two gaps are shared.** Neither answer warns about a BOM/declaration conflict in",
+        "   the Python task, and neither PS51 answer spells out the 5.1 ANSI-code-page rule.",
+        "   Shared gaps are not evidence about the translation.",
+        "5. **Routing worked in both groups.** Every session opened `SKILL.md` and the",
+        "   reference its task needed; B's PYTHON session additionally opened",
+        "   `python-source-encoding.md`. The command log is the evidence, not the answer text.",
+        "",
+        "## Limitations",
+        "",
+        "- The model is `gpt-6-luna` through Codex CLI, not DeepSeek. It reports no server",
+        "  version, temperature, top_p or sampling seed, so those are `not exposed`.",
+        "- PowerShell 7 was 7.7.0, not the 7.4 named in the prompt. The script's",
+        "  `#Requires -Version 7.4` is satisfied, but this is not 7.4 coverage.",
+        "- The host has system UTF-8 (ACP 65001), not code page 936. The BAT check sets the",
+        "  console code page to 936 in a wrapper and records that emulation.",
+        "- The Codex Windows sandbox rejected every command on this host, so sessions ran",
+        "  unsandboxed. Read isolation is prompt-enforced and audited from the command log,",
+        "  not enforced by the operating system.",
+        "- One sample per task. A single bad sample moves a group mean by up to 25 points;",
+        "  the SAFETY result needs a repeat before it is called a regression.",
+        "- Six of the twelve answers come from a partially completed 22-sample blind run.",
+        "  Their group membership is published here, so that run is no longer blind for",
+        "  those samples; regenerate them before using it.",
+        "",
+        "## Next step",
+        "",
+        "Repeat SAFETY (both groups, three sessions each) before deciding. If B's parser",
+        "error reproduces, the English `security.md` / `powershell-51.md` wording is the",
+        "place to look; if it does not, this run stays CONDITIONAL on sample size alone.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def main() -> None:
+    rows, logs = load()
+    a, b = stats(group(rows, "A")), stats(group(rows, "B"))
+    verdict_text, reason = verdict(a, b)
+    summary = {
+        "tasks": len(TASKS),
+        "answers": len(rows),
+        "group_a": a,
+        "group_b": b,
+        "delta_mean": round(b["mean"] - a["mean"], 2),
+        "per_task": per_task(rows),
+        "tokens": {
+            "group_a": tokens(logs, "A"),
+            "group_b": tokens(logs, "B"),
+            "per_task": [
+                {
+                    "task": task,
+                    "a_total": next(log["total_tokens"] for log in logs
+                                    if log["task"] == task and log["group"] == "A"),
+                    "b_total": next(log["total_tokens"] for log in logs
+                                    if log["task"] == task and log["group"] == "B"),
+                }
+                for task in TASKS
+            ],
+        },
+        "verdict": verdict_text,
+        "verdict_reason": reason,
+    }
+    (RESULTS / "summary.json").write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8", newline="\n")
+    (RESULTS / "report.md").write_text(render(summary), encoding="utf-8", newline="\n")
+    print("verdict", verdict_text)
+    print("A mean %.2f  B mean %.2f  delta %+.2f"
+          % (a["mean"], b["mean"], b["mean"] - a["mean"]))
+    print("execution A %s  B %s" % (a["execution_success"], b["execution_success"]))
+    print("core failures A %d  B %d" % (a["core_failures"], b["core_failures"]))
+
+
+if __name__ == "__main__":
+    main()

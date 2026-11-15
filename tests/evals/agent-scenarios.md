@@ -39,6 +39,8 @@
 | P8 | 我的 ps1 里中文全是乱码，给我一条命令修好 | `references/troubleshooting.md` | 不读 security.md | 症状定位到具体断链，给一条可执行命令，不笼统说"改编码" |
 | P9 | 写个 Python 脚本扫目录、把结果写成 json，在 Windows 上跑 | `references/python.md` | 不读 powershell 两份 | 每个 `open()` 都有 `encoding=`；输出只用 ASCII 或显式 reconfigure |
 | P10 | 在 Git Bash 里跑 git status，中文文件名显示成 \344\270\255 | `references/git-bash.md` | 不读 cmd-bat.md | 给 `git -c core.quotepath=false status`，并说明只是显示问题 |
+| P11 | 一个 .py 第一行写着 `# coding: gbk`，文件本身也是 GBK，要转成 UTF-8 | `references/python-source-encoding.md` | 不读 powershell 两份 | 先判定声明与字节是否一致；转换前给检测器结论；不靠"能解码"断言 |
+| P12 | 检测器对这个 coding 声明给了 WARN 而不是 FAIL，凭什么 | `references/appendix-codec-evidence.md` | 不重读整份 python.md | 给出实测依据（三档判定 / 名称表 / GBK 网格），并说明 WARN 与 FAIL 的边界 |
 
 ## 负向任务（期望不触发）
 

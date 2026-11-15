@@ -38,7 +38,7 @@ REQUIRED_ENTRIES = [
     "scripts/run_ps.py",
 ]
 
-REFERENCE_COUNT = 10
+REFERENCE_COUNT = 12
 
 
 def powershell_exe():

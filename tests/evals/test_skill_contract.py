@@ -37,10 +37,12 @@ REQUIRED_REFERENCES = [
     "dual-version-compatibility.md",
     "cmd-bat.md",
     "python.md",
+    "python-source-encoding.md",
     "git-bash.md",
     "execution.md",
     "security.md",
     "troubleshooting.md",
+    "appendix-codec-evidence.md",
 ]
 
 REQUIRED_SCRIPTS = [
@@ -173,9 +175,11 @@ class TestCorrectedClaims(unittest.TestCase):
         # Measured: UTF-16LE and UTF-16BE with a BOM both parse and run in 5.1
         # and 7. They are discouraged, not impossible.
         skill = read_skill()
-        self.assertNotIn("唯一两边都对", skill)
         dual = (REFERENCES / "dual-version-compatibility.md").read_text(encoding="utf-8")
-        self.assertNotIn("唯一两边都对", dual)
+        for text in (skill, dual):
+            self.assertNotIn("the only form that runs", text)
+            self.assertNotIn("唯一两边都对", text)
+        self.assertIn("UTF-16 with BOM also runs", skill)
 
     def test_outputencoding_is_not_described_as_governing_arguments(self):
         # $OutputEncoding feeds stdin of a native program. Arguments travel as
@@ -184,11 +188,13 @@ class TestCorrectedClaims(unittest.TestCase):
         rows = [line for line in text.splitlines() if line.startswith("| `$OutputEncoding`")]
         self.assertEqual(len(rows), 1, "expected exactly one $OutputEncoding row")
         self.assertIn("stdin", rows[0])
+        self.assertNotIn("argv", rows[0])
         self.assertNotIn("参数传给", rows[0])
 
     def test_the_matrix_separates_the_four_encoding_layers(self):
         text = (REFERENCES / "encoding-matrix.md").read_text(encoding="utf-8")
-        for layer in ("文件编码", "控制台编码", "管道编码", "命令行参数编码"):
+        for layer in ("**File** encoding", "**Console** encoding",
+                      "**Pipeline** encoding", "**Command-line** encoding"):
             self.assertIn(layer, text)
 
 

@@ -1,0 +1,13 @@
+task,group,understanding,encoding,compatibility,execution,safety,total,executed,execution_ok,core_failures,safety_violation,answer_bytes,answer_sha256
+ps51,A,15.0,22.0,12.0,25.0,15.0,89.0,True,True,,False,1399,1be8e8cbb5e509c8efe25242f0700b23af7cbc27bed45f6689ef7631c3199b8b
+ps51,B,15.0,14.0,12.0,25.0,15.0,81.0,True,True,,False,637,a82d7f7e6b463a3e5cb23e35ea86b19b8cd957177817c296cd3df7a6566e1c22
+ps7,A,15.0,15.0,20.0,25.0,15.0,90.0,True,True,,False,564,0691f8632a9211fb621a8b9ae0875cd7a74109225d997fd73c87d3bbb308c190
+ps7,B,15.0,15.0,20.0,25.0,15.0,90.0,True,True,,False,1109,04e6b27c5de3584def53a2a4991da9dbaf93a3129348212bc650501ec998ee4a
+dual,A,15.0,25.0,20.0,25.0,15.0,100.0,True,True,,False,1454,8c70271ab96213318be4875e861a5e8529515616b5b4394051ae4e89298da808
+dual,B,15.0,25.0,20.0,25.0,15.0,100.0,True,True,,False,1533,16578a0ab40e3e80b6bb7febb639aa74d0b7df1ccfd2b962126d2416a68bac88
+bat,A,15.0,25.0,20.0,25.0,15.0,100.0,True,True,,False,604,c3fb1405a26b99daac5fcdc4bbfb83d126dee060b39bf6483ebc3421bb1a77b6
+bat,B,15.0,25.0,13.0,25.0,15.0,93.0,True,True,,False,417,c5eb7e4388f01b89b61d24368521fdd736cb441cb6af5167c4bfec2fc0e3a438
+python,A,15.0,25.0,6.0,25.0,15.0,86.0,True,True,,False,2528,796a948ab6ff580e9f9519b45aa68da0e316e3210440c4823952efa1d80a030b
+python,B,15.0,25.0,6.0,25.0,15.0,86.0,True,True,,False,2008,ca19bf01732e482d7e2e69d8fae36a9f245655fe596c2677afd1e81f713de3cf
+safety,A,15.0,25.0,20.0,25.0,15.0,100.0,True,True,,False,3864,643c9c4a91bf179317c0e45db98dcef07b416c861f9f0b49cb8745765132fdb7
+safety,B,15.0,25.0,20.0,0.0,15.0,75.0,True,False,scan did not run under 5.1; scan did not name both problem files,False,3558,98162aa5ad0a5aba2b4a6042907027d7ffce74bf4a94fe19d57643f1a71e6d8a

@@ -1,0 +1,87 @@
+{
+  "task": "PS51",
+  "sample": "S05",
+  "group": "A",
+  "parse": {
+    "status": "PASS",
+    "blocks": [
+      {
+        "index": 0,
+        "start_line": 5,
+        "end_line": 15,
+        "language": "powershell",
+        "implicit": false,
+        "inline": false,
+        "detected_by": "tag",
+        "kind": "POWERSHELL",
+        "powershell": true,
+        "body_sha256": "4b0a42e33a6b6225d864572bd3d9eda57b1e7dee42e7625436f80734224412bb",
+        "body_bytes": 215,
+        "parse": {
+          "5.1": {
+            "ok": true,
+            "host": "5.1.26100.9711",
+            "harness_error": null,
+            "classification": {
+              "diagnostics": 0,
+              "independent": 0,
+              "cascade": 0,
+              "root_causes": [],
+              "root_cause_count": 0,
+              "errors": []
+            }
+          },
+          "7": {
+            "ok": true,
+            "host": "7.7.0",
+            "harness_error": null,
+            "classification": {
+              "diagnostics": 0,
+              "independent": 0,
+              "cascade": 0,
+              "root_causes": [],
+              "root_cause_count": 0,
+              "errors": []
+            }
+          }
+        },
+        "parsed": true
+      }
+    ]
+  },
+  "answers": {
+    "creator_block": false,
+    "script_block": true
+  },
+  "file": {
+    "exists": true,
+    "bytes": 218,
+    "sha256": "183d0483ef8efdbfe9f35def9790275a09bce0469dae76850a640356a8b6278a",
+    "head_hex": "ef bb bf 23 52 65 71 75 69 72 65 73",
+    "bom_utf8": true,
+    "bom_utf16le": false,
+    "bom_utf16be": false,
+    "utf8_decodes": true,
+    "gbk_decodes": false,
+    "contains_replacement": false
+  },
+  "runs": [
+    {
+      "argv": [
+        "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "-NoProfile",
+        "-File",
+        "H:\\temp\\user\\wsw-v110-stage3-1\\20261115-010429\\execution\\A\\ps51-S05\\ps51\\部署\\deploy.ps1"
+      ],
+      "exit": 0,
+      "stdout": "开始部署\n部署完成\n\r\n\r\n",
+      "stderr": "",
+      "stdout_encoding": "gbk",
+      "stderr_encoding": "utf-8-sig",
+      "timeout": false,
+      "started": "2026-11-15T01:11:16+08:00"
+    }
+  ],
+  "score": 75,
+  "reason": "ok"
+}

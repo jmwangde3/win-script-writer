@@ -1,0 +1,102 @@
+{
+  "task": "PS51",
+  "sample": "S03",
+  "group": "A",
+  "parse": {
+    "status": "PASS",
+    "blocks": [
+      {
+        "index": 0,
+        "start_line": 7,
+        "end_line": 28,
+        "language": "powershell",
+        "implicit": false,
+        "inline": false,
+        "detected_by": "tag",
+        "kind": "POWERSHELL",
+        "powershell": true,
+        "body_sha256": "1a16a59a91390c858235afae5ec16684d683ab030c0def5897dd34ff3a27ca86",
+        "body_bytes": 501,
+        "parse": {
+          "5.1": {
+            "ok": true,
+            "host": "5.1.26100.9711",
+            "harness_error": null,
+            "classification": {
+              "diagnostics": 0,
+              "independent": 0,
+              "cascade": 0,
+              "root_causes": [],
+              "root_cause_count": 0,
+              "errors": []
+            }
+          },
+          "7": {
+            "ok": true,
+            "host": "7.7.0",
+            "harness_error": null,
+            "classification": {
+              "diagnostics": 0,
+              "independent": 0,
+              "cascade": 0,
+              "root_causes": [],
+              "root_cause_count": 0,
+              "errors": []
+            }
+          }
+        },
+        "parsed": true
+      }
+    ]
+  },
+  "answers": {
+    "creator_block": true,
+    "script_block": true
+  },
+  "file": {
+    "exists": true,
+    "bytes": 183,
+    "sha256": "4d8c612a3c61fb47d06b1e46dab183262979f04b687ebd99dfcba9a6c3191a2c",
+    "head_hex": "ef bb bf 23 52 65 71 75 69 72 65 73",
+    "bom_utf8": true,
+    "bom_utf16le": false,
+    "bom_utf16be": false,
+    "utf8_decodes": true,
+    "gbk_decodes": false,
+    "contains_replacement": false
+  },
+  "runs": [
+    {
+      "argv": [
+        "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "-NoProfile",
+        "-File",
+        "H:\\temp\\user\\wsw-v110-stage3-1\\20261115-010429\\execution\\A\\ps51-S03\\ps51\\create.ps1"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "stdout_encoding": "utf-8-sig",
+      "stderr_encoding": "utf-8-sig",
+      "timeout": false,
+      "started": "2026-11-15T01:11:15+08:00"
+    },
+    {
+      "argv": [
+        "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "-NoProfile",
+        "-File",
+        "H:\\temp\\user\\wsw-v110-stage3-1\\20261115-010429\\execution\\A\\ps51-S03\\ps51\\部署\\deploy.ps1"
+      ],
+      "exit": 0,
+      "stdout": "开始部署\r\n部署完成\r\n",
+      "stderr": "",
+      "stdout_encoding": "gbk",
+      "stderr_encoding": "utf-8-sig",
+      "timeout": false,
+      "started": "2026-11-15T01:11:16+08:00"
+    }
+  ],
+  "score": 100,
+  "reason": "ok"
+}

@@ -1,117 +1,129 @@
-# 安全原则
+# Security principles
 
-这一页约束的不是"用户能做什么"，而是**工具自己默认做什么**。一个诊断/写入
-工具在别人的机器上跑，最容易出事的不是它能不能完成任务，而是它在完成任务
-之外顺手改了什么。
+This page is not about what a user may do. It is about **what the tools do by
+default**. When a diagnostic or write tool runs on someone else's machine, the damage
+rarely comes from failing the task — it comes from what the tool changed on the way
+past it.
 
-六条原则，每条都有对应的实现位置和测试。
+Seven principles, each with an implementation site and a test.
 
-## 1. 不默认注入 `-ExecutionPolicy Bypass`
+## 1. Never inject `-ExecutionPolicy Bypass` by default
 
-**为什么**：`Bypass` 关掉的是整台机器对"这段脚本能不能跑"的最后一道判断。
-把它写进包装器的默认值，等于让每一个调用者都在不知情的情况下放弃了自己的
-策略配置。
+**Why**: `Bypass` disables the machine's last check on whether a script may run.
+Baking it into a wrapper's default means every caller silently gave up their own
+policy configuration.
 
-**怎么做**：`scripts/run_ps.py` 的 `--execution-policy` 是显式可选参数，
-不传就不加任何 `-ExecutionPolicy` 参数。help 文本里写明这一点。
+**How**: `--execution-policy` in `scripts/run_ps.py` is an explicit optional argument.
+Without it, no `-ExecutionPolicy` argument is added at all, and the help text says so.
 
-**自测**：`tests/python/test_run_ps.py` 断言默认 argv 中不含
-`-ExecutionPolicy`。
+**Test**: `tests/python/test_run_ps.py` asserts that the default argv contains no
+`-ExecutionPolicy`.
 
-## 2. 不默认覆盖已有文件
+## 2. Never overwrite an existing file by default
 
-**为什么**：这类工具最常见的损坏方式是"我以为它在检测，其实它在重写"。
-一次误调用就可能覆盖掉用户未提交的脚本。
+**Why**: The most common way this class of tool corrupts something is "I thought it was
+inspecting, but it was rewriting". One wrong call can overwrite a user's uncommitted
+script.
 
-**怎么做**：`scripts/New-EncodedScript.ps1` 发现目标已存在时直接报错
-`EXISTS` 并退出，必须显式 `-Force` 才写。写的时候先写临时文件、读回校验、
-再原子替换（`File.Replace` / `File.Move`），中途失败不会留下半个文件。
+**How**: `scripts/New-EncodedScript.ps1` reports `EXISTS` and exits when the target is
+present; only an explicit `-Force` writes. Writes go through a temp file, a read-back
+check, then an atomic replace (`File.Replace` / `File.Move`), so a failure mid-way
+leaves no half-written file.
 
-**自测**：`tests/powershell/New-EncodedScript.Tests.ps1` 的"overwrite
-protection"用例，断言不带 `-Force` 时目标文件字节不变。
+**Test**: the "overwrite protection" cases in
+`tests/powershell/New-EncodedScript.Tests.ps1` assert the target bytes are unchanged
+without `-Force`.
 
-## 3. 不自动修改系统级编码设置
+## 3. Never change system-level encoding settings
 
-**为什么**：`ACP`、`OEMCP`、系统级 UTF-8 开关都是"改完要重启、且会让旧
-软件乱码"的设置。一个写脚本的辅助工具没有任何理由动它们。
+**Why**: `ACP`, `OEMCP` and the system-wide UTF-8 switch all require a reboot and all
+break older GBK software. A scripting helper has no reason to touch any of them.
 
-**怎么做**：`Get-WinScriptEnvironment.ps1` 只读，报告 `ACP` / `OEMCP` /
-`ACPSOURCE`，从不写注册表。所有工具都不调用 `Set-ExecutionPolicy`、
-不 `chcp`、不改 `ACP`。
+**How**: `Get-WinScriptEnvironment.ps1` is read-only; it reports `ACP`, `OEMCP` and
+`ACPSOURCE` and never writes the registry. No tool calls `Set-ExecutionPolicy`, runs
+`chcp`, or changes `ACP`.
 
-**自测**：该工具的 Pester 用例断言读出来的值与注册表一致，且工具在只读
-条件下重复执行不产生副作用。
+**Test**: its Pester cases assert the reported values match the registry and that
+repeated read-only runs produce no side effects.
 
-## 4. 不自动提权
+## 4. Never self-elevate
 
-**为什么**：提权后的行为不在用户的预期范围内，也无法回滚。诊断工具提权
-只会掩盖"权限不足"这个真实结论。
+**Why**: Behaviour after elevation is outside what the user expected and cannot be
+rolled back. A diagnostic tool that elevates only hides the real conclusion — that
+permissions were insufficient.
 
-**怎么做**：所有工具在普通用户权限下完整工作。`Get-WinScriptEnvironment.ps1`
-读的是 `HKLM` 下的键，读权限对所有用户开放，不需要管理员。
+**How**: every tool works completely as a standard user. `Get-WinScriptEnvironment.ps1`
+reads keys under `HKLM`, which are world-readable and need no administrator.
 
-**失败时的正确表现**：报告"读不到"，而不是"我去提个权"。代码里
-`Get-RegistryCodePage` 捕获异常后返回 `$null`，输出 `unknown`。
+**Correct behaviour on failure**: report "cannot read", not "let me elevate".
+`Get-RegistryCodePage` catches the exception, returns `$null`, and the output says
+`unknown`.
 
-## 5. 明确声明：`run_ps.py` 不是沙箱
+## 5. State plainly that `run_ps.py` is not a sandbox
 
-**为什么**：把"编码无关的执行器"误当成"安全执行器"是最危险的误读。它不
-限制文件系统、不限制网络、不限制能调用的 API，子进程拥有和调用者一样的
-权限。
+**Why**: Mistaking "code-page-independent executor" for "safe executor" is the most
+dangerous misreading available here. It restricts no filesystem, no network, no API;
+the child process holds exactly the caller's rights.
 
-**怎么做**：模块 docstring 的 "What it does not do" 一节第一句就是
-`It is not a sandbox.`；`SKILL.md` 与 `references/execution.md` 各重申一次。
+**How**: the first line of the "What it does not do" section in the module docstring is
+`It is not a sandbox.`; `SKILL.md` and `references/execution.md` each repeat it.
 
-`--invoke-file` 同样不是沙箱，只是更"薄"：它把路径原样交给子进程，不读、
-不解码、不复制、不改写文件，因此它能给的东西只有"文件上下文真实"，没有任何
-隔离能力。
+`--invoke-file` is no safer, only thinner: it hands the path to the child unchanged —
+it does not read, decode, copy or rewrite the file — so all it provides is a real file
+context, never isolation.
 
-**推论**：不要把 `run_ps.py` 当作"执行不可信代码"的方案。不可信代码需要
-的是容器、受限账户或 AppContainer，不是一层 base64。
+**Corollary**: do not treat `run_ps.py` as a way to run untrusted code. Untrusted code
+needs a container, a restricted account or an AppContainer, not a base64 layer.
 
-## 6. 不静默替换字符
+## 6. Never substitute characters silently
 
-**为什么**：把无法编码的字符换成 `?` 再继续跑，会让错误出现在很远的下游
-（一个配置文件里多了一个问号，一周后才发现）。静默降级比崩溃更难查。
+**Why**: Replacing unencodable characters with `?` and continuing moves the failure
+far downstream — one extra question mark in a config file, discovered a week later.
+Silent degradation is harder to find than a crash.
 
-**怎么做**：
+**How**:
 
-- `New-EncodedScript.ps1` 编码时用 `EncoderFallback.ExceptionFallback`，
-  GBK 表达不了的字符直接报 `UNREPRESENTABLE_CHARACTER`，不替换。
-- `Test-ScriptEncoding.ps1` 检测 CP936 时要求"解码再编码"字节完全一致，
-  才敢标 `gbk`，且只给 `confidence=medium`。
-- `Test-ScriptEncoding.ps1` 看到 BOM 也会把标记之后的字节解码一遍：BOM 是
-  声明，不是内容合法的证据。`EF BB BF FF` 报 `FAIL`，不报 `OK`。
-- 工具自身的输出一律 ASCII（`VERDICT=OK`、`ENCODING=gbk`），不依赖任何
-  代码页。
+- `New-EncodedScript.ps1` encodes with `EncoderFallback.ExceptionFallback`; a
+  character GBK cannot express raises `UNREPRESENTABLE_CHARACTER` instead of being
+  replaced.
+- `Test-ScriptEncoding.ps1` only labels a file `gbk` when decode-then-encode returns
+  byte-identical data, and then only at `confidence=medium`.
+- `Test-ScriptEncoding.ps1` also decodes the bytes after a BOM: a BOM is a
+  declaration, not proof the content is valid. `EF BB BF FF` reports `FAIL`, not `OK`.
+- Tool output is ASCII throughout (`VERDICT=OK`, `ENCODING=gbk`), so it never depends
+  on a code page.
 
-**自测**：`tests/powershell/New-EncodedScript.Tests.ps1` 用含 emoji 的
-fixture 断言非零退出码与明确的错误码。
+**Test**: `tests/powershell/New-EncodedScript.Tests.ps1` uses an emoji fixture and
+asserts a non-zero exit code with an explicit error code.
 
-## 7. 不记录敏感内容
+## 7. Never record sensitive content
 
-**为什么**：工具会拿到脚本正文、路径、环境变量。这些内容一旦被写进日志或
-被回显，就从"我本地的脚本"变成了"某个日志文件里的脚本"。
+**Why**: these tools see script bodies, paths and environment variables. Once that
+text lands in a log or an echo, "a script on my machine" becomes "a script inside some
+log file".
 
-**怎么做**：
+**How**:
 
-- 工具不写任何日志文件。
-- `run_ps.py` 回显的只有子进程真实的 stdout/stderr 字节，不额外打印
-  "我执行的命令是……"。
-- 错误信息里只出现路径和错误码，不出现脚本正文。
-- `--keep-temp` 只在你显式要求时保留临时目录，且临时目录名不含脚本内容。
+- No tool writes a log file.
+- `run_ps.py` echoes only the child's real stdout/stderr bytes; it never prints "the
+  command I ran was…".
+- Error messages contain paths and error codes, never script bodies.
+- `--keep-temp` keeps the temp directory only when asked, and the directory name never
+  carries script content.
 
-## 8. 变更的边界
+## 8. The boundary of what may change
 
-写这类工具时，以下操作即使在测试里也应该走显式路径，不做"自动修复"：
+When building tools of this kind, even tests take the explicit path. Nothing
+self-heals:
 
-| 操作 | 默认 | 需要 |
+| Operation | Default | Requires |
 | --- | --- | --- |
-| 覆盖文件 | 拒绝 | `-Force` |
-| 放宽执行策略 | 不加 | `--execution-policy` |
-| 改控制台编码 | 不改 | `--console-encoding` |
-| 保留临时文件 | 删除 | `--keep-temp` |
-| 改写脚本文件 | 永不 | `--invoke-file` 也不改写；要写文件只有 `New-EncodedScript.ps1` |
-| 改系统代码页 | 永不 | 不做，也不提供开关 |
+| Overwrite a file | refused | `-Force` |
+| Relax execution policy | not added | `--execution-policy` |
+| Change console encoding | unchanged | `--console-encoding` |
+| Keep temp files | deleted | `--keep-temp` |
+| Rewrite a script file | never | `--invoke-file` does not rewrite either; only `New-EncodedScript.ps1` writes files |
+| Change the system code page | never | not offered at all |
 
-最后一行是刻意的：有些事不是"默认关掉"就够了，而是不应该有这个功能。
+The last row is deliberate: some things should not exist behind a default-off switch.
+They should not exist.

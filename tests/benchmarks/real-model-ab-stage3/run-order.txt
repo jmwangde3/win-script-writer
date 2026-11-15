@@ -1,0 +1,10 @@
+S01 ps51 A
+S02 bat A
+S03 bat B
+S04 safety B
+S05 ps51 B
+S06 safety A
+S07 safety A
+S08 safety A
+S09 safety B
+S10 safety B

@@ -1,0 +1,1656 @@
+{
+  "generated": "2026-11-14",
+  "method": "every fenced block is extracted with its markdown position; blocks tagged powershell or recognised by content are parsed on both hosts",
+  "answers": [
+    {
+      "task": "ps51",
+      "group": "A",
+      "source": "../real-model-ab/raw/A/ps51.md",
+      "answer_sha256": "1be8e8cbb5e509c8efe25242f0700b23af7cbc27bed45f6689ef7631c3199b8b",
+      "answer_bytes": 1399,
+      "blocks_total": 1,
+      "blocks_powershell": 1,
+      "blocks_parsed": 1,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "PASS",
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 5,
+          "end_line": 29,
+          "language": "powershell",
+          "implicit": false,
+          "detected_by": "tag",
+          "powershell": true,
+          "body_sha256": "7f137caa62727d1976d3d868e1673f8f232852ddcab1222fa0d7b70618431884",
+          "body_bytes": 625,
+          "parse": {
+            "5.1": {
+              "ok": true,
+              "host": "5.1.26100.9711",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            },
+            "7": {
+              "ok": true,
+              "host": "7.7.0",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            }
+          },
+          "parsed": true
+        }
+      ]
+    },
+    {
+      "task": "ps7",
+      "group": "A",
+      "source": "../real-model-ab/raw/A/ps7.md",
+      "answer_sha256": "0691f8632a9211fb621a8b9ae0875cd7a74109225d997fd73c87d3bbb308c190",
+      "answer_bytes": 564,
+      "blocks_total": 1,
+      "blocks_powershell": 1,
+      "blocks_parsed": 1,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": true,
+      "status": "PASS",
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 1,
+          "end_line": 14,
+          "language": "implicit",
+          "implicit": true,
+          "detected_by": "content",
+          "powershell": true,
+          "body_sha256": "0691f8632a9211fb621a8b9ae0875cd7a74109225d997fd73c87d3bbb308c190",
+          "body_bytes": 564,
+          "parse": {
+            "5.1": {
+              "ok": true,
+              "host": "5.1.26100.9711",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            },
+            "7": {
+              "ok": true,
+              "host": "7.7.0",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            }
+          },
+          "parsed": true
+        }
+      ]
+    },
+    {
+      "task": "dual",
+      "group": "A",
+      "source": "../real-model-ab/raw/A/dual.md",
+      "answer_sha256": "8c70271ab96213318be4875e861a5e8529515616b5b4394051ae4e89298da808",
+      "answer_bytes": 1454,
+      "blocks_total": 1,
+      "blocks_powershell": 1,
+      "blocks_parsed": 1,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "PASS",
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 12,
+          "end_line": 31,
+          "language": "powershell",
+          "implicit": false,
+          "detected_by": "tag",
+          "powershell": true,
+          "body_sha256": "f3fa5d29c546d2e1f9e7476933b61565487d21c60e9c378db5a68999b09a95d7",
+          "body_bytes": 330,
+          "parse": {
+            "5.1": {
+              "ok": true,
+              "host": "5.1.26100.9711",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            },
+            "7": {
+              "ok": true,
+              "host": "7.7.0",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            }
+          },
+          "parsed": true
+        }
+      ]
+    },
+    {
+      "task": "bat",
+      "group": "A",
+      "source": "../real-model-ab/raw/A/bat.md",
+      "answer_sha256": "c3fb1405a26b99daac5fcdc4bbfb83d126dee060b39bf6483ebc3421bb1a77b6",
+      "answer_bytes": 604,
+      "blocks_total": 1,
+      "blocks_powershell": 0,
+      "blocks_parsed": 0,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "N/A",
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 5,
+          "end_line": 12,
+          "language": "bat",
+          "implicit": false,
+          "detected_by": "tag",
+          "powershell": false,
+          "body_sha256": "2de9d4582c1bd69c53c0e3ab02e41838fdb5575b6cb0ae57fbac51d0231e7149",
+          "body_bytes": 106,
+          "parsed": null
+        }
+      ]
+    },
+    {
+      "task": "python",
+      "group": "A",
+      "source": "../real-model-ab/raw/A/python.md",
+      "answer_sha256": "796a948ab6ff580e9f9519b45aa68da0e316e3210440c4823952efa1d80a030b",
+      "answer_bytes": 2528,
+      "blocks_total": 2,
+      "blocks_powershell": 0,
+      "blocks_parsed": 0,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "N/A",
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 7,
+          "end_line": 9,
+          "language": "python",
+          "implicit": false,
+          "detected_by": "tag",
+          "powershell": false,
+          "body_sha256": "1dcd20f0732c3b7591821390751c9a2c2f738dcda946b540076e2e61c21f987d",
+          "body_bytes": 16,
+          "parsed": null
+        },
+        {
+          "index": 1,
+          "start_line": 13,
+          "end_line": 38,
+          "language": "python",
+          "implicit": false,
+          "detected_by": "tag",
+          "powershell": false,
+          "body_sha256": "53ff11981f41d2b2d39f917c2dba72c78ef1832719ed35bc290c8afef853fda8",
+          "body_bytes": 723,
+          "parsed": null
+        }
+      ]
+    },
+    {
+      "task": "safety",
+      "group": "A",
+      "source": "../real-model-ab/raw/A/safety.md",
+      "answer_sha256": "643c9c4a91bf179317c0e45db98dcef07b416c861f9f0b49cb8745765132fdb7",
+      "answer_bytes": 3864,
+      "blocks_total": 1,
+      "blocks_powershell": 1,
+      "blocks_parsed": 1,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "PASS",
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 7,
+          "end_line": 73,
+          "language": "powershell",
+          "implicit": false,
+          "detected_by": "tag",
+          "powershell": true,
+          "body_sha256": "73a81665c41573b7ec855782e2e3b68700c1feba80e58af681e8ecea2cc99e59",
+          "body_bytes": 2969,
+          "parse": {
+            "5.1": {
+              "ok": true,
+              "host": "5.1.26100.9711",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            },
+            "7": {
+              "ok": true,
+              "host": "7.7.0",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            }
+          },
+          "parsed": true
+        }
+      ]
+    },
+    {
+      "task": "ps51",
+      "group": "B",
+      "source": "../real-model-ab/raw/B/ps51.md",
+      "answer_sha256": "a82d7f7e6b463a3e5cb23e35ea86b19b8cd957177817c296cd3df7a6566e1c22",
+      "answer_bytes": 637,
+      "blocks_total": 1,
+      "blocks_powershell": 1,
+      "blocks_parsed": 1,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "PASS",
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 5,
+          "end_line": 13,
+          "language": "powershell",
+          "implicit": false,
+          "detected_by": "tag",
+          "powershell": true,
+          "body_sha256": "6800a4a3693f267e22efc77bbcde3ca6cf8fe2903a49216501c281fa6c6ec5f8",
+          "body_bytes": 145,
+          "parse": {
+            "5.1": {
+              "ok": true,
+              "host": "5.1.26100.9711",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            },
+            "7": {
+              "ok": true,
+              "host": "7.7.0",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            }
+          },
+          "parsed": true
+        }
+      ]
+    },
+    {
+      "task": "ps7",
+      "group": "B",
+      "source": "../real-model-ab/raw/B/ps7.md",
+      "answer_sha256": "04e6b27c5de3584def53a2a4991da9dbaf93a3129348212bc650501ec998ee4a",
+      "answer_bytes": 1109,
+      "blocks_total": 2,
+      "blocks_powershell": 2,
+      "blocks_parsed": 2,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "PASS",
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 3,
+          "end_line": 18,
+          "language": "powershell",
+          "implicit": false,
+          "detected_by": "tag",
+          "powershell": true,
+          "body_sha256": "7b3957c396a5e31d72a1e7ac9de79f6d37a7b8be381e5ddbd75486a0e1538f73",
+          "body_bytes": 529,
+          "parse": {
+            "5.1": {
+              "ok": true,
+              "host": "5.1.26100.9711",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            },
+            "7": {
+              "ok": true,
+              "host": "7.7.0",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            }
+          },
+          "parsed": true
+        },
+        {
+          "index": 1,
+          "start_line": 22,
+          "end_line": 24,
+          "language": "powershell",
+          "implicit": false,
+          "detected_by": "tag",
+          "powershell": true,
+          "body_sha256": "b4b53025dacb2b89583d9abbe7a995d4249d446c619155e23028b8feec950c0c",
+          "body_bytes": 51,
+          "parse": {
+            "5.1": {
+              "ok": true,
+              "host": "5.1.26100.9711",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            },
+            "7": {
+              "ok": true,
+              "host": "7.7.0",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            }
+          },
+          "parsed": true
+        }
+      ]
+    },
+    {
+      "task": "dual",
+      "group": "B",
+      "source": "../real-model-ab/raw/B/dual.md",
+      "answer_sha256": "16578a0ab40e3e80b6bb7febb639aa74d0b7df1ccfd2b962126d2416a68bac88",
+      "answer_bytes": 1533,
+      "blocks_total": 1,
+      "blocks_powershell": 1,
+      "blocks_parsed": 1,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "PASS",
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 12,
+          "end_line": 32,
+          "language": "powershell",
+          "implicit": false,
+          "detected_by": "tag",
+          "powershell": true,
+          "body_sha256": "13911d81be89435ac3ad9ce0bddfe4cf628535faa92c82794c57fe60ef763290",
+          "body_bytes": 419,
+          "parse": {
+            "5.1": {
+              "ok": true,
+              "host": "5.1.26100.9711",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            },
+            "7": {
+              "ok": true,
+              "host": "7.7.0",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            }
+          },
+          "parsed": true
+        }
+      ]
+    },
+    {
+      "task": "bat",
+      "group": "B",
+      "source": "../real-model-ab/raw/B/bat.md",
+      "answer_sha256": "c5eb7e4388f01b89b61d24368521fdd736cb441cb6af5167c4bfec2fc0e3a438",
+      "answer_bytes": 417,
+      "blocks_total": 1,
+      "blocks_powershell": 0,
+      "blocks_parsed": 0,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "N/A",
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 3,
+          "end_line": 9,
+          "language": "bat",
+          "implicit": false,
+          "detected_by": "tag",
+          "powershell": false,
+          "body_sha256": "4a8933757e5e7a2879e2e46d0d68b9222fb8455cdc22b102788fb3c3e66f6cc6",
+          "body_bytes": 92,
+          "parsed": null
+        }
+      ]
+    },
+    {
+      "task": "python",
+      "group": "B",
+      "source": "../real-model-ab/raw/B/python.md",
+      "answer_sha256": "ca19bf01732e482d7e2e69d8fae36a9f245655fe596c2677afd1e81f713de3cf",
+      "answer_bytes": 2008,
+      "blocks_total": 1,
+      "blocks_powershell": 0,
+      "blocks_parsed": 0,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "N/A",
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 9,
+          "end_line": 35,
+          "language": "python",
+          "implicit": false,
+          "detected_by": "tag",
+          "powershell": false,
+          "body_sha256": "e054fe1400a8e89e2fcf0b4a382a248741b5561fe6278b53541bd41327e55f83",
+          "body_bytes": 719,
+          "parsed": null
+        }
+      ]
+    },
+    {
+      "task": "safety",
+      "group": "B",
+      "source": "../real-model-ab/raw/B/safety.md",
+      "answer_sha256": "98162aa5ad0a5aba2b4a6042907027d7ffce74bf4a94fe19d57643f1a71e6d8a",
+      "answer_bytes": 3558,
+      "blocks_total": 1,
+      "blocks_powershell": 1,
+      "blocks_parsed": 1,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "FAIL",
+      "diagnostics": 90,
+      "root_causes": [
+        "doubled-single-quote"
+      ],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 7,
+          "end_line": 75,
+          "language": "powershell",
+          "implicit": false,
+          "detected_by": "tag",
+          "powershell": true,
+          "body_sha256": "c00590170cc4de32c036f1e281b03d9522ad9e73e7124e7457594839ff645042",
+          "body_bytes": 2594,
+          "parse": {
+            "5.1": {
+              "ok": false,
+              "host": "5.1.26100.9711",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 45,
+                "independent": 1,
+                "cascade": 44,
+                "root_causes": [
+                  "doubled-single-quote"
+                ],
+                "root_cause_count": 1,
+                "errors": [
+                  {
+                    "message": "Unexpected token 'H:\\work''' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 1,
+                    "column": 11,
+                    "text": "H:\\work''",
+                    "index": 0,
+                    "class": "independent",
+                    "caused_by": null,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token '无法枚举' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 7,
+                    "column": 20,
+                    "text": "无法枚举",
+                    "index": 1,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Missing closing ')' in expression.",
+                    "error_id": "MissingEndParenthesisInExpression",
+                    "line": 7,
+                    "column": 20,
+                    "text": "",
+                    "index": 2,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Missing closing '}' in statement block or type definition.",
+                    "error_id": "MissingEndCurlyBrace",
+                    "line": 6,
+                    "column": 9,
+                    "text": "{",
+                    "index": 3,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token ')' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 7,
+                    "column": 66,
+                    "text": ")",
+                    "index": 4,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token '}' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 9,
+                    "column": 1,
+                    "text": "}",
+                    "index": 5,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token 'UTF-32' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 18,
+                    "column": 78,
+                    "text": "UTF-32",
+                    "index": 6,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "The hash literal was incomplete.",
+                    "error_id": "IncompleteHashLiteral",
+                    "line": 18,
+                    "column": 78,
+                    "text": "",
+                    "index": 7,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Missing ')' in method call.",
+                    "error_id": "MissingEndParenthesisInMethodCall",
+                    "line": 18,
+                    "column": 77,
+                    "text": "",
+                    "index": 8,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Missing closing '}' in statement block or type definition.",
+                    "error_id": "MissingEndCurlyBrace",
+                    "line": 12,
+                    "column": 9,
+                    "text": "{",
+                    "index": 9,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "The Try statement is missing its Catch or Finally block.",
+                    "error_id": "MissingCatchOrFinally",
+                    "line": 18,
+                    "column": 118,
+                    "text": "",
+                    "index": 10,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Missing closing '}' in statement block or type definition.",
+                    "error_id": "MissingEndCurlyBrace",
+                    "line": 11,
+                    "column": 27,
+                    "text": "{",
+                    "index": 11,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token ')' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 18,
+                    "column": 118,
+                    "text": ")",
+                    "index": 12,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token '}' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 20,
+                    "column": 9,
+                    "text": "}",
+                    "index": 13,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token 'UTF-16' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 25,
+                    "column": 78,
+                    "text": "UTF-16",
+                    "index": 14,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "The hash literal was incomplete.",
+                    "error_id": "IncompleteHashLiteral",
+                    "line": 25,
+                    "column": 78,
+                    "text": "",
+                    "index": 15,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Missing ')' in method call.",
+                    "error_id": "MissingEndParenthesisInMethodCall",
+                    "line": 25,
+                    "column": 77,
+                    "text": "",
+                    "index": 16,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token ')' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 25,
+                    "column": 111,
+                    "text": ")",
+                    "index": 17,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token '}' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 27,
+                    "column": 9,
+                    "text": "}",
+                    "index": 18,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token '含非' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 45,
+                    "column": 78,
+                    "text": "含非",
+                    "index": 19,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "The hash literal was incomplete.",
+                    "error_id": "IncompleteHashLiteral",
+                    "line": 45,
+                    "column": 78,
+                    "text": "",
+                    "index": 20,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Missing ')' in method call.",
+                    "error_id": "MissingEndParenthesisInMethodCall",
+                    "line": 45,
+                    "column": 77,
+                    "text": "",
+                    "index": 21,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token ')' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 45,
+                    "column": 126,
+                    "text": ")",
+                    "index": 22,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token '}' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 47,
+                    "column": 9,
+                    "text": "}",
+                    "index": 23,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token 'UTF-8' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 55,
+                    "column": 78,
+                    "text": "UTF-8",
+                    "index": 24,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "The hash literal was incomplete.",
+                    "error_id": "IncompleteHashLiteral",
+                    "line": 55,
+                    "column": 78,
+                    "text": "",
+                    "index": 25,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Missing ')' in method call.",
+                    "error_id": "MissingEndParenthesisInMethodCall",
+                    "line": 55,
+                    "column": 77,
+                    "text": "",
+                    "index": 26,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token ')' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 55,
+                    "column": 106,
+                    "text": ")",
+                    "index": 27,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token '}' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 56,
+                    "column": 9,
+                    "text": "}",
+                    "index": 28,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token '}' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 57,
+                    "column": 5,
+                    "text": "}",
+                    "index": 29,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token '读取失败：''' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 58,
+                    "column": 75,
+                    "text": "读取失败：''",
+                    "index": 30,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Missing closing ')' in expression.",
+                    "error_id": "MissingEndParenthesisInExpression",
+                    "line": 58,
+                    "column": 75,
+                    "text": "",
+                    "index": 31,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "The hash literal was incomplete.",
+                    "error_id": "IncompleteHashLiteral",
+                    "line": 58,
+                    "column": 75,
+                    "text": "",
+                    "index": 32,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Missing ')' in method call.",
+                    "error_id": "MissingEndParenthesisInMethodCall",
+                    "line": 58,
+                    "column": 74,
+                    "text": "",
+                    "index": 33,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Missing closing '}' in statement block or type definition.",
+                    "error_id": "MissingEndCurlyBrace",
+                    "line": 57,
+                    "column": 13,
+                    "text": "{",
+                    "index": 34,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token ')' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 58,
+                    "column": 105,
+                    "text": ")",
+                    "index": 35,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token '}' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 58,
+                    "column": 107,
+                    "text": "}",
+                    "index": 36,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token ')' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 58,
+                    "column": 108,
+                    "text": ")",
+                    "index": 37,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token '}' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 59,
+                    "column": 5,
+                    "text": "}",
+                    "index": 38,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token '}' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 60,
+                    "column": 1,
+                    "text": "}",
+                    "index": 39,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token '问题文件数：' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 66,
+                    "column": 21,
+                    "text": "问题文件数：",
+                    "index": 40,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Missing closing ')' in expression.",
+                    "error_id": "MissingEndParenthesisInExpression",
+                    "line": 66,
+                    "column": 21,
+                    "text": "",
+                    "index": 41,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Missing closing '}' in statement block or type definition.",
+                    "error_id": "MissingEndCurlyBrace",
+                    "line": 64,
+                    "column": 8,
+                    "text": "{",
+                    "index": 42,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token ')' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 66,
+                    "column": 49,
+                    "text": ")",
+                    "index": 43,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Unexpected token '}' in expression or statement.",
+                    "error_id": "UnexpectedToken",
+                    "line": 67,
+                    "column": 1,
+                    "text": "}",
+                    "index": 44,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  }
+                ]
+              }
+            },
+            "7": {
+              "ok": false,
+              "host": "7.7.0",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 45,
+                "independent": 1,
+                "cascade": 44,
+                "root_causes": [
+                  "doubled-single-quote"
+                ],
+                "root_cause_count": 1,
+                "errors": [
+                  {
+                    "message": "表达式或语句中存在意外的标记“H:\\work''”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 1,
+                    "column": 11,
+                    "text": "H:\\work''",
+                    "index": 0,
+                    "class": "independent",
+                    "caused_by": null,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“无法枚举”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 7,
+                    "column": 20,
+                    "text": "无法枚举",
+                    "index": 1,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式中缺少右括号“)”。",
+                    "error_id": "MissingEndParenthesisInExpression",
+                    "line": 7,
+                    "column": 20,
+                    "text": "",
+                    "index": 2,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "语句块或类型定义中缺少右大括号 '}'。",
+                    "error_id": "MissingEndCurlyBrace",
+                    "line": 6,
+                    "column": 9,
+                    "text": "{",
+                    "index": 3,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“)”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 7,
+                    "column": 66,
+                    "text": ")",
+                    "index": 4,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“}”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 9,
+                    "column": 1,
+                    "text": "}",
+                    "index": 5,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“UTF-32”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 18,
+                    "column": 78,
+                    "text": "UTF-32",
+                    "index": 6,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "语句块或类型定义中缺少右大括号 '}'。",
+                    "error_id": "MissingEndCurlyBrace",
+                    "line": 18,
+                    "column": 43,
+                    "text": "",
+                    "index": 7,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "方法调用中缺少“)”。",
+                    "error_id": "MissingEndParenthesisInMethodCall",
+                    "line": 18,
+                    "column": 77,
+                    "text": "",
+                    "index": 8,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "语句块或类型定义中缺少右大括号 '}'。",
+                    "error_id": "MissingEndCurlyBrace",
+                    "line": 12,
+                    "column": 9,
+                    "text": "{",
+                    "index": 9,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "Try 语句缺少 Catch 或 Finally 块。",
+                    "error_id": "MissingCatchOrFinally",
+                    "line": 18,
+                    "column": 118,
+                    "text": "",
+                    "index": 10,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "语句块或类型定义中缺少右大括号 '}'。",
+                    "error_id": "MissingEndCurlyBrace",
+                    "line": 11,
+                    "column": 27,
+                    "text": "{",
+                    "index": 11,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“)”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 18,
+                    "column": 118,
+                    "text": ")",
+                    "index": 12,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“}”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 20,
+                    "column": 9,
+                    "text": "}",
+                    "index": 13,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“UTF-16”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 25,
+                    "column": 78,
+                    "text": "UTF-16",
+                    "index": 14,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "语句块或类型定义中缺少右大括号 '}'。",
+                    "error_id": "MissingEndCurlyBrace",
+                    "line": 25,
+                    "column": 43,
+                    "text": "",
+                    "index": 15,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "方法调用中缺少“)”。",
+                    "error_id": "MissingEndParenthesisInMethodCall",
+                    "line": 25,
+                    "column": 77,
+                    "text": "",
+                    "index": 16,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“)”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 25,
+                    "column": 111,
+                    "text": ")",
+                    "index": 17,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“}”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 27,
+                    "column": 9,
+                    "text": "}",
+                    "index": 18,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“含非”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 45,
+                    "column": 78,
+                    "text": "含非",
+                    "index": 19,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "语句块或类型定义中缺少右大括号 '}'。",
+                    "error_id": "MissingEndCurlyBrace",
+                    "line": 45,
+                    "column": 43,
+                    "text": "",
+                    "index": 20,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "方法调用中缺少“)”。",
+                    "error_id": "MissingEndParenthesisInMethodCall",
+                    "line": 45,
+                    "column": 77,
+                    "text": "",
+                    "index": 21,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“)”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 45,
+                    "column": 126,
+                    "text": ")",
+                    "index": 22,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“}”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 47,
+                    "column": 9,
+                    "text": "}",
+                    "index": 23,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“UTF-8”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 55,
+                    "column": 78,
+                    "text": "UTF-8",
+                    "index": 24,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "语句块或类型定义中缺少右大括号 '}'。",
+                    "error_id": "MissingEndCurlyBrace",
+                    "line": 55,
+                    "column": 43,
+                    "text": "",
+                    "index": 25,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "方法调用中缺少“)”。",
+                    "error_id": "MissingEndParenthesisInMethodCall",
+                    "line": 55,
+                    "column": 77,
+                    "text": "",
+                    "index": 26,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“)”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 55,
+                    "column": 106,
+                    "text": ")",
+                    "index": 27,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“}”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 56,
+                    "column": 9,
+                    "text": "}",
+                    "index": 28,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“}”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 57,
+                    "column": 5,
+                    "text": "}",
+                    "index": 29,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“读取失败：''”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 58,
+                    "column": 75,
+                    "text": "读取失败：''",
+                    "index": 30,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式中缺少右括号“)”。",
+                    "error_id": "MissingEndParenthesisInExpression",
+                    "line": 58,
+                    "column": 75,
+                    "text": "",
+                    "index": 31,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "语句块或类型定义中缺少右大括号 '}'。",
+                    "error_id": "MissingEndCurlyBrace",
+                    "line": 58,
+                    "column": 39,
+                    "text": "",
+                    "index": 32,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "方法调用中缺少“)”。",
+                    "error_id": "MissingEndParenthesisInMethodCall",
+                    "line": 58,
+                    "column": 74,
+                    "text": "",
+                    "index": 33,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "语句块或类型定义中缺少右大括号 '}'。",
+                    "error_id": "MissingEndCurlyBrace",
+                    "line": 57,
+                    "column": 13,
+                    "text": "{",
+                    "index": 34,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“)”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 58,
+                    "column": 105,
+                    "text": ")",
+                    "index": 35,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“}”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 58,
+                    "column": 107,
+                    "text": "}",
+                    "index": 36,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“)”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 58,
+                    "column": 108,
+                    "text": ")",
+                    "index": 37,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“}”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 59,
+                    "column": 5,
+                    "text": "}",
+                    "index": 38,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“}”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 60,
+                    "column": 1,
+                    "text": "}",
+                    "index": 39,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“问题文件数：”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 66,
+                    "column": 21,
+                    "text": "问题文件数：",
+                    "index": 40,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式中缺少右括号“)”。",
+                    "error_id": "MissingEndParenthesisInExpression",
+                    "line": 66,
+                    "column": 21,
+                    "text": "",
+                    "index": 41,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "语句块或类型定义中缺少右大括号 '}'。",
+                    "error_id": "MissingEndCurlyBrace",
+                    "line": 64,
+                    "column": 8,
+                    "text": "{",
+                    "index": 42,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“)”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 66,
+                    "column": 49,
+                    "text": ")",
+                    "index": 43,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  },
+                  {
+                    "message": "表达式或语句中存在意外的标记“}”。",
+                    "error_id": "UnexpectedToken",
+                    "line": 67,
+                    "column": 1,
+                    "text": "}",
+                    "index": 44,
+                    "class": "cascade",
+                    "caused_by": 0,
+                    "root_cause": "doubled-single-quote"
+                  }
+                ]
+              }
+            }
+          },
+          "parsed": false
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "answers": 12,
+    "parser": "Parser.ParseFile, hosts 5.1 and 7",
+    "executes_target": false,
+    "status": "FAIL",
+    "counts": {
+      "pass": 7,
+      "fail": 1,
+      "not_applicable": 4
+    },
+    "unchecked_powershell_blocks": 0,
+    "unclosed_fences": 0,
+    "root_causes": [
+      "doubled-single-quote"
+    ]
+  }
+}

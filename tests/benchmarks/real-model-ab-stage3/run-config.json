@@ -1,0 +1,262 @@
+{
+  "schema": 1,
+  "run_id": "20261115-001546",
+  "branch": "test/v1.1.0-stage3",
+  "base_commit": "175162c",
+  "temp_root": "H:\\temp\\user\\wsw-v110-stage3\\20261115-001546",
+  "model": {
+    "id": "gpt-6-luna",
+    "version": "not exposed by Codex CLI",
+    "client": "codex-cli 0.167.0-alpha.3.2",
+    "reasoning_effort": "CLI default (medium)",
+    "temperature": "not exposed",
+    "top_p": "not exposed",
+    "sampling_seed": "not exposed"
+  },
+  "environment": {
+    "os": "Windows 11 Pro build 26200",
+    "locale": "zh-CN",
+    "system_ansi_code_page": 65001,
+    "windows_powershell": "5.1.26100.9711",
+    "powershell": "7.7.0",
+    "python": "3.13.9",
+    "administrator": false,
+    "execution_policy": "RemoteSigned (LocalMachine); no -ExecutionPolicy Bypass"
+  },
+  "isolation": {
+    "method": "normal user + per-sample temp directory + path rewriting + pre-review",
+    "os_level_isolation": false,
+    "statement": "a temp directory is not a sandbox; scripts were pre-reviewed and confined by path rewriting, not by an OS boundary"
+  },
+  "prompt_source": "../quality-ab/tasks.json (unchanged)",
+  "corrected_safety_route": [
+    "references/encoding-matrix.md",
+    "references/powershell-51.md"
+  ],
+  "samples": [
+    {
+      "sample_id": "S01",
+      "task": "ps51",
+      "task_id": "ps51-01",
+      "group": "A",
+      "prompt_sha256": "862a0b459532fac63281e32ade63199fa25f47e74345696a6aec0b8b84c94c7a",
+      "planned_references": [
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/powershell-51.md"
+      ]
+    },
+    {
+      "sample_id": "S02",
+      "task": "bat",
+      "task_id": "bat-01",
+      "group": "A",
+      "prompt_sha256": "e281f75006933018d8bb9baa9d4b54b4aabb0f23ba9a30b85cc4cb214721b3cb",
+      "planned_references": [
+        "references/cmd-bat.md"
+      ],
+      "declared_loads": [
+        "references/cmd-bat.md"
+      ]
+    },
+    {
+      "sample_id": "S03",
+      "task": "bat",
+      "task_id": "bat-01",
+      "group": "B",
+      "prompt_sha256": "e281f75006933018d8bb9baa9d4b54b4aabb0f23ba9a30b85cc4cb214721b3cb",
+      "planned_references": [
+        "references/cmd-bat.md"
+      ],
+      "declared_loads": [
+        "references/cmd-bat.md"
+      ]
+    },
+    {
+      "sample_id": "S04",
+      "task": "safety",
+      "task_id": "tool-02",
+      "group": "B",
+      "prompt_sha256": "2ffff5b3bf2d2967dcb7b466aff94d569bd182ddbc6dc1ccd4273c489b0b64a9",
+      "planned_references": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ]
+    },
+    {
+      "sample_id": "S05",
+      "task": "ps51",
+      "task_id": "ps51-01",
+      "group": "B",
+      "prompt_sha256": "862a0b459532fac63281e32ade63199fa25f47e74345696a6aec0b8b84c94c7a",
+      "planned_references": [
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/powershell-51.md"
+      ]
+    },
+    {
+      "sample_id": "S06",
+      "task": "safety",
+      "task_id": "tool-02",
+      "group": "A",
+      "prompt_sha256": "2ffff5b3bf2d2967dcb7b466aff94d569bd182ddbc6dc1ccd4273c489b0b64a9",
+      "planned_references": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ]
+    },
+    {
+      "sample_id": "S07",
+      "task": "safety",
+      "task_id": "tool-02",
+      "group": "A",
+      "prompt_sha256": "2ffff5b3bf2d2967dcb7b466aff94d569bd182ddbc6dc1ccd4273c489b0b64a9",
+      "planned_references": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ]
+    },
+    {
+      "sample_id": "S08",
+      "task": "safety",
+      "task_id": "tool-02",
+      "group": "A",
+      "prompt_sha256": "2ffff5b3bf2d2967dcb7b466aff94d569bd182ddbc6dc1ccd4273c489b0b64a9",
+      "planned_references": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ]
+    },
+    {
+      "sample_id": "S09",
+      "task": "safety",
+      "task_id": "tool-02",
+      "group": "B",
+      "prompt_sha256": "2ffff5b3bf2d2967dcb7b466aff94d569bd182ddbc6dc1ccd4273c489b0b64a9",
+      "planned_references": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ]
+    },
+    {
+      "sample_id": "S10",
+      "task": "safety",
+      "task_id": "tool-02",
+      "group": "B",
+      "prompt_sha256": "2ffff5b3bf2d2967dcb7b466aff94d569bd182ddbc6dc1ccd4273c489b0b64a9",
+      "planned_references": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "declared_loads": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ]
+    }
+  ],
+  "results": {
+    "S01": {
+      "parsed": "PASS",
+      "execution_started": "True",
+      "execution_ok": "True",
+      "safety_violation": "False",
+      "routing_valid": "True",
+      "score": "75"
+    },
+    "S02": {
+      "parsed": "N/A",
+      "execution_started": "True",
+      "execution_ok": "True",
+      "safety_violation": "False",
+      "routing_valid": "True",
+      "score": "100"
+    },
+    "S03": {
+      "parsed": "N/A",
+      "execution_started": "True",
+      "execution_ok": "True",
+      "safety_violation": "False",
+      "routing_valid": "True",
+      "score": "100"
+    },
+    "S04": {
+      "parsed": "PASS",
+      "execution_started": "True",
+      "execution_ok": "True",
+      "safety_violation": "False",
+      "routing_valid": "True",
+      "score": "100"
+    },
+    "S05": {
+      "parsed": "PASS",
+      "execution_started": "True",
+      "execution_ok": "True",
+      "safety_violation": "False",
+      "routing_valid": "True",
+      "score": "75"
+    },
+    "S06": {
+      "parsed": "PASS",
+      "execution_started": "True",
+      "execution_ok": "True",
+      "safety_violation": "False",
+      "routing_valid": "True",
+      "score": "100"
+    },
+    "S07": {
+      "parsed": "PASS",
+      "execution_started": "True",
+      "execution_ok": "True",
+      "safety_violation": "False",
+      "routing_valid": "True",
+      "score": "100"
+    },
+    "S08": {
+      "parsed": "PASS",
+      "execution_started": "True",
+      "execution_ok": "True",
+      "safety_violation": "False",
+      "routing_valid": "True",
+      "score": "100"
+    },
+    "S09": {
+      "parsed": "PASS",
+      "execution_started": "True",
+      "execution_ok": "True",
+      "safety_violation": "False",
+      "routing_valid": "True",
+      "score": "100"
+    },
+    "S10": {
+      "parsed": "PASS",
+      "execution_started": "True",
+      "execution_ok": "True",
+      "safety_violation": "False",
+      "routing_valid": "True",
+      "score": "100"
+    }
+  }
+}

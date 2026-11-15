@@ -1,0 +1,174 @@
+{
+  "generated": "2026-11-15",
+  "estimate": true,
+  "api_usage_used": false,
+  "statement": "DeepSeek tokenizer text-length estimate of the skill context; not the context GPT-6-Luna actually consumed",
+  "tokenizer_name": "DeepSeek V4 offline tokenizer",
+  "tokenizer_version": "tokenizers 0.23.2",
+  "tokenizer_sha256": "89085f12ef79460ac5f66d1119325ddfc694b4ab209d80bbd81d35f081dc9614",
+  "method": "metadata + SKILL.md body + the references a session actually opened; API input_tokens is not used",
+  "tasks": [
+    {
+      "task_id": "bat",
+      "A_tokens": 2916,
+      "B_tokens": 2755,
+      "saving_percent": 5.52,
+      "planned_references": {
+        "A": [
+          "references/cmd-bat.md"
+        ],
+        "B": [
+          "references/cmd-bat.md"
+        ]
+      },
+      "opened_references": {
+        "A": [
+          "references/cmd-bat.md"
+        ],
+        "B": [
+          "references/cmd-bat.md"
+        ]
+      }
+    },
+    {
+      "task_id": "dual",
+      "A_tokens": 3191,
+      "B_tokens": 3056,
+      "saving_percent": 4.23,
+      "planned_references": {
+        "A": [
+          "references/dual-version-compatibility.md"
+        ],
+        "B": [
+          "references/dual-version-compatibility.md"
+        ]
+      },
+      "opened_references": {
+        "A": [
+          "references/dual-version-compatibility.md"
+        ],
+        "B": [
+          "references/dual-version-compatibility.md"
+        ]
+      }
+    },
+    {
+      "task_id": "ps51",
+      "A_tokens": 6508,
+      "B_tokens": 6321,
+      "saving_percent": 2.87,
+      "planned_references": {
+        "A": [
+          "references/powershell-51.md"
+        ],
+        "B": [
+          "references/powershell-51.md"
+        ]
+      },
+      "opened_references": {
+        "A": [
+          "references/powershell-51.md",
+          "references/execution.md"
+        ],
+        "B": [
+          "references/powershell-51.md",
+          "references/execution.md"
+        ]
+      }
+    },
+    {
+      "task_id": "ps7",
+      "A_tokens": 3290,
+      "B_tokens": 3149,
+      "saving_percent": 4.29,
+      "planned_references": {
+        "A": [
+          "references/powershell-7.md"
+        ],
+        "B": [
+          "references/powershell-7.md"
+        ]
+      },
+      "opened_references": {
+        "A": [
+          "references/powershell-7.md"
+        ],
+        "B": [
+          "references/powershell-7.md"
+        ]
+      }
+    },
+    {
+      "task_id": "python",
+      "A_tokens": 6556,
+      "B_tokens": 6189,
+      "saving_percent": 5.6,
+      "planned_references": {
+        "A": [
+          "references/python.md"
+        ],
+        "B": [
+          "references/python-source-encoding.md"
+        ]
+      },
+      "opened_references": {
+        "A": [
+          "references/python.md"
+        ],
+        "B": [
+          "references/python.md",
+          "references/python-source-encoding.md"
+        ]
+      }
+    },
+    {
+      "task_id": "safety",
+      "A_tokens": 8632,
+      "B_tokens": 6717,
+      "saving_percent": 22.18,
+      "planned_references": {
+        "A": [
+          "references/security.md",
+          "references/troubleshooting.md"
+        ],
+        "B": [
+          "references/security.md",
+          "references/troubleshooting.md"
+        ]
+      },
+      "opened_references": {
+        "A": [
+          "references/encoding-matrix.md",
+          "references/powershell-51.md"
+        ],
+        "B": [
+          "references/encoding-matrix.md",
+          "references/powershell-51.md"
+        ]
+      }
+    }
+  ],
+  "scopes": {
+    "all_six_tasks": {
+      "tasks": 6,
+      "arithmetic_mean": 7.45,
+      "weighted_saving": 9.35,
+      "A_total": 31093,
+      "B_total": 28187
+    },
+    "five_tasks_excluding_safety": {
+      "tasks": 5,
+      "arithmetic_mean": 4.5,
+      "weighted_saving": 4.41,
+      "A_total": 22461,
+      "B_total": 21470
+    },
+    "three_followup_tasks": {
+      "tasks": 3,
+      "arithmetic_mean": 10.19,
+      "weighted_saving": 12.53,
+      "A_total": 18056,
+      "B_total": 15793
+    }
+  }
+}

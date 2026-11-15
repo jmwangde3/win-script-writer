@@ -1,0 +1,53 @@
+{
+  "task": "BAT",
+  "sample": "S03",
+  "group": "B",
+  "parse": {
+    "status": "N/A"
+  },
+  "batch": {
+    "exists": true,
+    "bytes": 160,
+    "sha256": "bdd995e01f18f50de6a3f2a802cf13a4db161657162e3a05ff0dd9625fa03740",
+    "head_hex": "40 65 63 68 6f 20 6f 66 66 0d 0a 63",
+    "bom_utf8": false,
+    "bom_utf16le": false,
+    "bom_utf16be": false,
+    "utf8_decodes": false,
+    "gbk_decodes": true,
+    "contains_replacement": true
+  },
+  "has_chcp_936": true,
+  "runs": {
+    "cp936": {
+      "argv": [
+        "cmd.exe",
+        "/c",
+        "H:\\temp\\user\\wsw-v110-stage3\\20261115-001546\\execution\\B\\bat-S03\\bat\\cp936.cmd"
+      ],
+      "exit": 7,
+      "stdout": "BUILD_OK\r\n",
+      "stderr": "",
+      "stdout_encoding": "utf-8-sig",
+      "stderr_encoding": "utf-8-sig",
+      "timeout": false,
+      "started": "2026-11-15T00:25:22+08:00"
+    },
+    "cp65001": {
+      "argv": [
+        "cmd.exe",
+        "/c",
+        "H:\\temp\\user\\wsw-v110-stage3\\20261115-001546\\execution\\B\\bat-S03\\bat\\cp65001.cmd"
+      ],
+      "exit": 7,
+      "stdout": "BUILD_OK\r\n",
+      "stderr": "",
+      "stdout_encoding": "utf-8-sig",
+      "stderr_encoding": "utf-8-sig",
+      "timeout": false,
+      "started": "2026-11-15T00:25:22+08:00"
+    }
+  },
+  "score": 100,
+  "reason": "ok"
+}

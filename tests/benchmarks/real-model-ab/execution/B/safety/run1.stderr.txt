@@ -1,0 +1,44 @@
+所在位置 <sandbox>\scan.ps1:1 字符: 11
++ $root = ''<sandbox>\work''
++           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+表达式或语句中包含意外的标记“<sandbox>\work''”。
+所在位置 <sandbox>\scan.ps1:7 字符: 20
++     Write-Error (''无法枚举 {0}: {1}'' -f $root, $_.Exception.Message)
++                    ~~~~
+表达式或语句中包含意外的标记“无法枚举”。
+所在位置 <sandbox>\scan.ps1:7 字符: 20
++     Write-Error (''无法枚举 {0}: {1}'' -f $root, $_.Exception.Message)
++                    ~
+表达式中缺少右“)”。
+所在位置 <sandbox>\scan.ps1:6 字符: 9
++ } catch {
++         ~
+语句块或类型定义中缺少右“}”。
+所在位置 <sandbox>\scan.ps1:7 字符: 66
++     Write-Error (''无法枚举 {0}: {1}'' -f $root, $_.Exception.Message)
++                                                                  ~
+表达式或语句中包含意外的标记“)”。
+所在位置 <sandbox>\scan.ps1:9 字符: 1
++ }
++ ~
+表达式或语句中包含意外的标记“}”。
+所在位置 <sandbox>\scan.ps1:18 字符: 78
++ ... d([pscustomobject]@{ Path = $file.FullName; Reason = ''UTF-32 BOM：不支持 ...
++                                                            ~~~~~~
+表达式或语句中包含意外的标记“UTF-32”。
+所在位置 <sandbox>\scan.ps1:18 字符: 78
++ ... ues.Add([pscustomobject]@{ Path = $file.FullName; Reason = ''UTF-32 B ...
++                                                                  ~
+哈希文本不完整。
+所在位置 <sandbox>\scan.ps1:18 字符: 77
++ ... sues.Add([pscustomobject]@{ Path = $file.FullName; Reason = ''UTF-32  ...
++                                                                  ~
+方法调用中缺少“)”。
+所在位置 <sandbox>\scan.ps1:12 字符: 9
++     try {
++         ~
+语句块或类型定义中缺少右“}”。
+并未报告所有分析错误。请更正报告的错误并重试。
+    + CategoryInfo          : ParserError: (:) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : UnexpectedToken
+ 

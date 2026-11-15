@@ -1,0 +1,10 @@
+
+类型           文件                                                        原因                                        
+----           ----                                                        ----                                        
+可运行但不推荐 <sandbox>\work\utf16le.ps1      UTF-16LE 带 BOM                             
+问题           <sandbox>\work\utf8nobom-cn.ps1 含非 ASCII 的 UTF-8 无 BOM；5.1 會按系統 ANS
+                                                                           I 代碼頁解析                                
+需确认         <sandbox>\work\gbk-cn.ps1       无 BOM 且不是严格 UTF-8；可能是 ACP/936，也 
+                                                                           可能是其他编码                              
+
+

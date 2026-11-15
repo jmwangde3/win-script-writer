@@ -1,0 +1,66 @@
+{
+  "task": "BAT",
+  "sample": "S01",
+  "group": "B",
+  "encoding_used": "utf-8",
+  "batch": {
+    "exists": true,
+    "bytes": 138,
+    "sha256": "b210b4e90d0030ec39cc7caa2144af83e44177259f0ff24c081b5054529e523b",
+    "head_hex": "40 63 68 63 70 20 36 35 30 30 31 20",
+    "bom_utf8": false,
+    "bom_utf16le": false,
+    "bom_utf16be": false,
+    "utf8_decodes": true,
+    "gbk_decodes": false,
+    "contains_replacement": false
+  },
+  "has_chcp_936": false,
+  "has_chcp_65001": true,
+  "mentions_encoding_and_crlf": true,
+  "runs": {
+    "cp936": {
+      "exit": 7,
+      "stdout": "参数：\\\"发布说明\\\"\r\nBUILD_OK\r\n构建完成\r\n",
+      "stderr": ""
+    },
+    "cp65001": {
+      "exit": 7,
+      "stdout": "参数：\\\"发布说明\\\"\r\nBUILD_OK\r\n构建完成\r\n",
+      "stderr": ""
+    }
+  },
+  "checks": [
+    {
+      "name": "file-bytes-and-encoding",
+      "points": 20,
+      "max": 20,
+      "evidence": "GBK=False BOM=False CRLF=True mentions=True"
+    },
+    {
+      "name": "explicit-codepage",
+      "points": 20,
+      "max": 20,
+      "evidence": "chcp936=False chcp65001=True"
+    },
+    {
+      "name": "cp936",
+      "points": 20,
+      "max": 20,
+      "evidence": "exit=7 stdout='参数：\\\\\"发布说明\\\\\"\\r\\nBUILD_OK\\r\\n构建完成\\r\\n'"
+    },
+    {
+      "name": "cp65001",
+      "points": 20,
+      "max": 20,
+      "evidence": "exit=7 stdout='参数：\\\\\"发布说明\\\\\"\\r\\nBUILD_OK\\r\\n构建完成\\r\\n' stderr=''"
+    },
+    {
+      "name": "chinese-output-and-arg",
+      "points": 20,
+      "max": 20,
+      "evidence": "both runs printed BUILD_OK, 构建完成 and the argument"
+    }
+  ],
+  "score": 100
+}

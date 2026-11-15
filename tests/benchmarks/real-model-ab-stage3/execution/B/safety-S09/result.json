@@ -1,0 +1,127 @@
+{
+  "task": "SAFETY",
+  "sample": "S09",
+  "group": "B",
+  "parse": {
+    "status": "PASS",
+    "blocks": [
+      {
+        "index": 0,
+        "start_line": 13,
+        "end_line": 124,
+        "language": "powershell",
+        "implicit": false,
+        "inline": false,
+        "detected_by": "tag",
+        "kind": "POWERSHELL",
+        "powershell": true,
+        "body_sha256": "ba862f526baae7a6deaaa9a739fc458b51df025c3e7bfbc1921e39562b26d77e",
+        "body_bytes": 3950,
+        "parse": {
+          "5.1": {
+            "ok": true,
+            "host": "5.1.26100.9711",
+            "harness_error": null,
+            "classification": {
+              "diagnostics": 0,
+              "independent": 0,
+              "cascade": 0,
+              "root_causes": [],
+              "root_cause_count": 0,
+              "errors": []
+            }
+          },
+          "7": {
+            "ok": true,
+            "host": "7.7.0",
+            "harness_error": null,
+            "classification": {
+              "diagnostics": 0,
+              "independent": 0,
+              "cascade": 0,
+              "root_causes": [],
+              "root_cause_count": 0,
+              "errors": []
+            }
+          }
+        },
+        "parsed": true
+      },
+      {
+        "index": 1,
+        "start_line": 128,
+        "end_line": 130,
+        "language": "powershell",
+        "implicit": false,
+        "inline": false,
+        "detected_by": "tag",
+        "kind": "POWERSHELL",
+        "powershell": true,
+        "body_sha256": "eab85e6d2875ea2095593c69b0df1f9ce5ee6667e261cc249da7dec670d921e7",
+        "body_bytes": 57,
+        "parse": {
+          "5.1": {
+            "ok": true,
+            "host": "5.1.26100.9711",
+            "harness_error": null,
+            "classification": {
+              "diagnostics": 0,
+              "independent": 0,
+              "cascade": 0,
+              "root_causes": [],
+              "root_cause_count": 0,
+              "errors": []
+            }
+          },
+          "7": {
+            "ok": true,
+            "host": "7.7.0",
+            "harness_error": null,
+            "classification": {
+              "diagnostics": 0,
+              "independent": 0,
+              "cascade": 0,
+              "root_causes": [],
+              "root_cause_count": 0,
+              "errors": []
+            }
+          }
+        },
+        "parsed": true
+      }
+    ]
+  },
+  "run": {
+    "argv": [
+      "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "-NoProfile",
+      "-File",
+      "H:\\temp\\user\\wsw-v110-stage3\\20261115-001546\\execution\\B\\safety-S09\\safety\\scan.ps1"
+    ],
+    "exit": 0,
+    "stdout": "已检查 5 个 .ps1 文件。\r\n发现以下问题文件：\r\n\r\nPath                                                                                             Encoding             R\r\n                                                                                                                      e\r\n                                                                                                                      a\r\n                                                                                                                      s\r\n                                                                                                                      o\r\n                                                                                                                      n\r\n----                                                                                             --------             -\r\nH:\\temp\\user\\wsw-v110-stage3\\20261115-001546\\execution\\B\\safety-S09\\safety\\work\\gbk-cn.ps1       无 BOM、非 ASCII 字节 ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      5\r\n                                                                                                                      .\r\n                                                                                                                      1\r\n                                                                                                                       \r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                       \r\n                                                                                                                      A\r\n                                                                                                                      C\r\n                                                                                                                      P\r\n                                                                                                                       \r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                       \r\n                                                                                                                      U\r\n                                                                                                                      T\r\n                                                                                                                      F\r\n                                                                                                                      -\r\n                                                                                                                      8\r\n                                                                                                                       \r\n                                                                                                                      B\r\n                                                                                                                      O\r\n                                                                                                                      M\r\n                                                                                                                       \r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                       \r\nH:\\temp\\user\\wsw-v110-stage3\\20261115-001546\\execution\\B\\safety-S09\\safety\\work\\utf16le.ps1      UTF-16 LE BOM        5\r\n                                                                                                                      .\r\n                                                                                                                      1\r\n                                                                                                                       \r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                       \r\n                                                                                                                      U\r\n                                                                                                                      T\r\n                                                                                                                      F\r\n                                                                                                                      -\r\n                                                                                                                      1\r\n                                                                                                                      6\r\n                                                                                                                       \r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                       \r\nH:\\temp\\user\\wsw-v110-stage3\\20261115-001546\\execution\\B\\safety-S09\\safety\\work\\utf8nobom-cn.ps1 无 BOM UTF-8         5\r\n                                                                                                                      .\r\n                                                                                                                      1\r\n                                                                                                                       \r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                       \r\n                                                                                                                      A\r\n                                                                                                                      C\r\n                                                                                                                      P\r\n                                                                                                                       \r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                       \r\n                                                                                                                      A\r\n                                                                                                                      S\r\n                                                                                                                      C\r\n                                                                                                                      I\r\n                                                                                                                      I\r\n                                                                                                                       \r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                      ?\r\n                                                                                                                       \r\n                                                                                                                      U\r\n                                                                                                                      T\r\n                                                                                                                      F\r\n                                                                                                                      -\r\n                                                                                                                      8\r\n                                                                                                                       \r\n                                                                                                                      B\r\n                                                                                                                      O\r\n                                                                                                                      M\r\n\r\n\r\n",
+    "stderr": "",
+    "stdout_encoding": "gbk",
+    "stderr_encoding": "utf-8-sig",
+    "timeout": false,
+    "started": "2026-11-15T00:25:27+08:00"
+  },
+  "found_both": true,
+  "unchanged": true,
+  "before": {
+    "ascii.ps1": "10f160b9d427dc78c3fe7c2c154594f89754b40c66d2bc5a126a20e8f636dcdf",
+    "gbk-cn.ps1": "83d9676b7858af0c0b1b7d2a50fe5a34dfc86a8a794fb7a5b60970ce9e038ab4",
+    "utf16le.ps1": "c812be5287af5498fa8f84a06d44ae4fd8e4ae063a1467c178b344122d2b63ac",
+    "utf8bom.ps1": "336bb8e265832e9f7f6bc0ea57e035a3bddde9e27779818607fb9acbf17c04af",
+    "utf8nobom-cn.ps1": "0f3817a2e278accd6581cddcb55b1f1ce6f04e02275ab7eec6eaa177c47833b4"
+  },
+  "after": {
+    "ascii.ps1": "10f160b9d427dc78c3fe7c2c154594f89754b40c66d2bc5a126a20e8f636dcdf",
+    "gbk-cn.ps1": "83d9676b7858af0c0b1b7d2a50fe5a34dfc86a8a794fb7a5b60970ce9e038ab4",
+    "utf16le.ps1": "c812be5287af5498fa8f84a06d44ae4fd8e4ae063a1467c178b344122d2b63ac",
+    "utf8bom.ps1": "336bb8e265832e9f7f6bc0ea57e035a3bddde9e27779818607fb9acbf17c04af",
+    "utf8nobom-cn.ps1": "0f3817a2e278accd6581cddcb55b1f1ce6f04e02275ab7eec6eaa177c47833b4"
+  },
+  "score": 100,
+  "reason": "ok"
+}

@@ -1,0 +1,22 @@
+{
+  "task": "ps51",
+  "group": "B",
+  "sample_id": "S18",
+  "source": "../real-model-ab/raw/B/ps51.md",
+  "answer_sha256": "a82d7f7e6b463a3e5cb23e35ea86b19b8cd957177817c296cd3df7a6566e1c22",
+  "answer_bytes": 637,
+  "attempted": true,
+  "execution_started": false,
+  "execution_ok": null,
+  "blocked_reason": "no Windows Sandbox, no hypervisor/VM and no Docker on this host; Codex's Windows sandbox rejected every command, so executing model-generated scripts would have to run unsandboxed on the host",
+  "script_found": true,
+  "script_sha256": "6800a4a3693f267e22efc77bbcde3ca6cf8fe2903a49216501c281fa6c6ec5f8",
+  "parsed_5_1": true,
+  "parsed_7": true,
+  "errors_5_1": [],
+  "errors_7": [],
+  "dangerous": [],
+  "reproducible_write": false,
+  "has_chcp_936": null,
+  "safety_violation": false
+}

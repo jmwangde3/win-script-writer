@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "run_id": "v1.1.0-reliability-followup-2026-11-14",
+  "branch": "test/v1.1.0-reliability-followup",
+  "base_commit": "13063b9",
+  "requested_samples": {
+    "safety": {"a": 3, "b": 3},
+    "bat": {"a": 1, "b": 1},
+    "ps51": {"a": 1, "b": 1},
+    "total": 10
+  },
+  "generated_samples": 0,
+  "model_calls": 0,
+  "model": {
+    "id": "gpt-6-luna",
+    "version": "not exposed by Codex CLI",
+    "client": "codex-cli 0.167.0-alpha.3.2",
+    "reasoning_effort": "CLI default (medium)",
+    "temperature": "not exposed",
+    "top_p": "not exposed",
+    "sampling_seed": "not exposed"
+  },
+  "environment": {
+    "os": "Windows 11 Pro build 26200",
+    "locale": "zh-CN",
+    "system_ansi_code_page": 65001,
+    "windows_powershell": "5.1.26100.9711",
+    "powershell": "7.7.0",
+    "python": "3.13.9"
+  },
+  "isolation_checks": {
+    "windows_sandbox_exe": false,
+    "hypervisor_present": false,
+    "docker": false,
+    "virtualbox": false,
+    "vmware": false,
+    "codex_read_only_sandbox": "every command rejected: blocked by policy",
+    "codex_workspace_write_sandbox": "every command rejected: blocked by policy",
+    "codex_danger_full_access": "works, but forbidden for unreviewed model code"
+  },
+  "blocked_stage": "model generation and dynamic execution",
+  "blocked_reason": "no usable isolation on this host; generating fresh samples would require danger-full-access, which the follow-up forbids",
+  "static_source": "../real-model-ab/raw (2026-11-14 answers, not regenerated)",
+  "parser": {
+    "implementation": "../real-model-ab/scripts/ps_parse.py",
+    "hosts": ["5.1", "7"],
+    "executes_target": false
+  },
+  "tokenizer": {
+    "name": "official DeepSeek V4 offline tokenizer",
+    "usage": "tokenizer estimate over opened_references; API input_tokens excluded"
+  }
+}

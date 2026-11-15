@@ -1,0 +1,53 @@
+{
+  "followup": "v1.1.0 reliability follow-up",
+  "date": "2026-11-14",
+  "regenerated_samples": 0,
+  "model_calls": 0,
+  "requested_samples": {
+    "safety": 6,
+    "bat": 2,
+    "ps51": 2,
+    "total": 10
+  },
+  "blocked": {
+    "stage": "model generation and dynamic execution",
+    "reason": "no Windows Sandbox, no hypervisor/VM and no Docker on this host; Codex's Windows sandbox rejected every command, so executing model-generated scripts would have to run unsandboxed on the host",
+    "isolation_checks": {
+      "windows_sandbox_exe": false,
+      "hypervisor_present": false,
+      "docker": false,
+      "virtualbox": false,
+      "vmware": false,
+      "codex_read_only_sandbox": "every command rejected: blocked by policy",
+      "codex_workspace_write_sandbox": "every command rejected: blocked by policy"
+    }
+  },
+  "static_analysis_of_existing_answers": {
+    "note": "the twelve 2026-11-14 answers were re-read and parsed; they are not the requested regenerated samples",
+    "samples": 6,
+    "parser": {
+      "checked": 4,
+      "A_pass": 2,
+      "A_fail": 0,
+      "B_pass": 1,
+      "B_fail": 1
+    },
+    "safety_parse_failures": [
+      {
+        "group": "B",
+        "task": "safety",
+        "first_error": "Unexpected token 'H:\\work''' in expression or statement."
+      }
+    ],
+    "bat_chcp_936": {
+      "A": true,
+      "B": false
+    },
+    "ps51_reproducible_write": {
+      "A": true,
+      "B": false
+    }
+  },
+  "verdict": "CONDITIONAL",
+  "verdict_reason": "The benchmark now rejects a script that fails Parser.ParseFile before any execution, and the one available B/SAFETY answer fails that parse on both hosts while A passes. That is a real defect but a single observation: the requested three repeats per group could not be generated because the host has no usable isolation, and no execution was performed. Nothing here supports a PASS, and one sample cannot prove a systematic regression."
+}

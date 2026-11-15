@@ -1,0 +1,157 @@
+{
+  "generated": "2026-11-14",
+  "estimate": true,
+  "api_usage_used": false,
+  "method": "tokenizer estimate of metadata + SKILL.md body + the references the session actually opened (opened_references); API input_tokens is not used because it covers the harness prompt and every tool turn",
+  "tokenizer": {
+    "name": "DeepSeek V4 offline tokenizer",
+    "package": "tokenizers",
+    "file_sha256": "89085f12ef79460ac5f66d1119325ddfc694b4ab209d80bbd81d35f081dc9614"
+  },
+  "scope": [
+    "ps51",
+    "bat",
+    "safety"
+  ],
+  "tasks": [
+    {
+      "task": "bat",
+      "in_followup_scope": true,
+      "a_tokens": 2916,
+      "b_tokens": 2755,
+      "saving_pct": 5.52,
+      "planned_a": [
+        "references/cmd-bat.md"
+      ],
+      "planned_b": [
+        "references/cmd-bat.md"
+      ],
+      "opened_a": [
+        "references/cmd-bat.md"
+      ],
+      "opened_b": [
+        "references/cmd-bat.md"
+      ]
+    },
+    {
+      "task": "dual",
+      "in_followup_scope": false,
+      "a_tokens": 3191,
+      "b_tokens": 3056,
+      "saving_pct": 4.23,
+      "planned_a": [
+        "references/dual-version-compatibility.md"
+      ],
+      "planned_b": [
+        "references/dual-version-compatibility.md"
+      ],
+      "opened_a": [
+        "references/dual-version-compatibility.md"
+      ],
+      "opened_b": [
+        "references/dual-version-compatibility.md"
+      ]
+    },
+    {
+      "task": "ps51",
+      "in_followup_scope": true,
+      "a_tokens": 6508,
+      "b_tokens": 6321,
+      "saving_pct": 2.87,
+      "planned_a": [
+        "references/powershell-51.md"
+      ],
+      "planned_b": [
+        "references/powershell-51.md"
+      ],
+      "opened_a": [
+        "references/powershell-51.md",
+        "references/execution.md"
+      ],
+      "opened_b": [
+        "references/powershell-51.md",
+        "references/execution.md"
+      ]
+    },
+    {
+      "task": "ps7",
+      "in_followup_scope": false,
+      "a_tokens": 3290,
+      "b_tokens": 3149,
+      "saving_pct": 4.29,
+      "planned_a": [
+        "references/powershell-7.md"
+      ],
+      "planned_b": [
+        "references/powershell-7.md"
+      ],
+      "opened_a": [
+        "references/powershell-7.md"
+      ],
+      "opened_b": [
+        "references/powershell-7.md"
+      ]
+    },
+    {
+      "task": "python",
+      "in_followup_scope": false,
+      "a_tokens": 6556,
+      "b_tokens": 6189,
+      "saving_pct": 5.6,
+      "planned_a": [
+        "references/python.md"
+      ],
+      "planned_b": [
+        "references/python-source-encoding.md"
+      ],
+      "opened_a": [
+        "references/python.md"
+      ],
+      "opened_b": [
+        "references/python.md",
+        "references/python-source-encoding.md"
+      ]
+    },
+    {
+      "task": "safety",
+      "in_followup_scope": true,
+      "a_tokens": 8632,
+      "b_tokens": 6717,
+      "saving_pct": 22.18,
+      "planned_a": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "planned_b": [
+        "references/security.md",
+        "references/troubleshooting.md"
+      ],
+      "opened_a": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ],
+      "opened_b": [
+        "references/encoding-matrix.md",
+        "references/powershell-51.md"
+      ]
+    }
+  ],
+  "arithmetic_mean_pct": {
+    "scope": 10.19,
+    "all": 7.45
+  },
+  "weighted_saving_pct": {
+    "scope": 12.53,
+    "all": 9.35
+  },
+  "totals": {
+    "scope": {
+      "a": 18056,
+      "b": 15793
+    },
+    "all": {
+      "a": 31093,
+      "b": 28187
+    }
+  }
+}

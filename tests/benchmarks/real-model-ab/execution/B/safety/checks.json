@@ -1,0 +1,102 @@
+{
+  "checks": [
+    {
+      "id": "recursive-scan",
+      "dimension": "understanding",
+      "earned": 8,
+      "max": 8,
+      "passed": true,
+      "evidence": "recursively enumerates .ps1 files"
+    },
+    {
+      "id": "reports-problems",
+      "dimension": "understanding",
+      "earned": 7,
+      "max": 7,
+      "passed": true,
+      "evidence": "emits a list of files rather than a single verdict"
+    },
+    {
+      "id": "byte-level",
+      "dimension": "encoding",
+      "earned": 15,
+      "max": 15,
+      "passed": true,
+      "evidence": "inspects bytes / BOM, not decoded text"
+    },
+    {
+      "id": "distinguishes-encodings",
+      "dimension": "encoding",
+      "earned": 10,
+      "max": 10,
+      "passed": true,
+      "evidence": "distinguishes UTF-8 no BOM from GBK/UTF-16"
+    },
+    {
+      "id": "names-51-rule",
+      "dimension": "compatibility",
+      "earned": 8,
+      "max": 8,
+      "passed": true,
+      "evidence": "reasons about how 5.1 reads the file"
+    },
+    {
+      "id": "no-acp-change",
+      "dimension": "compatibility",
+      "earned": 6,
+      "max": 6,
+      "passed": true,
+      "evidence": "does not change the code page"
+    },
+    {
+      "id": "no-policy-change",
+      "dimension": "compatibility",
+      "earned": 6,
+      "max": 6,
+      "passed": true,
+      "evidence": "does not change the execution policy"
+    },
+    {
+      "id": "scan-runs",
+      "dimension": "execution",
+      "earned": 0,
+      "max": 15,
+      "passed": false,
+      "evidence": "exit 1"
+    },
+    {
+      "id": "finds-problems",
+      "dimension": "execution",
+      "earned": 0,
+      "max": 10,
+      "passed": false,
+      "evidence": "one or both missing"
+    },
+    {
+      "id": "files-unchanged",
+      "dimension": "safety",
+      "earned": 15,
+      "max": 15,
+      "passed": true,
+      "evidence": "hashes identical"
+    }
+  ],
+  "sandbox": "<sandbox>",
+  "fixtures_before": {
+    "ascii.ps1": "10f160b9d427dc78c3fe7c2c154594f89754b40c66d2bc5a126a20e8f636dcdf",
+    "gbk-cn.ps1": "83d9676b7858af0c0b1b7d2a50fe5a34dfc86a8a794fb7a5b60970ce9e038ab4",
+    "utf16le.ps1": "c812be5287af5498fa8f84a06d44ae4fd8e4ae063a1467c178b344122d2b63ac",
+    "utf8bom.ps1": "336bb8e265832e9f7f6bc0ea57e035a3bddde9e27779818607fb9acbf17c04af",
+    "utf8nobom-cn.ps1": "0f3817a2e278accd6581cddcb55b1f1ce6f04e02275ab7eec6eaa177c47833b4"
+  },
+  "fixtures_after": {
+    "ascii.ps1": "10f160b9d427dc78c3fe7c2c154594f89754b40c66d2bc5a126a20e8f636dcdf",
+    "gbk-cn.ps1": "83d9676b7858af0c0b1b7d2a50fe5a34dfc86a8a794fb7a5b60970ce9e038ab4",
+    "utf16le.ps1": "c812be5287af5498fa8f84a06d44ae4fd8e4ae063a1467c178b344122d2b63ac",
+    "utf8bom.ps1": "336bb8e265832e9f7f6bc0ea57e035a3bddde9e27779818607fb9acbf17c04af",
+    "utf8nobom-cn.ps1": "0f3817a2e278accd6581cddcb55b1f1ce6f04e02275ab7eec6eaa177c47833b4"
+  },
+  "substitutions": [
+    "H:\\work -> <sandbox>\\work"
+  ]
+}

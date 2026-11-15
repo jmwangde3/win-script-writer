@@ -1,0 +1,29 @@
+{
+  "estimate": true,
+  "api_usage_used": false,
+  "tokenizer": "DeepSeek V4 offline tokenizer",
+  "tasks": [
+    {
+      "task": "BAT",
+      "A_samples": 3,
+      "B_samples": 3,
+      "A_mean": 5792.0,
+      "B_mean": 7787.3,
+      "saving_percent": -34.45
+    },
+    {
+      "task": "PS51",
+      "A_samples": 3,
+      "B_samples": 3,
+      "A_mean": 5298.7,
+      "B_mean": 6717.0,
+      "saving_percent": -26.77
+    }
+  ],
+  "overall": {
+    "A_total": 33272,
+    "B_total": 43513,
+    "arithmetic_mean": -30.61,
+    "weighted_saving": -30.78
+  }
+}

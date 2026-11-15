@@ -1,0 +1,13 @@
+sample_id,task,task_key,group,attempted,parsed,execution_started,execution_ok,safety_violation,routing_valid,core_failures,reason,score
+S01,PS51,ps51,A,True,PASS,True,True,False,True,[],ok,75.0
+S02,BAT,bat,A,True,N/A,True,True,False,True,[],ok,100.0
+S03,BAT,bat,B,True,N/A,True,True,False,True,[],ok,100.0
+S05,PS51,ps51,B,True,PASS,True,True,False,True,[],ok,75.0
+S01,PS51,ps51,B,True,PASS,True,True,False,True,[],ok,75.0
+S02,BAT,bat,B,True,N/A,True,True,False,True,[],ok,100.0
+S03,PS51,ps51,A,True,PASS,True,True,False,True,[],ok,100.0
+S04,BAT,bat,A,True,N/A,True,True,False,True,[],ok,100.0
+S05,PS51,ps51,A,True,PASS,True,True,False,True,[],ok,75.0
+S06,BAT,bat,A,True,N/A,True,True,False,True,[],ok,100.0
+S07,BAT,bat,B,True,N/A,True,False,False,True,['failed at code page 65001'],ok,50.0
+S08,PS51,ps51,B,True,PASS,True,True,False,True,[],ok,75.0

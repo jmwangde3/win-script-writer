@@ -1,0 +1,41 @@
+﻿#Requires -Version 5.1
+Set-StrictMode -Version 2.0
+$ErrorActionPreference = 'Stop'
+
+$path = 'H:\temp\user\wsw-v110-stage3-2\20261115-100407\execution\B\ps51-S05\ps51\部署\deploy.ps1'
+$directory = [System.IO.Path]::GetDirectoryName($path)
+[System.IO.Directory]::CreateDirectory($directory) | Out-Null
+
+# 生成文件的内容；此处中文随生成器的 UTF-8 BOM 正确解析。
+$scriptText = @"
+#Requires -Version 5.1
+Write-Output '开始部署'
+# 在这里加入实际部署步骤。
+Write-Output '部署完成'
+"@
+
+# 明确指定 UTF-8 with BOM，不依赖 PowerShell 版本的 -Encoding UTF8 行为。
+$utf8WithBom = New-Object System.Text.UTF8Encoding($true, $true)
+[System.IO.File]::WriteAllText($path, $scriptText, $utf8WithBom)
+
+# 从文件原始字节检查 BOM。
+$bytes = [System.IO.File]::ReadAllBytes($path)
+$hasUtf8Bom = ($bytes.Length -ge 3 -and
+    $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
+if (-not $hasUtf8Bom) {
+    throw '验证失败：文件开头不是 UTF-8 BOM（EF BB BF）。'
+}
+
+# 使用严格 UTF-8 解码读回内容，并与要写入的字符串作逐字比较。
+$readBack = [System.IO.File]::ReadAllText($path, $utf8WithBom)
+if ($readBack -cne $scriptText) {
+    throw '验证失败：读回内容与写入内容不一致。'
+}
+if (-not $readBack.Contains('开始部署') -or -not $readBack.Contains('部署完成')) {
+    throw '验证失败：未找到预期的中文提示。'
+}
+
+Write-Output ('文件：{0}' -f $path)
+Write-Output 'UTF-8 BOM（EF BB BF）：通过'
+Write-Output '读回内容与写入内容一致，且包含「开始部署」「部署完成」：通过'
+Write-Output '验证结果：全部通过'
