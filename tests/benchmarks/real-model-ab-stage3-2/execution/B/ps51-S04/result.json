@@ -1,0 +1,82 @@
+{
+  "task": "PS51",
+  "sample": "S04",
+  "group": "B",
+  "programmatic": true,
+  "batch": {
+    "exists": true,
+    "bytes": 149,
+    "sha256": "187f6a71ad06b3871a54c4abc748c5314b26417bfee225677bb10c3840e16bf8",
+    "head_hex": "ef bb bf 23 52 65 71 75 69 72 65 73",
+    "bom_utf8": true,
+    "bom_utf16le": false,
+    "bom_utf16be": false,
+    "utf8_decodes": true,
+    "gbk_decodes": false,
+    "contains_replacement": false
+  },
+  "content_head": "#Requires -Version 5.1\n$ErrorActionPreference = 'Stop'\n\nWrite-Host '开始部署'\n# 在这里加入实际部署命令。\nWrite-Host '部署完成'",
+  "run_5_1": {
+    "argv": [
+      "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "-NoProfile",
+      "-File",
+      "H:\\temp\\user\\wsw-v110-stage3-2\\20261115-100407\\execution\\B\\ps51-S04\\ps51\\create.ps1"
+    ],
+    "exit": 0,
+    "stdout": "文件：H:\\temp\\user\\wsw-v110-stage3-2\\20261115-100407\\execution\\B\\ps51-S04\\ps51\\部署\\deploy.ps1\r\nBOM：通过（EF BB BF）\r\n文本一致性：通过\r\n中文提示：通过（开始部署；部署完成）\r\n验证结果：全部通过\r\n",
+    "stderr": "",
+    "stdout_encoding": "utf-8-sig",
+    "stderr_encoding": "utf-8-sig",
+    "timeout": false,
+    "started": "2026-11-15T10:15:33+08:00"
+  },
+  "run_7": {
+    "argv": [
+      "pwsh",
+      "-NoProfile",
+      "-File",
+      "H:\\temp\\user\\wsw-v110-stage3-2\\20261115-100407\\execution\\B\\ps51-S04\\ps51\\create.ps1"
+    ],
+    "exit": 0,
+    "stdout": "文件：H:\\temp\\user\\wsw-v110-stage3-2\\20261115-100407\\execution\\B\\ps51-S04\\ps51\\部署\\deploy.ps1\r\nBOM：通过（EF BB BF）\r\n文本一致性：通过\r\n中文提示：通过（开始部署；部署完成）\r\n验证结果：全部通过\r\n",
+    "stderr": "",
+    "stdout_encoding": "utf-8-sig",
+    "stderr_encoding": "utf-8-sig",
+    "timeout": false,
+    "started": "2026-11-15T10:15:33+08:00"
+  },
+  "checks": [
+    {
+      "name": "programmatic-write",
+      "points": 20,
+      "max": 20,
+      "evidence": "WriteAllText/Set-Content/Out-File present=True"
+    },
+    {
+      "name": "file-created",
+      "points": 20,
+      "max": 20,
+      "evidence": "H:\\temp\\user\\wsw-v110-stage3-2\\20261115-100407\\execution\\B\\ps51-S04\\ps51\\部署\\deploy.ps1"
+    },
+    {
+      "name": "utf8-bom",
+      "points": 20,
+      "max": 20,
+      "evidence": "ef bb bf 23 52 65 71 75 69 72 65 73"
+    },
+    {
+      "name": "chinese-readback",
+      "points": 20,
+      "max": 20,
+      "evidence": "content=\"#Requires -Version 5.1\\n$ErrorActionPreference = 'Stop'\\n\\nWrite-Host '开始部署'\\n# 在这里加\" run51='文件：H:\\\\temp\\\\user\\\\wsw-v110-stage3-2\\\\20261115-100407\\\\execution\\\\B\\\\ps51-S04\\\\ps51\\\\部署\\\\deploy.ps1\\r\\nBOM：通过（EF BB BF）\\r\\n文本一致性：通过\\r\\n中'"
+    },
+    {
+      "name": "ps51-runs",
+      "points": 20,
+      "max": 20,
+      "evidence": "exit=0 stderr=''"
+    }
+  ],
+  "score": 100
+}

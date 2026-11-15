@@ -1,0 +1,40 @@
+﻿#Requires -Version 5.1
+Set-StrictMode -Version 2.0
+$ErrorActionPreference = 'Stop'
+
+$path = 'H:\temp\user\wsw-v110-stage3-2\20261115-100407\execution\A\ps51-S09\ps51\部署\deploy.ps1'
+$directory = [System.IO.Path]::GetDirectoryName($path)
+[System.IO.Directory]::CreateDirectory($directory) | Out-Null
+
+# 目标脚本完整内容；单引号 here-string 可避免生成器展开其中的变量。
+$content = @'
+#Requires -Version 5.1
+$ErrorActionPreference = 'Stop'
+
+Write-Output '开始部署'
+# 在此处添加部署操作。
+Write-Output '部署完成'
+'@
+
+# UTF8Encoding(true) 会在文件开头写入 EF BB BF。
+$utf8Bom = New-Object System.Text.UTF8Encoding($true)
+[System.IO.File]::WriteAllText($path, $content, $utf8Bom)
+
+# 读回原始字节，验证 BOM，再严格按 UTF-8 解码并逐字符比较。
+$bytes = [System.IO.File]::ReadAllBytes($path)
+$hasBom = ($bytes.Length -ge 3 -and
+    $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
+if (-not $hasBom) {
+    throw '验证失败：文件开头不是 EF BB BF。'
+}
+
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false, $true)
+$readBack = $utf8NoBom.GetString($bytes, 3, $bytes.Length - 3)
+if ($readBack -cne $content) {
+    throw '验证失败：读回内容与写入内容不一致。'
+}
+
+Write-Output ('文件：' + $path)
+Write-Output 'BOM：通过（EF BB BF）'
+Write-Output '内容：通过（读回内容与写入内容完全一致，包含「开始部署」「部署完成」）'
+Write-Output '验证结果：全部通过'

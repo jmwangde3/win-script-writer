@@ -1,0 +1,13 @@
+sample_id,task,task_key,group,attempted,parsed,execution_started,execution_ok,safety_violation,routing_valid,failed_checks,score,reason
+S01,BAT,bat,B,True,N/A,True,True,False,False,,100.0,ok
+S02,PS51,ps51,A,True,PASS,True,True,False,False,,100.0,ok
+S03,BAT,bat,A,True,N/A,True,True,False,False,,100.0,ok
+S04,PS51,ps51,B,True,PASS,True,True,False,True,,100.0,ok
+S05,PS51,ps51,B,True,PASS,True,True,False,True,,100.0,ok
+S06,BAT,bat,B,True,N/A,True,True,False,True,,100.0,ok
+S07,PS51,ps51,A,True,PASS,True,True,False,True,,100.0,ok
+S08,BAT,bat,A,True,N/A,True,True,False,False,,100.0,ok
+S09,PS51,ps51,A,True,PASS,True,True,False,False,,100.0,ok
+S10,BAT,bat,B,True,N/A,True,True,False,True,,100.0,ok
+S11,PS51,ps51,B,True,PASS,True,True,False,True,,100.0,ok
+S12,BAT,bat,A,True,N/A,True,True,False,False,,100.0,ok

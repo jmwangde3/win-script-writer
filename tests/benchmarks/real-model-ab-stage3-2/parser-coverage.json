@@ -1,0 +1,840 @@
+{
+  "answers": [
+    {
+      "task": "bat",
+      "group": "B",
+      "source": "bundle/S01/answer.md",
+      "answer_sha256": "46717db01d99e8094853fa76385a0be47def0226401cb4367f50b05525327d65",
+      "answer_bytes": 906,
+      "blocks_total": 2,
+      "blocks_inline": 0,
+      "blocks_powershell": 0,
+      "blocks_other": 2,
+      "blocks_unclassified": 0,
+      "blocks_parsed": 0,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "N/A",
+      "unclassified": [],
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 5,
+          "end_line": 13,
+          "language": "bat",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "OTHER",
+          "powershell": false,
+          "body_sha256": "8cc9d42c964cb7f10c60bfbb89e07d5550c778a05e8af8fb44e0da2f492b0349",
+          "body_bytes": 131,
+          "parsed": null
+        },
+        {
+          "index": 1,
+          "start_line": 17,
+          "end_line": 19,
+          "language": "bat",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "OTHER",
+          "powershell": false,
+          "body_sha256": "a787c356792766c2c3291582a28a5e9d542efb5c759ff029a56df7951156f06b",
+          "body_bytes": 42,
+          "parsed": null
+        }
+      ]
+    },
+    {
+      "task": "ps51",
+      "group": "A",
+      "source": "bundle/S02/answer.md",
+      "answer_sha256": "2856fb4b1be456d4070670fdc56a27b027f07bf66d5831fe6a0faac6f83e4b6e",
+      "answer_bytes": 2431,
+      "blocks_total": 2,
+      "blocks_inline": 0,
+      "blocks_powershell": 1,
+      "blocks_other": 1,
+      "blocks_unclassified": 0,
+      "blocks_parsed": 1,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "PASS",
+      "unclassified": [],
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 5,
+          "end_line": 52,
+          "language": "powershell",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "POWERSHELL",
+          "powershell": true,
+          "body_sha256": "4f7e423a268a7adc58826d43e6fdcb2de84ef5c94f8815ca10f4cbc34fe01053",
+          "body_bytes": 1770,
+          "parse": {
+            "5.1": {
+              "ok": true,
+              "host": "5.1.26100.9711",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            },
+            "7": {
+              "ok": true,
+              "host": "7.7.0",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            }
+          },
+          "parsed": true
+        },
+        {
+          "index": 1,
+          "start_line": 56,
+          "end_line": 59,
+          "language": "text",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "OTHER",
+          "powershell": false,
+          "body_sha256": "80b99aa618f3b5c097ba9960169975ff2d5a5de3110fb96e97d4a16a0a68db9d",
+          "body_bytes": 123,
+          "parsed": null
+        }
+      ]
+    },
+    {
+      "task": "bat",
+      "group": "A",
+      "source": "bundle/S03/answer.md",
+      "answer_sha256": "596bb61d3193e0e798bf55a6554401eaadca936a5ca756fc3414f626831212dc",
+      "answer_bytes": 1108,
+      "blocks_total": 2,
+      "blocks_inline": 0,
+      "blocks_powershell": 0,
+      "blocks_other": 2,
+      "blocks_unclassified": 0,
+      "blocks_parsed": 0,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "N/A",
+      "unclassified": [],
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 5,
+          "end_line": 18,
+          "language": "bat",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "OTHER",
+          "powershell": false,
+          "body_sha256": "d23a5aa5b8d6526a747c02b6ea4e53b52bda97a1048323a6db689990c8941f99",
+          "body_bytes": 232,
+          "parsed": null
+        },
+        {
+          "index": 1,
+          "start_line": 24,
+          "end_line": 26,
+          "language": "bat",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "OTHER",
+          "powershell": false,
+          "body_sha256": "e3afc32b6d4e56c234578039bd992b20f4c81d611d1254cde82dec7c8282f7c0",
+          "body_bytes": 44,
+          "parsed": null
+        }
+      ]
+    },
+    {
+      "task": "ps51",
+      "group": "B",
+      "source": "bundle/S04/answer.md",
+      "answer_sha256": "d3087fb260fbbceb31878491b2d4c00a53bd244db268f6eef93d440080160b8e",
+      "answer_bytes": 2429,
+      "blocks_total": 1,
+      "blocks_inline": 0,
+      "blocks_powershell": 1,
+      "blocks_other": 0,
+      "blocks_unclassified": 0,
+      "blocks_parsed": 1,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "PASS",
+      "unclassified": [],
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 5,
+          "end_line": 54,
+          "language": "powershell",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "POWERSHELL",
+          "powershell": true,
+          "body_sha256": "04cbcf49b989766dbdc6f32d28af0622a3578c87ca6b6c115be2f65a51cb642f",
+          "body_bytes": 1784,
+          "parse": {
+            "5.1": {
+              "ok": true,
+              "host": "5.1.26100.9711",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            },
+            "7": {
+              "ok": true,
+              "host": "7.7.0",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            }
+          },
+          "parsed": true
+        }
+      ]
+    },
+    {
+      "task": "ps51",
+      "group": "B",
+      "source": "bundle/S05/answer.md",
+      "answer_sha256": "8cde0309170db79d41777df74898d09f88c35d076cf0d2fad343d23fb93e9a87",
+      "answer_bytes": 2137,
+      "blocks_total": 2,
+      "blocks_inline": 0,
+      "blocks_powershell": 2,
+      "blocks_other": 0,
+      "blocks_unclassified": 0,
+      "blocks_parsed": 2,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "PASS",
+      "unclassified": [],
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 5,
+          "end_line": 7,
+          "language": "powershell",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "POWERSHELL",
+          "powershell": true,
+          "body_sha256": "2d3cc4c434ef7557ce866e021472a23257ae61493a04d7ce0d848b6ec5ef07e2",
+          "body_bytes": 20,
+          "parse": {
+            "5.1": {
+              "ok": true,
+              "host": "5.1.26100.9711",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            },
+            "7": {
+              "ok": true,
+              "host": "7.7.0",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            }
+          },
+          "parsed": true
+        },
+        {
+          "index": 1,
+          "start_line": 11,
+          "end_line": 53,
+          "language": "powershell",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "POWERSHELL",
+          "powershell": true,
+          "body_sha256": "292ff94865ccf40b585799cd67b2e68ed250113417dfe8a3b4e8fd2da40be158",
+          "body_bytes": 1617,
+          "parse": {
+            "5.1": {
+              "ok": true,
+              "host": "5.1.26100.9711",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            },
+            "7": {
+              "ok": true,
+              "host": "7.7.0",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            }
+          },
+          "parsed": true
+        }
+      ]
+    },
+    {
+      "task": "bat",
+      "group": "B",
+      "source": "bundle/S06/answer.md",
+      "answer_sha256": "f831af3d90766bd63e8776076ddbe05eee8b4296e8d9367a7883ec311492030f",
+      "answer_bytes": 1056,
+      "blocks_total": 1,
+      "blocks_inline": 0,
+      "blocks_powershell": 0,
+      "blocks_other": 1,
+      "blocks_unclassified": 0,
+      "blocks_parsed": 0,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "N/A",
+      "unclassified": [],
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 5,
+          "end_line": 14,
+          "language": "bat",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "OTHER",
+          "powershell": false,
+          "body_sha256": "be27d39dcb07d24c3c354b2b382461051dab889661139099e35bebe9f511597f",
+          "body_bytes": 182,
+          "parsed": null
+        }
+      ]
+    },
+    {
+      "task": "ps51",
+      "group": "A",
+      "source": "bundle/S07/answer.md",
+      "answer_sha256": "8e5706bdae2b7b774505ba362633c4463c6e4ca0aac3e852d43cdbc8dee7f277",
+      "answer_bytes": 2254,
+      "blocks_total": 2,
+      "blocks_inline": 0,
+      "blocks_powershell": 2,
+      "blocks_other": 0,
+      "blocks_unclassified": 0,
+      "blocks_parsed": 2,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "PASS",
+      "unclassified": [],
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 5,
+          "end_line": 7,
+          "language": "powershell",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "POWERSHELL",
+          "powershell": true,
+          "body_sha256": "6c8406e3561784ab29ecfb4b01aa3eb89490ebf4f06b0afd1d9697768034a58f",
+          "body_bytes": 88,
+          "parse": {
+            "5.1": {
+              "ok": true,
+              "host": "5.1.26100.9711",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            },
+            "7": {
+              "ok": true,
+              "host": "7.7.0",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            }
+          },
+          "parsed": true
+        },
+        {
+          "index": 1,
+          "start_line": 11,
+          "end_line": 51,
+          "language": "powershell",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "POWERSHELL",
+          "powershell": true,
+          "body_sha256": "d9276d3cb255c34672a19c642c2730ad76d1cdd44ab0805eb1020dcddca40837",
+          "body_bytes": 1444,
+          "parse": {
+            "5.1": {
+              "ok": true,
+              "host": "5.1.26100.9711",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            },
+            "7": {
+              "ok": true,
+              "host": "7.7.0",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            }
+          },
+          "parsed": true
+        }
+      ]
+    },
+    {
+      "task": "bat",
+      "group": "A",
+      "source": "bundle/S08/answer.md",
+      "answer_sha256": "0ce6b98d21f276087062d93433418e1b9712799616c0016d7cda4ffc9577b6c7",
+      "answer_bytes": 895,
+      "blocks_total": 1,
+      "blocks_inline": 0,
+      "blocks_powershell": 0,
+      "blocks_other": 1,
+      "blocks_unclassified": 0,
+      "blocks_parsed": 0,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "N/A",
+      "unclassified": [],
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 5,
+          "end_line": 13,
+          "language": "bat",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "OTHER",
+          "powershell": false,
+          "body_sha256": "f437cb836f8c820719338bbf2255e66db225401c705aa286368cdfc2bbb772f3",
+          "body_bytes": 132,
+          "parsed": null
+        }
+      ]
+    },
+    {
+      "task": "ps51",
+      "group": "A",
+      "source": "bundle/S09/answer.md",
+      "answer_sha256": "057d309889d2ba664010cd216fb467971afab18c54e9193945df8f052a08a0d0",
+      "answer_bytes": 1866,
+      "blocks_total": 1,
+      "blocks_inline": 0,
+      "blocks_powershell": 1,
+      "blocks_other": 0,
+      "blocks_unclassified": 0,
+      "blocks_parsed": 1,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "PASS",
+      "unclassified": [],
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 5,
+          "end_line": 46,
+          "language": "powershell",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "POWERSHELL",
+          "powershell": true,
+          "body_sha256": "1772b3acac71ca2cdf5a0a845c051679b848c710c15a1738cdcc5d1697b5b586",
+          "body_bytes": 1454,
+          "parse": {
+            "5.1": {
+              "ok": true,
+              "host": "5.1.26100.9711",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            },
+            "7": {
+              "ok": true,
+              "host": "7.7.0",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            }
+          },
+          "parsed": true
+        }
+      ]
+    },
+    {
+      "task": "bat",
+      "group": "B",
+      "source": "bundle/S10/answer.md",
+      "answer_sha256": "e9d0826168b49b5ed255c0d7c7498a7d7ae8b0a3237d1be1db65a2807c22fb70",
+      "answer_bytes": 1132,
+      "blocks_total": 2,
+      "blocks_inline": 0,
+      "blocks_powershell": 0,
+      "blocks_other": 2,
+      "blocks_unclassified": 0,
+      "blocks_parsed": 0,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "N/A",
+      "unclassified": [],
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 5,
+          "end_line": 15,
+          "language": "bat",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "OTHER",
+          "powershell": false,
+          "body_sha256": "9f85dd33ce73fd8cad7394de5fb5b74db14e9590e62ef89edac1a951e57fa2f8",
+          "body_bytes": 136,
+          "parsed": null
+        },
+        {
+          "index": 1,
+          "start_line": 19,
+          "end_line": 21,
+          "language": "bat",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "OTHER",
+          "powershell": false,
+          "body_sha256": "e3afc32b6d4e56c234578039bd992b20f4c81d611d1254cde82dec7c8282f7c0",
+          "body_bytes": 44,
+          "parsed": null
+        }
+      ]
+    },
+    {
+      "task": "ps51",
+      "group": "B",
+      "source": "bundle/S11/answer.md",
+      "answer_sha256": "0411bbd188fadda74c876d5084cd17ff5376f63b8fbed75411ea8f8b1a2d2a68",
+      "answer_bytes": 2456,
+      "blocks_total": 3,
+      "blocks_inline": 0,
+      "blocks_powershell": 3,
+      "blocks_other": 0,
+      "blocks_unclassified": 0,
+      "blocks_parsed": 3,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "PASS",
+      "unclassified": [],
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 5,
+          "end_line": 7,
+          "language": "powershell",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "POWERSHELL",
+          "powershell": true,
+          "body_sha256": "8bda3a0a49957e865241e4b5187c6f539338d3f788a6da5a2e705b4c53405f2f",
+          "body_bytes": 82,
+          "parse": {
+            "5.1": {
+              "ok": true,
+              "host": "5.1.26100.9711",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            },
+            "7": {
+              "ok": true,
+              "host": "7.7.0",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            }
+          },
+          "parsed": true
+        },
+        {
+          "index": 1,
+          "start_line": 11,
+          "end_line": 51,
+          "language": "powershell",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "POWERSHELL",
+          "powershell": true,
+          "body_sha256": "2509ed5941fc92d8431680f564525f2591a082f544177f58bd5e1c36e30afd36",
+          "body_bytes": 1710,
+          "parse": {
+            "5.1": {
+              "ok": true,
+              "host": "5.1.26100.9711",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            },
+            "7": {
+              "ok": true,
+              "host": "7.7.0",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            }
+          },
+          "parsed": true
+        },
+        {
+          "index": 2,
+          "start_line": 55,
+          "end_line": 58,
+          "language": "powershell",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "POWERSHELL",
+          "powershell": true,
+          "body_sha256": "7efaa3eddb6a026c8f00838baa2ca48df797c882273e8bbe758b0b73003d0617",
+          "body_bytes": 52,
+          "parse": {
+            "5.1": {
+              "ok": true,
+              "host": "5.1.26100.9711",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            },
+            "7": {
+              "ok": true,
+              "host": "7.7.0",
+              "harness_error": null,
+              "classification": {
+                "diagnostics": 0,
+                "independent": 0,
+                "cascade": 0,
+                "root_causes": [],
+                "root_cause_count": 0,
+                "errors": []
+              }
+            }
+          },
+          "parsed": true
+        }
+      ]
+    },
+    {
+      "task": "bat",
+      "group": "A",
+      "source": "bundle/S12/answer.md",
+      "answer_sha256": "8d9758715fc58b720e46d0ddac7af26f9097da566a42a20527e2da4a3ce02686",
+      "answer_bytes": 1010,
+      "blocks_total": 1,
+      "blocks_inline": 0,
+      "blocks_powershell": 0,
+      "blocks_other": 1,
+      "blocks_unclassified": 0,
+      "blocks_parsed": 0,
+      "unchecked_powershell_blocks": 0,
+      "unclosed_fence": false,
+      "implicit_script": false,
+      "status": "N/A",
+      "unclassified": [],
+      "diagnostics": 0,
+      "root_causes": [],
+      "blocks": [
+        {
+          "index": 0,
+          "start_line": 5,
+          "end_line": 14,
+          "language": "bat",
+          "implicit": false,
+          "inline": false,
+          "detected_by": "tag",
+          "kind": "OTHER",
+          "powershell": false,
+          "body_sha256": "affdec39feaa1c72f8a1cdb9a9c5e283e88bb16af0cae9db6156a7e5b5260dff",
+          "body_bytes": 126,
+          "parsed": null
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "answers": 12,
+    "counts": {
+      "pass": 6,
+      "fail": 0,
+      "review_required": 0,
+      "not_applicable": 6
+    },
+    "unchecked_powershell_blocks": 0,
+    "unclassified_blocks": 0,
+    "unclosed_fences": 0
+  }
+}

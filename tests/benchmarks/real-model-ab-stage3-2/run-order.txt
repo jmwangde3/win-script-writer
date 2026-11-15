@@ -1,0 +1,12 @@
+S01 bat B
+S02 ps51 A
+S03 bat A
+S04 ps51 B
+S05 ps51 B
+S06 bat B
+S07 ps51 A
+S08 bat A
+S09 ps51 A
+S10 bat B
+S11 ps51 B
+S12 bat A

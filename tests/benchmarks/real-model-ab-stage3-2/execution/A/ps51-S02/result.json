@@ -1,0 +1,82 @@
+{
+  "task": "PS51",
+  "sample": "S02",
+  "group": "A",
+  "programmatic": true,
+  "batch": {
+    "exists": true,
+    "bytes": 85,
+    "sha256": "3f71df4c21e028c482e0c3f9d5b7ad06f305ec8580ffc12f001c67a0dedf0cfc",
+    "head_hex": "ef bb bf 23 52 65 71 75 69 72 65 73",
+    "bom_utf8": true,
+    "bom_utf16le": false,
+    "bom_utf16be": false,
+    "utf8_decodes": true,
+    "gbk_decodes": false,
+    "contains_replacement": false
+  },
+  "content_head": "#Requires -Version 5.1\nWrite-Output '开始部署'\nWrite-Output '部署完成'\n",
+  "run_5_1": {
+    "argv": [
+      "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "-NoProfile",
+      "-File",
+      "H:\\temp\\user\\wsw-v110-stage3-2\\20261115-100407\\execution\\A\\ps51-S02\\ps51\\create.ps1"
+    ],
+    "exit": 0,
+    "stdout": "验证通过：BOM=EF BB BF；读回文本与写入内容一致；中文提示齐全。\r\n文件：H:\\temp\\user\\wsw-v110-stage3-2\\20261115-100407\\execution\\A\\ps51-S02\\ps51\\部署\\deploy.ps1\r\n",
+    "stderr": "",
+    "stdout_encoding": "utf-8-sig",
+    "stderr_encoding": "utf-8-sig",
+    "timeout": false,
+    "started": "2026-11-15T10:15:31+08:00"
+  },
+  "run_7": {
+    "argv": [
+      "pwsh",
+      "-NoProfile",
+      "-File",
+      "H:\\temp\\user\\wsw-v110-stage3-2\\20261115-100407\\execution\\A\\ps51-S02\\ps51\\create.ps1"
+    ],
+    "exit": 0,
+    "stdout": "验证通过：BOM=EF BB BF；读回文本与写入内容一致；中文提示齐全。\r\n文件：H:\\temp\\user\\wsw-v110-stage3-2\\20261115-100407\\execution\\A\\ps51-S02\\ps51\\部署\\deploy.ps1\r\n",
+    "stderr": "",
+    "stdout_encoding": "utf-8-sig",
+    "stderr_encoding": "utf-8-sig",
+    "timeout": false,
+    "started": "2026-11-15T10:15:32+08:00"
+  },
+  "checks": [
+    {
+      "name": "programmatic-write",
+      "points": 20,
+      "max": 20,
+      "evidence": "WriteAllText/Set-Content/Out-File present=True"
+    },
+    {
+      "name": "file-created",
+      "points": 20,
+      "max": 20,
+      "evidence": "H:\\temp\\user\\wsw-v110-stage3-2\\20261115-100407\\execution\\A\\ps51-S02\\ps51\\部署\\deploy.ps1"
+    },
+    {
+      "name": "utf8-bom",
+      "points": 20,
+      "max": 20,
+      "evidence": "ef bb bf 23 52 65 71 75 69 72 65 73"
+    },
+    {
+      "name": "chinese-readback",
+      "points": 20,
+      "max": 20,
+      "evidence": "content=\"#Requires -Version 5.1\\nWrite-Output '开始部署'\\nWrite-Output '部署完成'\\n\" run51='验证通过：BOM=EF BB BF；读回文本与写入内容一致；中文提示齐全。\\r\\n文件：H:\\\\temp\\\\user\\\\wsw-v110-stage3-2\\\\20261115-100407\\\\execution\\\\A\\\\ps51-S02\\\\ps51\\\\部署\\\\de'"
+    },
+    {
+      "name": "ps51-runs",
+      "points": 20,
+      "max": 20,
+      "evidence": "exit=0 stderr=''"
+    }
+  ],
+  "score": 100
+}

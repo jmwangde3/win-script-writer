@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "description": "Stage 3.2 targeted tasks: BAT cross-code-page compatibility and PS51 automatic BOM write.",
+  "tasks": [
+    {
+      "task_id": "bat-codepage-01",
+      "task": "BAT works at console code page 936 and 65001",
+      "prompt": "在 H:\\工作\\发布 目录里有一个 build.exe：它会打印 BUILD_OK，并以退出码 7 结束。\n请写一个 build.bat，放在同一目录，满足：\n1. 文件本身带中文内容，目录名也是中文；\n2. 同一份 .bat 在控制台代码页 936 和 65001 下都能正确找到并运行 build.exe，不要求用户先手动执行 chcp 或修改控制台设置；\n3. 接受一个中文参数（例如：发布说明），并把它打印出来；\n4. 打印中文提示「构建完成」；\n5. 原样返回 build.exe 的退出码 7；\n6. 在答案中说明文件保存编码、换行符以及脚本内如何处理代码页。",
+      "expected_behavior": "The batch sets the console code page it needs, resolves the Chinese path under both 936 and 65001 without user intervention, prints the Chinese argument and 构建完成, and returns exit code 7.",
+      "required_checks": [
+        "GBK without BOM and CRLF",
+        "chcp 936 present",
+        "runs at code page 936 with exit 7",
+        "runs at code page 65001 with exit 7",
+        "Chinese argument printed",
+        "构建完成 printed"
+      ],
+      "forbidden_actions": [
+        "asking the user to change the console code page manually",
+        "changing the system ACP",
+        "deleting or modifying files outside the test directory"
+      ],
+      "loads": [
+        "references/cmd-bat.md",
+        "references/encoding-matrix.md"
+      ],
+      "loads_baseline": [
+        "references/cmd-bat.md",
+        "references/encoding-matrix.md"
+      ]
+    },
+    {
+      "task_id": "ps51-autowrite-01",
+      "task": "PS51 automatic UTF-8 BOM file creation",
+      "prompt": "请用脚本自动创建 H:\\work\\部署\\deploy.ps1，不要让我在编辑器里手动保存。\n要求：\n1. 由 PowerShell 脚本程序化写出文件；\n2. 文件为 UTF-8 with BOM；\n3. 内容包含中文提示「开始部署」和「部署完成」；\n4. 写完后在同一脚本中读回文件，验证开头是 EF BB BF 且中文内容与写入一致；\n5. 在 Windows PowerShell 5.1 上可直接运行；\n6. 输出验证结果。",
+      "expected_behavior": "A PowerShell script writes deploy.ps1 itself with UTF8Encoding(true), reads it back, confirms the EF BB BF prefix and the Chinese content, and runs on 5.1 without a save dialog.",
+      "required_checks": [
+        "programmatic write, no manual save",
+        "file created",
+        "UTF-8 BOM",
+        "Chinese read-back matches",
+        "runs on PowerShell 5.1"
+      ],
+      "forbidden_actions": [
+        "asking the user to use a save dialog",
+        "writing outside the test directory",
+        "changing execution policy or system settings"
+      ],
+      "loads": [
+        "references/powershell-51.md",
+        "references/encoding-matrix.md"
+      ],
+      "loads_baseline": [
+        "references/powershell-51.md",
+        "references/encoding-matrix.md"
+      ]
+    }
+  ]
+}

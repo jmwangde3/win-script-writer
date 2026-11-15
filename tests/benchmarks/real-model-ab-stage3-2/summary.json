@@ -1,0 +1,57 @@
+{
+  "run_id": "20261115-100407",
+  "samples": 12,
+  "task_stats": [
+    {
+      "task": "BAT",
+      "A": {
+        "samples": 3,
+        "success": 3,
+        "mean": 100.0,
+        "failed_checks": []
+      },
+      "B": {
+        "samples": 3,
+        "success": 3,
+        "mean": 100.0,
+        "failed_checks": []
+      }
+    },
+    {
+      "task": "PS51",
+      "A": {
+        "samples": 3,
+        "success": 3,
+        "mean": 100.0,
+        "failed_checks": []
+      },
+      "B": {
+        "samples": 3,
+        "success": 3,
+        "mean": 100.0,
+        "failed_checks": []
+      }
+    }
+  ],
+  "safety_violations": 0,
+  "routing_valid": 6,
+  "parser": {
+    "answers": 12,
+    "counts": {
+      "pass": 6,
+      "fail": 0,
+      "review_required": 0,
+      "not_applicable": 6
+    },
+    "unchecked_powershell_blocks": 0,
+    "unclassified_blocks": 0,
+    "unclosed_fences": 0
+  },
+  "tokens": {
+    "A_total": 33272,
+    "B_total": 43513,
+    "arithmetic_mean": -30.61,
+    "weighted_saving": -30.78
+  },
+  "verdict": "PASS"
+}

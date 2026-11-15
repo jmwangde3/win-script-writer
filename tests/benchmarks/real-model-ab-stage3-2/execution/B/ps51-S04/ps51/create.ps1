@@ -1,0 +1,48 @@
+﻿#Requires -Version 5.1
+Set-StrictMode -Version 2.0
+$ErrorActionPreference = 'Stop'
+
+$targetPath = 'H:\temp\user\wsw-v110-stage3-2\20261115-100407\execution\B\ps51-S04\ps51\部署\deploy.ps1'
+$targetDirectory = [System.IO.Path]::GetDirectoryName($targetPath)
+[void][System.IO.Directory]::CreateDirectory($targetDirectory)
+
+$scriptText = @'
+#Requires -Version 5.1
+$ErrorActionPreference = 'Stop'
+
+Write-Host '开始部署'
+# 在这里加入实际部署命令。
+Write-Host '部署完成'
+'@
+
+# 明确指定带 BOM 的 UTF-8；不要依赖 5.1/7 对 -Encoding UTF8 的不同处理。
+$utf8WithBom = New-Object System.Text.UTF8Encoding($true)
+[System.IO.File]::WriteAllText($targetPath, $scriptText, $utf8WithBom)
+
+# 读回原始字节，验证文件头确实是 EF BB BF。
+$fileBytes = [System.IO.File]::ReadAllBytes($targetPath)
+$hasUtf8Bom = $fileBytes.Length -ge 3 -and
+    $fileBytes[0] -eq 0xEF -and
+    $fileBytes[1] -eq 0xBB -and
+    $fileBytes[2] -eq 0xBF
+
+if (-not $hasUtf8Bom) {
+    throw '验证失败：文件开头不是 UTF-8 BOM（EF BB BF）。'
+}
+
+# 严格解码 BOM 后的 UTF-8 正文，并与写入内容逐字符比较。
+$utf8Strict = New-Object System.Text.UTF8Encoding($false, $true)
+$readBackText = $utf8Strict.GetString($fileBytes, 3, $fileBytes.Length - 3)
+$textMatches = $readBackText -ceq $scriptText
+$hasStartPrompt = $readBackText.Contains('开始部署')
+$hasCompletePrompt = $readBackText.Contains('部署完成')
+
+if (-not $textMatches -or -not $hasStartPrompt -or -not $hasCompletePrompt) {
+    throw '验证失败：读回文本与写入内容不一致，或缺少中文提示。'
+}
+
+Write-Output "文件：$targetPath"
+Write-Output 'BOM：通过（EF BB BF）'
+Write-Output '文本一致性：通过'
+Write-Output '中文提示：通过（开始部署；部署完成）'
+Write-Output '验证结果：全部通过'
