@@ -11,16 +11,18 @@ parameter and write semantic is identical to v1.0.4.
 
 ### Changed
 
-- **Every document is now English.** `SKILL.md`, all of `references/`, `README.md` and
-  this file. Script names, parameter names, JSON field names, error codes and the
+- **The Skill entry point, all of `references/`, `README.md` and this changelog are now
+  English.** Script names, parameter names, JSON field names, error codes and the
   Chinese content inside test fixtures stay as they were, because they are part of the
-  contract, not prose.
-- **`SKILL.md` description shortened from 190 to 135 characters.** The old one repeated
-  the same trigger four ways (`ps1` / `PowerShell script` / `write a script` / `generate
-  a script`), duplicated the tool section, and named `run_ps.py`, which is an
-  implementation detail rather than a routing signal. The entry file stays under
-  5.3 KB and still carries all four mandatory rules, the full routing table and the
-  security boundaries.
+  contract, not prose. `CONTRIBUTING.md` remains Chinese and is not part of the release
+  archive.
+- **`SKILL.md` description rewritten for routing.** The description went from 136 to 75
+  tokens (−44.9%); its character count rose from 262 to 354 only because the text moved
+  from Chinese to English. The old one repeated the same trigger four ways (`ps1` /
+  `PowerShell script` / `write a script` / `generate a script`), duplicated the tool
+  section, and named `run_ps.py`, which is an implementation detail rather than a
+  routing signal. The entry file stays around 5.3 KiB (5,438 bytes) and still carries
+  all four mandatory rules, the full routing table and the security boundaries.
 - **PEP 263 material split out of `python.md` and `encoding-matrix.md`** into
   `references/python-source-encoding.md` (the decision contract: the measured
   declaration table, the eight reason codes, the four `Support` states) and
@@ -33,7 +35,7 @@ parameter and write semantic is identical to v1.0.4.
 ### Added
 
 - `tests/benchmarks/`: a reproducible A/B context benchmark. 20 fixed tasks across
-  seven categories, an official-tokenizer measurement script, and both snapshots
+  eight categories, an official-tokenizer measurement script, and both snapshots
   (`baseline/v1.0.4`, `candidate/v1.1.0`). Results are token estimates, not API usage
   records — the distinction is stated in the report rather than glossed over.
 - Two routing-table rows and two evaluation scenarios (P11, P12) so the new pages are
@@ -63,6 +65,13 @@ parameter and write semantic is identical to v1.0.4.
   `tasks.json`, not observed from a live session; no agent or model was called. The 15.5%
   is specific to this tokenizer and this routing plan and must not be restated as the
   saving a GPT, Codex or Claude user would see.
+- Targeted compatibility A/B (Stage 3.2, 12 fresh samples, 3+3 per task per group):
+  both groups scored 100/100 with 0 safety violations. BAT passed at CP936 and CP65001;
+  PowerShell 5.1 auto-wrote a UTF-8 BOM file and read the Chinese content back.
+  Context cost moved the other way on these two tasks: A 33272 / B 43513 tokens
+  (arithmetic **−30.61%**, weighted **−30.78%**; n=6 per group), because B loads
+  `encoding-matrix.md` where A loads `execution.md`. This is not comparable to the
+  20-task −15.5% and must not be averaged with it.
 
 ### Known limits
 
@@ -72,8 +81,13 @@ parameter and write semantic is identical to v1.0.4.
 - The 100-point quality A/B is **specified but not executed**:
   `tests/benchmarks/quality-ab/` holds the 11-task plan, the isolated-session procedure,
   the blind scoring packet builder and the unsealing tool, with `STATUS.md` reading
-  `PENDING`. No answer was generated and no score assigned, so the quality gate stays
-  `CONDITIONAL`. The toolchain being ready is not a quality result.
+  `PENDING`. No answer was generated and no score assigned for that 11-task plan, so its
+  gate stays `PENDING`; the toolchain being ready is not a quality result. The separate
+  targeted A/B in `tests/benchmarks/real-model-ab-stage3-2/` was executed and is `PASS`;
+  the earlier Stage 3 and 3.1 follow-ups are `CONDITIONAL` and remain in the repository.
+- PowerShell 7.4 itself was not executed. Hand measurements used 7.6.9 and 7.7.0, and CI
+  uses the runner's current `pwsh`; the 7.4+ requirement is a floor, not a tested matrix
+  row. The Stage 3.x runs used `%TEMP%` directories, not an OS sandbox or VM.
 
 ## [1.0.4] - 2026-11-14
 

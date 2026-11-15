@@ -200,7 +200,16 @@ written out in full at the top of both benchmark documents.
 isolated sessions, a randomly anonymised scoring packet kept separate from the executor's
 sealed mapping, 100-point rubric). The toolchain — `prepare.py`, `make_scoring_packet.py`,
 `unseal.py` — is `READY` and tested. Its status is **PENDING**: no answer has been
-generated and no score assigned, so readiness is not a quality result.
+generated and no score assigned for that 11-task plan, so readiness is not a quality
+result.
+
+The targeted model A/B that was executed is separate: `tests/benchmarks/real-model-ab-stage3-2/`
+holds 12 fresh samples (BAT 3+3 at CP936 and CP65001, PS51 3+3 automatic UTF-8 BOM write).
+Both groups scored 100/100 with 0 safety violations and the run is `PASS`. On those two
+tasks v1.1.0 costs more context, not less: A 33272 vs B 43513 tokens (arithmetic
+**−30.61%**, weighted **−30.78%**, n=6 per group), because B opens `encoding-matrix.md`
+where A opens `execution.md`. That result is specific to the two targeted tasks and must
+not be averaged with the 20-task −15.5% estimate above.
 
 ## Verified scope
 
@@ -216,6 +225,9 @@ so CP936 cases skip themselves there; CP936 assertions hold only on a self-hoste
 **Additional measurements (run by hand, not in CI)**: Windows 11 Simplified Chinese with
 ACP=936 / OEMCP=936, PowerShell 5.1.26100 (Desktop) and 7.7.0 (Core), Pester 5.7.1,
 PSScriptAnalyzer 1.24.0, Python 3.11.17 / 3.13.9 / 3.13.16 / 3.14.8 / 3.15.0rc3.
+PowerShell 7.4 itself was not executed: the hand measurements used 7.6.9 and 7.7.0, and
+CI uses the runner's current `pwsh`. The 7.4+ requirement is a floor, not a tested row.
+The Stage 3.x dynamic runs used `%TEMP%` directories, not an OS sandbox or VM.
 
 **Not in the official matrix**: Python 3.14 and 3.15. Their alias tables are wider than
 what this project sampled and the detector has not caught up: the same alias regression
